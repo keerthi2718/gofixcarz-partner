@@ -4,7 +4,6 @@ import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
 
 const isIOS = Platform.OS === 'ios';
 const isWeb = Platform.OS === 'web';
@@ -25,8 +24,8 @@ export default function TabLayout() {
           backgroundColor: isIOS ? 'transparent' : colors.card,
           borderTopWidth: 0,
           elevation: 0,
-          height: isWeb ? 84 : 60,
-          paddingBottom: isWeb ? 34 : 8,
+          height: isWeb ? 84 : 62,
+          paddingBottom: isWeb ? 34 : 10,
         },
         tabBarBackground: () =>
           isIOS ? (
@@ -42,7 +41,11 @@ export default function TabLayout() {
             <View
               style={[
                 StyleSheet.absoluteFill,
-                { backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.border },
+                {
+                  backgroundColor: colors.card,
+                  borderTopWidth: 1,
+                  borderTopColor: colors.border,
+                },
               ]}
             />
           ) : null,
@@ -53,50 +56,45 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ color }) =>
-            isIOS
-              ? <SymbolView name="house.fill" tintColor={color} size={22} />
-              : <Feather name="home" size={22} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="home" size={size ?? 22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="bookings"
         options={{
           title: 'Bookings',
-          tabBarIcon: ({ color }) =>
-            isIOS
-              ? <SymbolView name="calendar" tintColor={color} size={22} />
-              : <Feather name="calendar" size={22} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="calendar" size={size ?? 22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="jobs"
         options={{
           title: 'Jobs',
-          tabBarIcon: ({ color }) =>
-            isIOS
-              ? <SymbolView name="wrench.and.screwdriver" tintColor={color} size={22} />
-              : <Feather name="tool" size={22} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="tool" size={size ?? 22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="services"
         options={{
           title: 'Services',
-          tabBarIcon: ({ color }) =>
-            isIOS
-              ? <SymbolView name="tag" tintColor={color} size={22} />
-              : <Feather name="package" size={22} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="package" size={size ?? 22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="more"
         options={{
           title: 'More',
-          tabBarIcon: ({ color }) =>
-            isIOS
-              ? <SymbolView name="ellipsis.circle" tintColor={color} size={22} />
-              : <Feather name="more-horizontal" size={22} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="menu" size={size ?? 22} color={color} />
+          ),
         }}
       />
     </Tabs>
