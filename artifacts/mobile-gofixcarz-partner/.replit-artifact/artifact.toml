@@ -1,0 +1,23 @@
+kind = "mobile"
+previewPath = "/"
+title = "GoFixCarz Partner"
+version = "1.0.0"
+id = "artifacts/mobile-gofixcarz-partner"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/" ]
+localPort = 23760
+
+[services.development]
+run = "pnpm --filter @workspace/mobile-gofixcarz-partner run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mobile-gofixcarz-partner", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/mobile-gofixcarz-partner", "run", "serve" ]
+
+[services.env]
+PORT = "23760"
+BASE_PATH = "/"
