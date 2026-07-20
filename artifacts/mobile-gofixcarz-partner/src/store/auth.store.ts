@@ -1,84 +1,54 @@
-// ---------------------------------------------------------------------------
-// Auth Zustand Store
-// Holds authentication state across the app.
-// Initialised from AsyncStorage on app start so sessions persist.
-// ---------------------------------------------------------------------------
-
 import { create } from 'zustand';
-
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import StorageService from '@/src/services/storage.service';
-import type { AuthActions, AuthState, AuthStore, AuthTokens, User } from '@/src/types';
+import type { AuthActions, AuthState, AuthStore, AuthUser } from '@/src/types';
 
 const initialState: AuthState = {
   user: null,
   accessToken: null,
   refreshToken: null,
   isAuthenticated: false,
-  isLoading: true, // true until initialize() resolves
+  isLoading: true,
+  pendingMobile: null,
   error: null,
 };
 
 export const useAuthStore = create<AuthStore>()(set => ({
   ...initialState,
 
-  // -------------------------------------------------------------------------
-  // Setters
-  // -------------------------------------------------------------------------
+  setUser: (user: AuthUser | null) => set({ user, isAuthenticated: user !== null }),
 
-  setUser: (user: User | null) =>
-    set({ user, isAuthenticated: user !== null }),
-
-  setTokens: (tokens: AuthTokens | null) =>
+  setTokens: (tokens) =>
     set({
-      accessToken: tokens?.accessToken ?? null,
-      refreshToken: tokens?.refreshToken ?? null,
+      accessToken: tokens?.access_token ?? null,
+      refreshToken: tokens?.refresh_token ?? null,
     }),
 
-  setLoading: (isLoading: boolean) => set({ isLoading }),
-
-  setError: (error: string | null) => set({ error }),
-
-  // -------------------------------------------------------------------------
-  // Logout — clear everything
-  // -------------------------------------------------------------------------
+  setLoading: (isLoading) => set({ isLoading }),
+  setError: (error) => set({ error }),
+  setPendingMobile: (pendingMobile) => set({ pendingMobile }),
 
   logout: () => {
     StorageService.removeMany([
       STORAGE_KEYS.ACCESS_TOKEN,
       STORAGE_KEYS.REFRESH_TOKEN,
       STORAGE_KEYS.USER,
-    ]).catch(() => {
-      // best effort
-    });
-
-    set({
-      user: null,
-      accessToken: null,
-      refreshToken: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null,
-    });
+    ]).catch(() => {});
+    set({ ...initialState, isLoading: false });
   },
-
-  // -------------------------------------------------------------------------
-  // Initialize — rehydrate from AsyncStorage on app boot
-  // -------------------------------------------------------------------------
 
   initialize: async () => {
     try {
       const [accessToken, refreshToken, user] = await Promise.all([
         StorageService.get(STORAGE_KEYS.ACCESS_TOKEN),
         StorageService.get(STORAGE_KEYS.REFRESH_TOKEN),
-        StorageService.getJson<User>(STORAGE_KEYS.USER),
+        StorageService.getJson<AuthUser>(STORAGE_KEYS.USER),
       ]);
-
       set({
         accessToken,
         refreshToken,
         user,
-        isAuthenticated: !!accessToken && !!user,
+        isAuthenticated: !!accessToken,
         isLoading: false,
         error: null,
       });
@@ -87,10 +57,6 @@ export const useAuthStore = create<AuthStore>()(set => ({
     }
   },
 }));
-
-// ---------------------------------------------------------------------------
-// Selector helpers (used outside React components, e.g. in interceptors)
-// ---------------------------------------------------------------------------
 
 export const getAccessToken = () => useAuthStore.getState().accessToken;
 export const getRefreshToken = () => useAuthStore.getState().refreshToken;

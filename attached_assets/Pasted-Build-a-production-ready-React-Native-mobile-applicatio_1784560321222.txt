@@ -1,0 +1,315 @@
+Build a production-ready React Native mobile application using Expo and TypeScript.
+
+Project Name:
+mobile-gofixcarz-partner
+
+Application Name:
+GoFixCarz Partner
+
+Purpose:
+This is a Garage Owner mobile application for the GoFixCarz platform. The application should consume the existing FastAPI backend APIs.
+
+Backend API Documentation:
+https://api.gofixcarz.com/api/docs
+
+IMPORTANT:
+Read the API documentation completely before generating the application.
+
+Use ONLY the Garage Owner related APIs.
+
+DO NOT use:
+- Customer APIs
+- Vehicle APIs
+
+Ignore every endpoint related to customers and vehicles.
+
+Instead, build the application using the remaining Garage Owner APIs.
+
+The application should automatically map the UI screens to the available APIs.
+
+--------------------------------------------------
+Technology Stack
+--------------------------------------------------
+
+- React Native
+- Expo (Latest SDK)
+- TypeScript
+- Expo Router
+- Axios
+- React Hook Form
+- Zustand for state management
+- AsyncStorage for JWT token storage
+- React Native Paper
+- Expo Vector Icons
+
+--------------------------------------------------
+Architecture
+--------------------------------------------------
+
+Follow a scalable enterprise architecture.
+
+Organize the project into:
+
+src/
+    app/
+    components/
+    screens/
+    services/
+    hooks/
+    navigation/
+    context/
+    utils/
+    constants/
+    assets/
+    types/
+
+Create reusable components.
+
+Create reusable API services.
+
+Create reusable form components.
+
+Separate business logic from UI.
+
+Follow Clean Architecture principles.
+
+--------------------------------------------------
+Authentication
+--------------------------------------------------
+
+Implement authentication using the backend APIs.
+
+Store JWT securely.
+
+Automatically attach JWT to every authenticated request.
+
+Implement logout.
+
+Handle unauthorized sessions.
+
+--------------------------------------------------
+Application Theme
+--------------------------------------------------
+
+Design a modern automotive service application.
+
+Theme:
+- Professional
+- Premium
+- Minimal
+- Modern
+- Production Ready
+
+Use:
+- Rounded cards
+- Soft shadows
+- Clean typography
+- Material Design principles
+- Consistent spacing
+- Responsive layouts
+
+The UI should feel similar in quality to:
+- Uber Driver
+- Swiggy Partner
+- Blinkit Partner
+- Urban Company Partner
+
+Avoid generic template designs.
+
+--------------------------------------------------
+Generate Screens Based on Available APIs
+--------------------------------------------------
+
+Analyze the backend APIs and generate all required screens automatically.
+
+Possible modules include:
+
+Authentication
+
+Dashboard
+
+Garage Profile
+
+Service Management
+
+Service Categories
+
+Booking Management
+
+Job Card Management
+
+Technician Management
+
+Invoice Management
+
+Payments
+
+Notifications
+
+Reports
+
+Revenue Analytics
+
+Settings
+
+Profile
+
+Generate only the modules that are supported by the APIs.
+
+--------------------------------------------------
+Dashboard
+--------------------------------------------------
+
+Create a beautiful dashboard showing:
+
+Today's Bookings
+
+Pending Jobs
+
+Completed Jobs
+
+Revenue
+
+Quick Actions
+
+Recent Activity
+
+Statistics Cards
+
+--------------------------------------------------
+Lists
+--------------------------------------------------
+
+Every list should support:
+
+Search
+
+Filter
+
+Sorting
+
+Pagination
+
+Pull to Refresh
+
+Loading States
+
+Empty States
+
+Error States
+
+--------------------------------------------------
+Forms
+--------------------------------------------------
+
+Every form should include:
+
+Validation
+
+Helpful error messages
+
+Loading indicators
+
+Success messages
+
+Cancel confirmation
+
+--------------------------------------------------
+Networking
+--------------------------------------------------
+
+Create a centralized Axios client.
+
+Use environment variables for Base URL.
+
+Handle:
+
+401 Unauthorized
+
+500 Server Errors
+
+Timeouts
+
+Offline mode
+
+Retry mechanism
+
+--------------------------------------------------
+User Experience
+--------------------------------------------------
+
+Include:
+
+Splash Screen
+
+Loading Screens
+
+Skeleton Loading
+
+Empty States
+
+Success Screens
+
+Error Screens
+
+Confirmation Dialogs
+
+Bottom Sheets
+
+Snackbars
+
+Toast Messages
+
+--------------------------------------------------
+Navigation
+--------------------------------------------------
+
+Use modern navigation.
+
+Include:
+
+Authentication Flow
+
+Bottom Navigation
+
+Stack Navigation
+
+Protected Routes
+
+--------------------------------------------------
+Code Quality
+--------------------------------------------------
+
+Use:
+
+TypeScript everywhere
+
+Reusable components
+
+Reusable hooks
+
+Reusable services
+
+No duplicated code
+
+Meaningful folder names
+
+Meaningful file names
+
+Proper typing
+
+--------------------------------------------------
+Important
+--------------------------------------------------
+
+Do not generate dummy data if APIs already exist.
+
+Read every API endpoint from the provided backend documentation.
+
+Design the screens according to the request and response models.
+
+Every screen should be connected to its corresponding API service.
+
+The UI should be responsive, scalable, maintainable, and production-ready.
+
+The final result should look like a real-world Garage Management application ready for deployment.

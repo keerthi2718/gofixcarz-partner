@@ -14,9 +14,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.gofixcarz.partner"
     },
-    "android": {},
+    "android": {
+      "package": "com.gofixcarz.partner"
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },

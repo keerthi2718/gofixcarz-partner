@@ -1,179 +1,118 @@
-// ---------------------------------------------------------------------------
-// AuthContext
-// Provides a React context API over the Zustand auth store.
-// Handles login / logout side-effects (persisting tokens, navigating, etc.)
-// ---------------------------------------------------------------------------
-
 import React, { createContext, useCallback, useContext, useEffect } from 'react';
 import { router } from 'expo-router';
-
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import AuthService from '@/src/services/auth.service';
 import StorageService from '@/src/services/storage.service';
 import { useAuthStore } from '@/src/store/auth.store';
-import type { LoginPayload, RegisterPayload, User } from '@/src/types';
-
-// ---------------------------------------------------------------------------
-// Context shape
-// ---------------------------------------------------------------------------
+import type { SignUpPayload } from '@/src/types';
 
 interface AuthContextValue {
-  user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (payload: LoginPayload) => Promise<void>;
-  register: (payload: RegisterPayload) => Promise<void>;
+  pendingMobile: string | null;
+  signIn: (mobile: string) => Promise<void>;
+  verifyOtp: (mobile: string, otp: string) => Promise<void>;
+  signUp: (payload: SignUpPayload) => Promise<void>;
+  resendOtp: (mobile: string) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-// ---------------------------------------------------------------------------
-// Provider
-// ---------------------------------------------------------------------------
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const {
-    user,
-    isAuthenticated,
-    isLoading,
-    error,
-    setUser,
-    setTokens,
-    setError,
-    setLoading,
-    logout: storeLogout,
-    initialize,
+    isAuthenticated, isLoading, error, pendingMobile,
+    setTokens, setLoading, setError, setPendingMobile,
+    logout: storeLogout, initialize,
   } = useAuthStore();
 
-  // Rehydrate from AsyncStorage on mount
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
+  useEffect(() => { initialize(); }, [initialize]);
 
-  // -------------------------------------------------------------------------
-  // Login
-  // -------------------------------------------------------------------------
+  const signIn = useCallback(async (mobile: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await AuthService.signIn({ mobile });
+      setPendingMobile(mobile);
+      router.push('/(auth)/otp');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to send OTP. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [setError, setLoading, setPendingMobile]);
 
-  const login = useCallback(
-    async (payload: LoginPayload) => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const { user: loggedInUser, tokens } = await AuthService.login(payload);
-
-        // Persist tokens and user
-        await Promise.all([
-          StorageService.set(STORAGE_KEYS.ACCESS_TOKEN, tokens.accessToken),
-          StorageService.set(STORAGE_KEYS.REFRESH_TOKEN, tokens.refreshToken),
-          StorageService.setJson(STORAGE_KEYS.USER, loggedInUser),
-        ]);
-
-        setUser(loggedInUser);
-        setTokens(tokens);
-
-        router.replace('/(tabs)');
-      } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : 'Login failed. Please try again.';
-        setError(message);
-      } finally {
-        setLoading(false);
+  const verifyOtp = useCallback(async (mobile: string, otp: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const tokenData = await AuthService.verifyOtp({ mobile, otp });
+      await Promise.all([
+        StorageService.set(STORAGE_KEYS.ACCESS_TOKEN, tokenData.access_token),
+        StorageService.set(STORAGE_KEYS.REFRESH_TOKEN, tokenData.refresh_token),
+      ]);
+      if (tokenData.user) {
+        await StorageService.setJson(STORAGE_KEYS.USER, tokenData.user);
       }
-    },
-    [setError, setLoading, setTokens, setUser]
-  );
+      setTokens(tokenData);
+      setPendingMobile(null);
+      router.replace('/(tabs)');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Invalid OTP. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [setError, setLoading, setPendingMobile, setTokens]);
 
-  // -------------------------------------------------------------------------
-  // Register
-  // -------------------------------------------------------------------------
+  const signUp = useCallback(async (payload: SignUpPayload) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await AuthService.signUp(payload);
+      setPendingMobile(payload.mobile);
+      router.push('/(auth)/otp');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [setError, setLoading, setPendingMobile]);
 
-  const register = useCallback(
-    async (payload: RegisterPayload) => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const { user: newUser, tokens } = await AuthService.register(payload);
-
-        await Promise.all([
-          StorageService.set(STORAGE_KEYS.ACCESS_TOKEN, tokens.accessToken),
-          StorageService.set(STORAGE_KEYS.REFRESH_TOKEN, tokens.refreshToken),
-          StorageService.setJson(STORAGE_KEYS.USER, newUser),
-        ]);
-
-        setUser(newUser);
-        setTokens(tokens);
-
-        router.replace('/(tabs)');
-      } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : 'Registration failed. Please try again.';
-        setError(message);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [setError, setLoading, setTokens, setUser]
-  );
-
-  // -------------------------------------------------------------------------
-  // Logout
-  // -------------------------------------------------------------------------
+  const resendOtp = useCallback(async (mobile: string) => {
+    try {
+      setError(null);
+      await AuthService.sendOtp({ mobile });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to resend OTP.');
+    }
+  }, [setError]);
 
   const logout = useCallback(async () => {
     try {
       const refreshToken = await StorageService.get(STORAGE_KEYS.REFRESH_TOKEN);
-      if (refreshToken) {
-        await AuthService.logout(refreshToken).catch(() => {
-          // best effort — proceed even if the server call fails
-        });
-      }
+      await AuthService.logout({ refresh_token: refreshToken }).catch(() => {});
     } finally {
       storeLogout();
-      router.replace('/(auth)/login');
+      router.replace('/(auth)/welcome');
     }
   }, [storeLogout]);
 
-  // -------------------------------------------------------------------------
-  // Clear error
-  // -------------------------------------------------------------------------
-
   const clearError = useCallback(() => setError(null), [setError]);
 
-  // -------------------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------------------
-
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated,
-        isLoading,
-        error,
-        login,
-        register,
-        logout,
-        clearError,
-      }}
-    >
+    <AuthContext.Provider value={{
+      isAuthenticated, isLoading, error, pendingMobile,
+      signIn, verifyOtp, signUp, resendOtp, logout, clearError,
+    }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
-
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error('useAuth must be used within <AuthProvider>');
-  }
+  if (!ctx) throw new Error('useAuth must be used within <AuthProvider>');
   return ctx;
 }

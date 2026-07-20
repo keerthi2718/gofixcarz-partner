@@ -1,3 +1,11 @@
 export { default as apiClient } from './api.client';
 export { default as AuthService } from './auth.service';
+export { default as DashboardService } from './dashboard.service';
+export { default as BookingService } from './booking.service';
+export { default as JobService } from './job.service';
+export { default as ServicePackageService } from './service-package.service';
+export { default as AnalyticsService } from './analytics.service';
+export { default as NotificationService } from './notification.service';
+export { default as GarageService } from './garage.service';
+export { default as ProfileService } from './profile.service';
 export { default as StorageService } from './storage.service';

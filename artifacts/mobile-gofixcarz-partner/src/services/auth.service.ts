@@ -1,73 +1,52 @@
-// ---------------------------------------------------------------------------
-// AuthService — authentication API calls
-// ---------------------------------------------------------------------------
-
 import { ENDPOINTS } from '@/src/constants/api';
 import type {
-  ApiResponse,
-  ChangePasswordPayload,
-  ForgotPasswordPayload,
-  LoginPayload,
-  LoginResponse,
-  RefreshTokenResponse,
-  RegisterPayload,
-  ResetPasswordPayload,
-  User,
+  APIResponse,
+  AuthTokenData,
+  LogoutPayload,
+  RefreshTokenPayload,
+  SendOTPPayload,
+  SignUpPayload,
+  VerifyOTPPayload,
 } from '@/src/types';
 import apiClient from './api.client';
 
 const AuthService = {
-  /** Sign in with email and password. Returns user + tokens. */
-  async login(payload: LoginPayload): Promise<LoginResponse> {
-    const { data } = await apiClient.post<ApiResponse<LoginResponse>>(
-      ENDPOINTS.AUTH.LOGIN,
+  /** Step 1 of login: send OTP to existing user's mobile */
+  async signIn(payload: SendOTPPayload): Promise<APIResponse> {
+    const { data } = await apiClient.post<APIResponse>(ENDPOINTS.AUTH.SIGN_IN, payload);
+    return data;
+  },
+
+  /** Generic send-OTP (for new users / resend) */
+  async sendOtp(payload: SendOTPPayload): Promise<APIResponse> {
+    const { data } = await apiClient.post<APIResponse>(ENDPOINTS.AUTH.SEND_OTP, payload);
+    return data;
+  },
+
+  /** Step 2: verify OTP → receive tokens */
+  async verifyOtp(payload: VerifyOTPPayload): Promise<AuthTokenData> {
+    const { data } = await apiClient.post<APIResponse<AuthTokenData>>(
+      ENDPOINTS.AUTH.VERIFY_OTP,
       payload
     );
     return data.data;
   },
 
-  /** Create a new garage-owner account. */
-  async register(payload: RegisterPayload): Promise<LoginResponse> {
-    const { data } = await apiClient.post<ApiResponse<LoginResponse>>(
-      ENDPOINTS.AUTH.REGISTER,
-      payload
-    );
-    return data.data;
+  /** Register a new garage owner */
+  async signUp(payload: SignUpPayload): Promise<APIResponse> {
+    const { data } = await apiClient.post<APIResponse>(ENDPOINTS.AUTH.SIGN_UP, payload);
+    return data;
   },
 
-  /** Sign out — invalidates the refresh token on the server. */
-  async logout(refreshToken: string): Promise<void> {
-    await apiClient.post(ENDPOINTS.AUTH.LOGOUT, { refreshToken });
+  /** Refresh access token */
+  async refreshToken(payload: RefreshTokenPayload): Promise<APIResponse> {
+    const { data } = await apiClient.post<APIResponse>(ENDPOINTS.AUTH.REFRESH, payload);
+    return data;
   },
 
-  /** Exchange a valid refresh token for a new access token. */
-  async refreshToken(refreshToken: string): Promise<RefreshTokenResponse> {
-    const { data } = await apiClient.post<ApiResponse<RefreshTokenResponse>>(
-      ENDPOINTS.AUTH.REFRESH,
-      { refreshToken }
-    );
-    return data.data;
-  },
-
-  /** Trigger a password-reset email. */
-  async forgotPassword(payload: ForgotPasswordPayload): Promise<void> {
-    await apiClient.post(ENDPOINTS.AUTH.FORGOT_PASSWORD, payload);
-  },
-
-  /** Submit the new password via the reset link token. */
-  async resetPassword(payload: ResetPasswordPayload): Promise<void> {
-    await apiClient.post(ENDPOINTS.AUTH.RESET_PASSWORD, payload);
-  },
-
-  /** Get the currently authenticated user's profile. */
-  async getMe(): Promise<User> {
-    const { data } = await apiClient.get<ApiResponse<User>>(ENDPOINTS.AUTH.ME);
-    return data.data;
-  },
-
-  /** Change the authenticated user's password. */
-  async changePassword(payload: ChangePasswordPayload): Promise<void> {
-    await apiClient.post(ENDPOINTS.PROFILE.CHANGE_PASSWORD, payload);
+  /** Logout — invalidates refresh token on server */
+  async logout(payload: LogoutPayload): Promise<void> {
+    await apiClient.post(ENDPOINTS.AUTH.LOGOUT, payload);
   },
 };
 

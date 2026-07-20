@@ -1,12 +1,11 @@
 // ---------------------------------------------------------------------------
-// API — base URL and endpoint constants
+// API — GoFixCarz Partner configuration
+// Base URL points to the live GoFixCarz backend (FastAPI)
 // ---------------------------------------------------------------------------
 
-/** Base URL read from the Expo environment variable (set via Replit Secrets). */
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api';
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.gofixcarz.com/api/v1';
 
-/** Timeout in milliseconds for all API requests. */
 export const API_TIMEOUT = 30_000;
 
 // ---------------------------------------------------------------------------
@@ -14,77 +13,72 @@ export const API_TIMEOUT = 30_000;
 // ---------------------------------------------------------------------------
 
 export const ENDPOINTS = {
-  // Auth
   AUTH: {
-    LOGIN: '/auth/login',
-    REGISTER: '/auth/register',
-    LOGOUT: '/auth/logout',
+    SIGN_IN: '/auth/sign-in',
+    SIGN_UP: '/auth/sign-up',
+    SEND_OTP: '/auth/send-otp',
+    VERIFY_OTP: '/auth/verify-otp',
     REFRESH: '/auth/refresh',
-    FORGOT_PASSWORD: '/auth/forgot-password',
-    RESET_PASSWORD: '/auth/reset-password',
-    ME: '/auth/me',
+    LOGOUT: '/auth/logout',
   },
 
-  // Garage
-  GARAGE: {
-    LIST: '/garages',
-    DETAIL: (id: string) => `/garages/${id}`,
-    CREATE: '/garages',
-    UPDATE: (id: string) => `/garages/${id}`,
-    DELETE: (id: string) => `/garages/${id}`,
-  },
+  DASHBOARD: '/dashboard',
 
-  // Bookings
+  ANALYTICS: '/analytics',
+
+  GARAGE: '/garage',
+
+  PROFILE: '/profile',
+
   BOOKINGS: {
     LIST: '/bookings',
     DETAIL: (id: string) => `/bookings/${id}`,
-    UPDATE_STATUS: (id: string) => `/bookings/${id}/status`,
+    ACCEPT: (id: string) => `/bookings/${id}/accept`,
+    REJECT: (id: string) => `/bookings/${id}/reject`,
+    CREATE_JOB: (id: string) => `/bookings/${id}/create-job`,
   },
 
-  // Services offered by the garage
-  SERVICES: {
-    LIST: '/services',
-    DETAIL: (id: string) => `/services/${id}`,
-    CREATE: '/services',
-    UPDATE: (id: string) => `/services/${id}`,
-    DELETE: (id: string) => `/services/${id}`,
+  JOBS: {
+    LIST: '/jobs',
+    CREATE: '/jobs',
+    UPLOAD_PHOTO: '/jobs/upload-photo',
+    DETAIL: (id: string) => `/jobs/${id}`,
+    UPDATE: (id: string) => `/jobs/${id}`,
+    DELETE: (id: string) => `/jobs/${id}`,
+    COMPLETE: (id: string) => `/jobs/${id}/complete`,
+    STATUS: (id: string) => `/jobs/${id}/status`,
   },
 
-  // Staff
-  STAFF: {
-    LIST: '/staff',
-    DETAIL: (id: string) => `/staff/${id}`,
-    CREATE: '/staff',
-    UPDATE: (id: string) => `/staff/${id}`,
-    DELETE: (id: string) => `/staff/${id}`,
+  SERVICE_PACKAGES: {
+    LIST: '/service-packages',
+    CREATE: '/service-packages',
+    DETAIL: (id: string) => `/service-packages/${id}`,
+    UPDATE: (id: string) => `/service-packages/${id}`,
+    DELETE: (id: string) => `/service-packages/${id}`,
   },
 
-  // Reviews
-  REVIEWS: {
-    LIST: '/reviews',
-    DETAIL: (id: string) => `/reviews/${id}`,
-    RESPOND: (id: string) => `/reviews/${id}/respond`,
-  },
-
-  // Dashboard / analytics
-  DASHBOARD: {
-    SUMMARY: '/dashboard/summary',
-    EARNINGS: '/dashboard/earnings',
-    RECENT_BOOKINGS: '/dashboard/recent-bookings',
-  },
-
-  // Notifications
   NOTIFICATIONS: {
     LIST: '/notifications',
     MARK_READ: (id: string) => `/notifications/${id}/read`,
-    MARK_ALL_READ: '/notifications/read-all',
   },
 
-  // Profile
-  PROFILE: {
-    GET: '/profile',
-    UPDATE: '/profile',
-    CHANGE_PASSWORD: '/profile/change-password',
-    UPLOAD_AVATAR: '/profile/avatar',
+  STATIC: {
+    HELP: '/static/help-support',
+    PRIVACY: '/static/privacy-policy',
   },
+} as const;
+
+// Query keys for React Query cache management
+export const QUERY_KEYS = {
+  DASHBOARD: ['dashboard'],
+  ANALYTICS: (period: string) => ['analytics', period],
+  GARAGE: ['garage'],
+  PROFILE: ['profile'],
+  BOOKINGS: (params?: object) => ['bookings', params ?? {}],
+  BOOKING: (id: string) => ['booking', id],
+  JOBS: (params?: object) => ['jobs', params ?? {}],
+  JOB: (id: string) => ['job', id],
+  SERVICE_PACKAGES: (params?: object) => ['service-packages', params ?? {}],
+  SERVICE_PACKAGE: (id: string) => ['service-package', id],
+  NOTIFICATIONS: (unreadOnly?: boolean) => ['notifications', { unreadOnly }],
 } as const;

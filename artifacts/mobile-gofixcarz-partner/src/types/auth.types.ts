@@ -1,83 +1,82 @@
 // ---------------------------------------------------------------------------
-// Authentication — shared type definitions
+// Authentication — GoFixCarz OTP-based auth
 // ---------------------------------------------------------------------------
 
-export interface User {
+// Request payloads
+export interface SendOTPPayload {
+  mobile: string;
+}
+
+export interface SignInPayload {
+  mobile: string;
+}
+
+export interface VerifyOTPPayload {
+  mobile: string;
+  otp: string;
+}
+
+export interface SignUpPayload {
+  first_name: string;
+  last_name?: string | null;
+  workshop_name: string;
+  email: string;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zipcode?: string | null;
+  country?: string | null;
+  country_code?: string;
+  mobile: string;
+  country_code_2?: string | null;
+  mobile_2?: string | null;
+  wheelers?: string[] | null;
+  terms_accepted: boolean;
+}
+
+export interface RefreshTokenPayload {
+  refresh_token: string;
+}
+
+export interface LogoutPayload {
+  refresh_token?: string | null;
+}
+
+// Response shapes
+export interface AuthUser {
   id: string;
-  name: string;
-  email: string;
-  phone: string;
-  garageId: string | null;
-  garageName: string | null;
-  role: 'owner' | 'manager' | 'staff';
-  avatarUrl: string | null;
-  isVerified: boolean;
-  createdAt: string;
-  updatedAt: string;
+  name: string | null;
+  mobile: string;
+  email: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
-// Payloads sent to the API
-export interface LoginPayload {
-  email: string;
-  password: string;
-}
-
-export interface RegisterPayload {
-  name: string;
-  email: string;
-  phone: string;
-  password: string;
-  confirmPassword: string;
-}
-
-export interface ForgotPasswordPayload {
-  email: string;
-}
-
-export interface ResetPasswordPayload {
-  token: string;
-  password: string;
-  confirmPassword: string;
-}
-
-export interface ChangePasswordPayload {
-  currentPassword: string;
-  newPassword: string;
-  confirmNewPassword: string;
-}
-
-// API response shapes
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number; // seconds
-}
-
-export interface LoginResponse {
-  user: User;
-  tokens: AuthTokens;
-}
-
-export interface RefreshTokenResponse {
-  accessToken: string;
-  expiresIn: number;
+export interface AuthTokenData {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  user?: AuthUser;
 }
 
 // Zustand auth store shape
 export interface AuthState {
-  user: User | null;
+  user: AuthUser | null;
   accessToken: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  pendingMobile: string | null;
   error: string | null;
 }
 
 export interface AuthActions {
-  setUser: (user: User | null) => void;
-  setTokens: (tokens: AuthTokens | null) => void;
+  setUser: (user: AuthUser | null) => void;
+  setTokens: (tokens: Pick<AuthTokenData, 'access_token' | 'refresh_token'> | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  setPendingMobile: (mobile: string | null) => void;
   logout: () => void;
   initialize: () => Promise<void>;
 }

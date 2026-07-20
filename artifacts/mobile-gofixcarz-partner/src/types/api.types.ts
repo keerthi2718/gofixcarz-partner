@@ -1,40 +1,19 @@
-// ---------------------------------------------------------------------------
-// API — shared response / error type definitions
-// ---------------------------------------------------------------------------
-
-export interface ApiResponse<T = unknown> {
+export interface APIResponse<T = unknown> {
   success: boolean;
-  data: T;
   message?: string;
+  data: T;
 }
 
-export interface ApiError {
+export interface PaginatedData<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface APIError {
   success: false;
   message: string;
-  errors?: Record<string, string[]>;
-  statusCode?: number;
+  detail?: unknown;
 }
-
-export interface PaginationMeta {
-  currentPage: number;
-  lastPage: number;
-  perPage: number;
-  total: number;
-}
-
-export interface PaginatedResponse<T> {
-  success: boolean;
-  data: T[];
-  meta: PaginationMeta;
-}
-
-export interface PaginationParams {
-  page?: number;
-  limit?: number;
-  search?: string;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
-// HTTP method shortcuts for service functions
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
