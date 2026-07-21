@@ -26,7 +26,7 @@ export default function Card({ children, style, padding }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.base,
     borderWidth: 1,
   },

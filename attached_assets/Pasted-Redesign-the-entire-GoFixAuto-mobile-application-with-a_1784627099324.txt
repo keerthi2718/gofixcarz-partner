@@ -1,0 +1,130 @@
+Redesign the entire GoFixAuto mobile application with a modern, premium, and professional automotive UI while preserving all existing APIs, backend logic, database connections, navigation, and functionality.
+
+IMPORTANT:
+- Do NOT change any API endpoints, business logic, authentication, state management, database schema, or navigation flow.
+- Only improve the visual design, colors, spacing, typography, icons, shadows, and component styling.
+
+Design Style:
+- Modern
+- Minimal
+- Premium
+- Clean
+- Automotive inspired
+- Similar quality to Tesla, BMW, Uber, and Google Material 3.
+
+Color Palette:
+
+Primary Blue:
+#2563EB
+
+Dark Navy:
+#0F172A
+
+Background:
+#F8FAFC
+
+Card Background:
+#FFFFFF
+
+Primary Text:
+#1E293B
+
+Secondary Text:
+#64748B
+
+Border:
+#E2E8F0
+
+Success:
+#10B981
+
+Warning:
+#F59E0B
+
+Error:
+#EF4444
+
+Accent:
+#3B82F6
+
+UI Improvements:
+
+Dashboard
+- Replace the red header with a premium blue (#2563EB).
+- Display the GoFixAuto logo/name at the top.
+- Keep the notification icon white.
+- Increase top padding for a cleaner layout.
+
+Cards
+- Use white cards with subtle shadows.
+- Border radius: 18–20px.
+- Soft elevation.
+- Maintain equal spacing between all cards.
+
+Revenue Cards
+- Use premium gradients:
+  Today's Revenue:
+  #2563EB → #1D4ED8
+
+  Monthly Revenue:
+  #3B82F6 → #2563EB
+
+Statistics Cards
+- Active Jobs:
+  Blue (#3B82F6)
+
+- Pending:
+  Amber (#F59E0B)
+
+- Completed:
+  Green (#10B981)
+
+Quick Actions
+- Use rounded square buttons (18–20px radius).
+- White icons.
+- Blue, Indigo, Cyan, and Emerald backgrounds.
+- Add soft shadows.
+- Increase spacing between icons and labels.
+
+Buttons
+- Rounded corners (14–16px).
+- Blue primary buttons.
+- White text.
+- Smooth press animation.
+
+Bottom Navigation
+- White background.
+- Rounded top corners.
+- Selected icon:
+  #2563EB
+
+- Unselected icons:
+  #94A3B8
+
+- Add subtle top shadow.
+
+Typography
+- Use bold section titles.
+- Improve font hierarchy.
+- Increase whitespace.
+- Keep labels clean and readable.
+
+General UI
+- Increase padding and spacing throughout the app.
+- Use consistent 16px spacing.
+- Maintain alignment across all screens.
+- Improve icon consistency.
+- Apply soft shadows and subtle borders.
+- Remove harsh colors and replace them with premium, elegant colors.
+
+Animations
+- Add smooth transitions.
+- Add ripple effect on buttons.
+- Add subtle card elevation on press.
+- Maintain 60 FPS animations.
+
+Dark Mode
+- Ensure the theme supports both Light and Dark Mode using the same premium color palette.
+
+Final Goal:
+The GoFixAuto app should feel like a premium, enterprise-grade car service platform with a clean, elegant, and trustworthy design, while preserving every existing feature, API, and workflow.

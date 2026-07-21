@@ -1,19 +1,19 @@
 /**
  * GoFixAuto Partner — Design Tokens
- * Aligned with the production redesign spec.
+ * Premium blue-based palette. Red (#C62839) → Blue (#2563EB).
  */
 
 const colors = {
   light: {
     // Brand
-    primary: '#C62839',
-    primaryDark: '#A91E2C',
-    primaryLight: '#FDECEA',
+    primary: '#2563EB',
+    primaryDark: '#1D4ED8',
+    primaryLight: '#DBEAFE',
     primaryForeground: '#FFFFFF',
 
     // Semantic
-    success: '#22C55E',
-    successLight: '#DCFCE7',
+    success: '#10B981',
+    successLight: '#D1FAE5',
     warning: '#F59E0B',
     warningLight: '#FEF3C7',
     danger: '#EF4444',
@@ -22,35 +22,35 @@ const colors = {
     infoLight: '#DBEAFE',
 
     // Surfaces
-    background: '#F7F8FA',
+    background: '#F8FAFC',
     surface: '#FFFFFF',
     surfaceElevated: '#FFFFFF',
 
     // Text
-    text: '#111827',
-    textSecondary: '#6B7280',
-    textDisabled: '#9CA3AF',
+    text: '#1E293B',
+    textSecondary: '#64748B',
+    textDisabled: '#94A3B8',
 
     // Legacy aliases (keep for backward compat with existing screens)
-    foreground: '#111827',
+    foreground: '#1E293B',
     card: '#FFFFFF',
-    cardForeground: '#111827',
-    accent: '#C62839',
-    accentLight: '#FDECEA',
+    cardForeground: '#1E293B',
+    accent: '#3B82F6',
+    accentLight: '#DBEAFE',
     accentForeground: '#FFFFFF',
     secondary: '#F1F5F9',
     secondaryForeground: '#374151',
     muted: '#F1F5F9',
-    mutedForeground: '#6B7280',
-    tint: '#C62839',
+    mutedForeground: '#64748B',
+    tint: '#2563EB',
     destructive: '#EF4444',
     destructiveLight: '#FEE2E2',
 
     // UI chrome
-    border: '#E5E7EB',
-    divider: '#F3F4F6',
-    input: '#E5E7EB',
-    inputBackground: '#F9FAFB',
+    border: '#E2E8F0',
+    divider: '#F1F5F9',
+    input: '#E2E8F0',
+    inputBackground: '#F8FAFC',
     shadow: 'rgba(0,0,0,0.06)',
     shadowMd: 'rgba(0,0,0,0.10)',
     overlay: 'rgba(0,0,0,0.45)',
@@ -64,18 +64,18 @@ const colors = {
     statusWaitingBg: '#FFFBEB',
     statusQualityCheck: '#6366F1',
     statusQualityCheckBg: '#EEF2FF',
-    statusReady: '#22C55E',
-    statusReadyBg: '#DCFCE7',
-    statusCompleted: '#16A34A',
-    statusCompletedBg: '#D1FAE5',
+    statusReady: '#10B981',
+    statusReadyBg: '#D1FAE5',
+    statusCompleted: '#059669',
+    statusCompletedBg: '#ECFDF5',
     statusCancelled: '#EF4444',
     statusCancelledBg: '#FEF2F2',
 
     // Booking status
     bookingPending: '#F59E0B',
     bookingPendingBg: '#FFFBEB',
-    bookingAccepted: '#22C55E',
-    bookingAcceptedBg: '#DCFCE7',
+    bookingAccepted: '#10B981',
+    bookingAcceptedBg: '#D1FAE5',
     bookingRejected: '#EF4444',
     bookingRejectedBg: '#FEF2F2',
     bookingConverted: '#8B5CF6',
@@ -83,9 +83,9 @@ const colors = {
   },
 
   dark: {
-    primary: '#E8344A',
-    primaryDark: '#C62839',
-    primaryLight: '#4A0A12',
+    primary: '#3B82F6',
+    primaryDark: '#2563EB',
+    primaryLight: '#1E3A5F',
     primaryForeground: '#FFFFFF',
     success: '#34D399',
     successLight: '#064E3B',
@@ -104,14 +104,14 @@ const colors = {
     foreground: '#F9FAFB',
     card: '#1E293B',
     cardForeground: '#F9FAFB',
-    accent: '#E8344A',
-    accentLight: '#4A0A12',
+    accent: '#3B82F6',
+    accentLight: '#1E3A5F',
     accentForeground: '#FFFFFF',
     secondary: '#1E293B',
     secondaryForeground: '#CBD5E1',
     muted: '#1E293B',
     mutedForeground: '#94A3B8',
-    tint: '#E8344A',
+    tint: '#3B82F6',
     destructive: '#F87171',
     destructiveLight: '#450A0A',
     border: '#334155',

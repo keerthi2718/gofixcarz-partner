@@ -25,7 +25,7 @@ function MenuGroup({ title, items }: { title: string; items: MenuItem[] }) {
   return (
     <View style={menuGroupStyles.section}>
       <Text style={[menuGroupStyles.groupTitle, { color: colors.mutedForeground }]}>{title}</Text>
-      <View style={[menuGroupStyles.card, { backgroundColor: colors.card, shadowColor: colors.shadow }]}>
+      <View style={[menuGroupStyles.card, { backgroundColor: colors.card, shadowColor: colors.shadow, borderWidth: 1, borderColor: colors.border }]}>
         {items.map((item, i) => (
           <TouchableOpacity
             key={item.label}
@@ -38,7 +38,7 @@ function MenuGroup({ title, items }: { title: string; items: MenuItem[] }) {
             </View>
             <Text style={[menuGroupStyles.label, { color: colors.foreground }]}>{item.label}</Text>
             {item.badge ? (
-              <View style={[menuGroupStyles.badge, { backgroundColor: '#FF6B2B' }]}>
+              <View style={[menuGroupStyles.badge, { backgroundColor: '#2563EB' }]}>
                 <Text style={menuGroupStyles.badgeText}>{item.badge > 99 ? '99+' : item.badge}</Text>
               </View>
             ) : null}
@@ -101,7 +101,7 @@ export default function MoreScreen() {
         ]} />
         <MenuGroup title="Account" items={[
           { label: 'My Profile', icon: 'user', route: '/(tabs)/more/profile' },
-          { label: 'Notifications', icon: 'bell', iconColor: '#FF6B2B', route: '/(tabs)/more/notifications' },
+          { label: 'Notifications', icon: 'bell', iconColor: '#2563EB', route: '/(tabs)/more/notifications' },
           { label: 'Revenue & Analytics', icon: 'bar-chart-2', iconColor: '#10B981', route: '/(tabs)/more/analytics' },
         ]} />
         <MenuGroup title="Support" items={[
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 22, fontWeight: '800' },
   content: { padding: 16, gap: 16 },
   profileCard: { borderRadius: 18, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 8 },
-  avatarWrap: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,107,43,0.3)', alignItems: 'center', justifyContent: 'center' },
+  avatarWrap: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 22, fontWeight: '800', color: '#fff' },
   profileInfo: { flex: 1 },
   profileName: { fontSize: 17, fontWeight: '700', color: '#fff' },

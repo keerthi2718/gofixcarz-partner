@@ -3,6 +3,7 @@ import {
   FlatList, Platform, Pressable, RefreshControl,
   ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -19,10 +20,16 @@ import { radius, shadow, spacing, typography } from '@/constants/theme';
 
 const BOOKING_STATUS: Record<string, { label: string; color: string; bg: string }> = {
   PENDING:   { label: 'Pending',   color: '#F59E0B', bg: '#FFFBEB' },
-  ACCEPTED:  { label: 'Confirmed', color: '#22C55E', bg: '#DCFCE7' },
+  ACCEPTED:  { label: 'Confirmed', color: '#10B981', bg: '#D1FAE5' },
   REJECTED:  { label: 'Rejected',  color: '#EF4444', bg: '#FEF2F2' },
   CONVERTED: { label: 'Converted', color: '#8B5CF6', bg: '#F5F3FF' },
 };
+
+// Revenue card gradient definitions
+const REVENUE_GRADIENTS: [string, string][] = [
+  ['#2563EB', '#1D4ED8'],
+  ['#3B82F6', '#2563EB'],
+];
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
@@ -41,24 +48,34 @@ export default function DashboardScreen() {
   const bookings = bookingsData?.items ?? [];
 
   const stats = [
-    { label: 'Active Jobs',  value: data?.open_jobs ?? 0,        icon: 'tool' as const,       color: colors.primary,  bg: colors.primaryLight },
-    { label: 'Pending',      value: data?.pending_bookings ?? 0,  icon: 'clock' as const,      color: '#F59E0B',        bg: '#FFFBEB' },
-    { label: 'Completed',    value: data?.completed_jobs ?? 0,    icon: 'check-circle' as const, color: '#22C55E',      bg: '#DCFCE7' },
+    { label: 'Active Jobs',  value: data?.open_jobs ?? 0,        icon: 'tool' as const,         color: '#3B82F6',  bg: '#EFF6FF' },
+    { label: 'Pending',      value: data?.pending_bookings ?? 0,  icon: 'clock' as const,        color: '#F59E0B',  bg: '#FFFBEB' },
+    { label: 'Completed',    value: data?.completed_jobs ?? 0,    icon: 'check-circle' as const,  color: '#10B981',  bg: '#D1FAE5' },
   ];
 
   const quickActions = [
-    { label: 'New Job',      icon: 'plus-circle' as const, bg: colors.primary,   route: '/(tabs)/jobs/create' },
-    { label: 'Bookings',     icon: 'calendar' as const,   bg: '#3B82F6',         route: '/(tabs)/bookings' },
-    { label: 'Services',     icon: 'settings' as const,   bg: '#8B5CF6',         route: '/(tabs)/services' },
-    { label: 'Analytics',    icon: 'bar-chart-2' as const,bg: '#22C55E',         route: '/(tabs)/analytics' },
+    { label: 'New Job',   icon: 'plus-circle' as const, bg: '#2563EB', route: '/(tabs)/jobs/create' },
+    { label: 'Bookings',  icon: 'calendar' as const,    bg: '#6366F1', route: '/(tabs)/bookings' },
+    { label: 'Services',  icon: 'settings' as const,    bg: '#06B6D4', route: '/(tabs)/services' },
+    { label: 'Analytics', icon: 'bar-chart-2' as const, bg: '#10B981', route: '/(tabs)/analytics' },
+  ];
+
+  const revenueCards = [
+    { label: "Today's Revenue", value: data?.revenue_today ?? 0,      icon: 'dollar-sign' as const, gradient: REVENUE_GRADIENTS[0] },
+    { label: 'This Month',       value: data?.revenue_this_month ?? 0, icon: 'trending-up' as const,  gradient: REVENUE_GRADIENTS[1] },
   ];
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+      <StatusBar barStyle="light-content" backgroundColor="#2563EB" />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topPad + 14, backgroundColor: colors.primary }]}>
+      <LinearGradient
+        colors={['#2563EB', '#1D4ED8']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: topPad + 16 }]}
+      >
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 30, fontWeight: '800', color: '#FFFFFF', lineHeight: 36 }}>GoFixAuto</Text>
           <Text style={{ fontSize: 20, fontWeight: '600', color: 'rgba(255,255,255,0.90)', lineHeight: 26 }}>Dashboard</Text>
@@ -70,7 +87,7 @@ export default function DashboardScreen() {
         >
           <Feather name="bell" size={20} color="#fff" />
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
 
       <FlatList
         data={bookings}
@@ -82,22 +99,25 @@ export default function DashboardScreen() {
           <View style={{ padding: spacing.base, gap: spacing.base }}>
             {/* Revenue cards */}
             <View style={styles.revenueRow}>
-              {[
-                { label: "Today's Revenue", value: data?.revenue_today ?? 0,      icon: 'dollar-sign' as const, accent: colors.primary },
-                { label: 'This Month',       value: data?.revenue_this_month ?? 0, icon: 'trending-up' as const, accent: '#8B5CF6' },
-              ].map(c => (
-                <View key={c.label} style={[styles.revenueCard, { backgroundColor: c.accent }, shadow.md]}>
+              {revenueCards.map(c => (
+                <LinearGradient
+                  key={c.label}
+                  colors={c.gradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.revenueCard, shadow.md]}
+                >
                   <View style={styles.revenueIconWrap}>
-                    <Feather name={c.icon} size={16} color="rgba(255,255,255,0.85)" />
+                    <Feather name={c.icon} size={16} color="rgba(255,255,255,0.90)" />
                   </View>
                   <Text style={[typography.caption, { color: 'rgba(255,255,255,0.8)', marginTop: 8 }]}>{c.label}</Text>
                   <Text style={[typography.headline, { color: '#fff' }]}>{formatCurrency(c.value)}</Text>
-                </View>
+                </LinearGradient>
               ))}
             </View>
 
             {/* Stats row */}
-            <Card padding={0} style={{ overflow: 'hidden' }}>
+            <Card padding={0} style={{ overflow: 'hidden', borderRadius: radius.xl }}>
               <View style={styles.statsRow}>
                 {stats.map((s, i) => (
                   <React.Fragment key={s.label}>
@@ -127,7 +147,7 @@ export default function DashboardScreen() {
                   <View style={[styles.actionIcon, { backgroundColor: a.bg }, shadow.sm]}>
                     <Feather name={a.icon} size={22} color="#fff" />
                   </View>
-                  <Text style={[typography.caption, { color: colors.text, textAlign: 'center', marginTop: 6, fontWeight: '600' }]}>{a.label}</Text>
+                  <Text style={[typography.caption, { color: colors.text, textAlign: 'center', marginTop: 8, fontWeight: '600' }]}>{a.label}</Text>
                 </Pressable>
               ))}
             </View>
@@ -185,7 +205,7 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'flex-end',
-    paddingHorizontal: spacing.base, paddingBottom: spacing.base,
+    paddingHorizontal: spacing.base, paddingBottom: spacing.lg,
   },
   bellBtn: {
     width: 40, height: 40, borderRadius: 20,
@@ -193,7 +213,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   revenueRow: { flexDirection: 'row', gap: spacing.sm },
-  revenueCard: { flex: 1, borderRadius: radius.lg, padding: spacing.base },
+  revenueCard: { flex: 1, borderRadius: radius.xl, padding: spacing.base },
   revenueIconWrap: {
     width: 32, height: 32, borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.2)',
@@ -209,7 +229,7 @@ const styles = StyleSheet.create({
   bookingCard: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
     marginHorizontal: spacing.base, marginBottom: spacing.sm,
-    borderRadius: radius.lg, padding: spacing.md, borderWidth: 1,
+    borderRadius: radius.xl, padding: spacing.md, borderWidth: 1,
   },
   bookingInfo: { flex: 1, gap: 3 },
   bookingRight: { alignItems: 'flex-end' },
