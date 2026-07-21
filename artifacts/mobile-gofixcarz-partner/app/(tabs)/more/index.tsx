@@ -118,7 +118,7 @@ export default function MoreScreen() {
           <Text style={[styles.logoutText, { color: colors.destructive }]}>Sign Out</Text>
         </TouchableOpacity>
 
-        <Text style={[styles.version, { color: colors.mutedForeground }]}>GoFixCarz Partner v1.0.0</Text>
+        <Text style={[styles.version, { color: colors.mutedForeground }]}>GoFixAuto v1.0.0</Text>
       </ScrollView>
     </View>
   );

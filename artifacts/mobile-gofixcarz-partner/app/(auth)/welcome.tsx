@@ -15,14 +15,11 @@ export default function WelcomeScreen() {
       onPress={() => router.replace('/(auth)/login')}
     >
       <StatusBar barStyle="light-content" backgroundColor="#000" />
-      <View style={styles.logoWrap}>
-        <Image
-          source={require('../../assets/images/icon.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-      </View>
-      <Text style={styles.appName}>GoFixAuto</Text>
+      <Image
+        source={require('../../assets/images/logo.jpg')}
+        style={styles.logo}
+        resizeMode="contain"
+      />
       <Text style={styles.tagline}>GARAGE OWNER PORTAL</Text>
     </TouchableOpacity>
   );
@@ -36,20 +33,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 16,
   },
-  logoWrap: {
-    width: 140,
-    height: 140,
-    borderRadius: 28,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.15)',
-  },
-  logo: { width: '100%', height: '100%' },
-  appName: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: 1,
+  logo: {
+    width: 280,
+    height: 200,
   },
   tagline: {
     fontSize: 13,
