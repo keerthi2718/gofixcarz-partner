@@ -1,0 +1,68 @@
+Improve the UI alignment and text styling on the Garage Registration (Create Account) screen WITHOUT changing any existing APIs, backend code, request/response payloads, authentication, database schema, business logic, or navigation.
+
+IMPORTANT:
+- Do NOT modify any API endpoints.
+- Do NOT rename any API fields.
+- Do NOT change request or response payloads.
+- Do NOT change validation logic on the backend.
+- Do NOT affect any existing functionality.
+- Only improve the frontend UI and layout.
+
+UI Fixes Required:
+
+1. Alternate Phone Number Alignment
+- The Alternate Phone Number input is not properly aligned with the Primary Phone Number field.
+- Make both phone input fields exactly the same:
+  - Same height
+  - Same width
+  - Same left and right padding
+  - Same icon alignment
+  - Same +91 prefix alignment
+  - Same text alignment
+  - Same border radius
+  - Same spacing between label and input
+- Ensure the placeholder starts at the same position as the Primary Phone field.
+
+2. Create Account Subtitle
+Current subtitle:
+"Register your garage to start receiving jobs"
+
+Replace it with a shorter, cleaner subtitle such as:
+
+"Register your garage to connect with customers."
+
+OR
+
+"Register your garage and start serving customers."
+
+OR
+
+"Join GoFixAuto and grow your garage business."
+
+Use:
+- Font Size: 16px
+- Medium font weight
+- Neutral grey color
+- Center aligned
+- Maximum 2 lines
+- Proper line spacing
+- Add appropriate spacing below the logo and above the form.
+
+3. Overall UI Polish
+- Improve spacing between all sections.
+- Ensure consistent margins throughout the page.
+- Align all labels and input fields perfectly.
+- Keep the Vehicle Service Type chips horizontally scrollable with consistent spacing.
+- Make sure all components look balanced on iPhone and Android devices.
+- Ensure the keyboard does not overlap focused fields.
+
+4. Responsive Layout
+- Verify alignment on all screen sizes.
+- Prevent text clipping or overlapping.
+- Maintain a premium, clean appearance.
+
+Before completing, verify:
+- Primary and Alternate Phone fields are perfectly aligned.
+- Subtitle is visually appealing and properly spaced.
+- No UI elements overlap.
+- Existing APIs and backend functionality remain completely unchanged.

@@ -399,8 +399,8 @@ export default function RegisterScreen() {
           />
         </View>
         <Text style={[typography.headline, styles.pageTitle]}>Create Account</Text>
-        <Text style={[typography.bodySm, styles.pageSubtitle]}>
-          Register your garage to start receiving jobs
+        <Text style={styles.pageSubtitle}>
+          Join GoFixAuto and grow your garage business.
         </Text>
 
         {/* API Error banner */}
@@ -553,6 +553,7 @@ export default function RegisterScreen() {
             keyboardType="number-pad"
             maxLength={10}
             prefix="+91"
+            leadingIcon="phone"
           />
         </SectionCard>
 
@@ -653,8 +654,16 @@ const styles = StyleSheet.create({
     alignSelf: 'center', marginBottom: spacing.md,
   },
   logo: { width: '100%', height: '100%' },
-  pageTitle: { color: TEXT_COLOR, textAlign: 'center', marginBottom: 4 },
-  pageSubtitle: { color: MUTED, textAlign: 'center', marginBottom: spacing.lg },
+  pageTitle: { color: TEXT_COLOR, textAlign: 'center', marginBottom: 6 },
+  pageSubtitle: {
+    fontSize: 16,
+    fontWeight: '500' as const,
+    color: MUTED,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.md,
+  },
 
   /* Error banner */
   errorBanner: {
