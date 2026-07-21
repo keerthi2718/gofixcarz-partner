@@ -209,10 +209,20 @@ function WheelerChip({
   const bg    = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.spring(scale, { toValue: selected ? 1.06 : 1, useNativeDriver: true, friction: 6, tension: 200 }),
-      Animated.timing(bg,    { toValue: selected ? 1 : 0,    useNativeDriver: false, duration: 160 }),
-    ]).start();
+    // scale uses useNativeDriver: true (transform is supported natively)
+    Animated.spring(scale, {
+      toValue: selected ? 1.06 : 1,
+      useNativeDriver: true,
+      friction: 6,
+      tension: 200,
+    }).start();
+    // bg/border colour uses useNativeDriver: false (layout props are NOT supported natively)
+    // Must be a separate call — never mix true/false in Animated.parallel
+    Animated.timing(bg, {
+      toValue: selected ? 1 : 0,
+      useNativeDriver: false,
+      duration: 160,
+    }).start();
   }, [selected]);
 
   const backgroundColor = bg.interpolate({ inputRange: [0, 1], outputRange: ['#F9FAFB', '#FFF0F0'] });
