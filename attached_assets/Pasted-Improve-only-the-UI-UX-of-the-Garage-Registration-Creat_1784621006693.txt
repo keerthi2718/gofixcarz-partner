@@ -1,0 +1,80 @@
+Improve only the UI/UX of the Garage Registration (Create Account) screen.
+
+IMPORTANT:
+- DO NOT modify any existing backend APIs.
+- DO NOT change API endpoints.
+- DO NOT change request or response payloads.
+- DO NOT modify database schema unless absolutely required for the new Vehicle Service Type field.
+- DO NOT change authentication, validation logic, business logic, or existing integrations.
+- DO NOT rename existing API fields.
+- DO NOT disturb any existing functionality.
+- Preserve all current API calls exactly as they are.
+- Only update the frontend UI and connect new UI elements to the existing APIs where possible.
+
+UI Improvements:
+
+1. Rename "Zipcode" to "Pincode".
+- Update only the UI label.
+- If the backend field is still named `zipcode`, continue sending the same API field without changing the API.
+
+2. Replace the Address input with Google Places Autocomplete.
+- Integrate Google Places Autocomplete.
+- As the user types, show address suggestions.
+- After selecting an address, automatically populate:
+  - Full Address
+  - City
+  - State
+  - Pincode
+  - Country
+- If the backend already has separate address fields, map the values accordingly without changing the API.
+- If the API accepts only one address string, submit the full formatted address as before.
+
+3. Add a new section:
+Vehicle Service Type *
+
+Allow multiple selections using modern checkboxes or chips.
+
+Options:
+☐ 2 Wheeler (2W)
+☐ 3 Wheeler (3W)
+☐ 4 Wheeler (4W)
+☐ 6 Wheeler / Heavy Vehicles (6W)
+
+Requirements:
+- Multiple selections allowed.
+- At least one selection required.
+- If backend support already exists, bind to the existing field.
+- If backend support is not yet available, keep the UI ready and do not break existing registration.
+
+4. Improve the entire UI.
+- Modern premium input fields.
+- Better spacing.
+- Better typography.
+- Better icons.
+- Softer borders.
+- Rounded corners (16px).
+- Better focus animation.
+- Better placeholder visibility.
+- Card-style sections.
+- Improve responsiveness for all mobile devices.
+
+5. Improve the Terms & Conditions checkbox.
+- Make Terms & Conditions clickable.
+- Improve checkbox styling.
+
+6. Improve the Create Account button.
+- Full width.
+- Better styling.
+- Loading state while API is being called.
+- Disable while submission is in progress.
+- Do not change the existing API call.
+
+7. Validation
+Display inline validation messages without changing backend validation.
+
+8. Performance
+- Do not affect existing API performance.
+- Preserve all existing API integrations.
+- Only improve frontend experience.
+
+The final result should be a clean, modern, production-ready registration screen while keeping all existing APIs, backend logic, request/response structures, and functionality completely unchanged.
