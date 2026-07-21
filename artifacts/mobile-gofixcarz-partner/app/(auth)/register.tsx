@@ -452,9 +452,9 @@ export default function RegisterScreen() {
           />
 
           {/* Page title & subtitle inside gradient */}
-          <Text style={styles.pageTitle}>Join GoFixAuto</Text>
+          <Text style={styles.pageTitle}>Create Your Garage Owner Account</Text>
           <Text style={styles.pageSubtitle}>
-            Create your garage partner account to receive bookings, manage services, and grow your business with GoFixAuto.
+            Register your garage to receive bookings, manage services, and grow your business with GoFixAuto.
           </Text>
         </LinearGradient>
 
