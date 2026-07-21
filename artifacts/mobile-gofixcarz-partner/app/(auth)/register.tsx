@@ -20,7 +20,6 @@ import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@/src/context/AuthContext';
 import InputField from '@/src/components/ui/InputField';
-import PrimaryButton from '@/src/components/ui/PrimaryButton';
 import { radius, shadow, spacing, typography } from '@/constants/theme';
 
 /* ── Design tokens ─────────────────────────────────── */
@@ -145,8 +144,25 @@ function AddressAutocomplete({ value, onChangeText, onSelect, error }: AddressAu
   return (
     <View>
       <Text style={styles.fieldLabel}>Address</Text>
-      <View style={[styles.addressInputWrap, { borderColor, borderWidth }]}>
-        <Feather name="map-pin" size={16} color={focused ? PRIMARY : '#94A3B8'} style={{ marginRight: 10 }} />
+      <View
+        style={[
+          styles.addressInputWrap,
+          { borderColor, borderWidth },
+          Platform.select({
+            ios: {
+              shadowColor: focused ? PRIMARY : '#000',
+              shadowOffset: { width: 0, height: focused ? 0 : 2 },
+              shadowOpacity: focused ? 0.18 : 0.06,
+              shadowRadius: focused ? 8 : 4,
+            },
+            android: { elevation: focused ? 4 : 2 },
+            default: {},
+          }),
+        ]}
+      >
+        <View style={styles.addressIconBadge}>
+          <Feather name="map-pin" size={20} color={PRIMARY} />
+        </View>
         <TextInput
           style={styles.addressInput}
           value={value}
@@ -158,7 +174,7 @@ function AddressAutocomplete({ value, onChangeText, onSelect, error }: AddressAu
           autoCapitalize="none"
           returnKeyType="search"
         />
-        {loadingSuggestions && <ActivityIndicator size="small" color={PRIMARY} />}
+        {loadingSuggestions && <ActivityIndicator size="small" color={PRIMARY} style={{ marginRight: 12 }} />}
       </View>
 
       {showSuggestions && suggestions.length > 0 && (
@@ -249,19 +265,65 @@ function SectionCard({
 }) {
   return (
     <View
-      style={[styles.card, shadow.md]}
+      style={styles.card}
       onLayout={e => {
         if (sectionKey && onSectionLayout) onSectionLayout(sectionKey, e.nativeEvent.layout.y);
       }}
     >
       <View style={styles.cardHeader}>
         <View style={styles.cardIconBadge}>
-          <Feather name={icon} size={15} color={PRIMARY} />
+          <Feather name={icon} size={20} color={PRIMARY} />
         </View>
         <Text style={styles.cardTitle}>{title}</Text>
       </View>
       <View style={styles.cardBody}>{children}</View>
     </View>
+  );
+}
+
+/* ─────────────────────────────────────────────────── */
+/*  Gradient submit button with scale animation        */
+/* ─────────────────────────────────────────────────── */
+function SubmitButton({
+  label, onPress, loading, disabled,
+}: { label: string; onPress: () => void; loading?: boolean; disabled?: boolean }) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  function onPressIn() {
+    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, friction: 6, tension: 200 }).start();
+  }
+  function onPressOut() {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 6, tension: 200 }).start();
+  }
+
+  return (
+    <Animated.View
+      style={[
+        styles.submitWrap,
+        { transform: [{ scale }], opacity: disabled && !loading ? 0.55 : 1 },
+      ]}
+    >
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        disabled={disabled}
+        activeOpacity={1}
+      >
+        <LinearGradient
+          colors={['#2563EB', '#1D4ED8']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.submitGradient}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.submitText}>{label}</Text>
+          )}
+        </LinearGradient>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -383,11 +445,11 @@ export default function RegisterScreen() {
           style={[styles.headerGradient, { paddingTop: insets.top + 28 }]}
         >
           {/* Logo */}
-          <View style={[styles.logoCard, shadow.md]}>
+          <View style={styles.logoCard}>
             <Image
               source={require('../../assets/images/logo.jpg')}
               style={styles.logo}
-              resizeMode="contain"
+              resizeMode="cover"
             />
           </View>
 
@@ -581,7 +643,7 @@ export default function RegisterScreen() {
           </SectionCard>
 
           {/* ── Terms & Conditions ── */}
-          <View style={[styles.termsCard, shadow.sm]}>
+          <View style={styles.termsCard}>
             <TouchableOpacity
               style={styles.termsRow}
               onPress={() => set('acceptTerms', !form.acceptTerms)}
@@ -610,14 +672,12 @@ export default function RegisterScreen() {
           </View>
 
           {/* ── Submit ── */}
-          <View style={[shadow.md, { borderRadius: 16, marginBottom: spacing.md }]}>
-            <PrimaryButton
-              label="Create Account"
-              onPress={handleSubmit}
-              loading={isLoading}
-              disabled={!isValid || isLoading}
-            />
-          </View>
+          <SubmitButton
+            label="Create Account"
+            onPress={handleSubmit}
+            loading={isLoading}
+            disabled={!isValid || isLoading}
+          />
 
           <TouchableOpacity
             onPress={() => router.push('/(auth)/login')}
@@ -645,17 +705,24 @@ const styles = StyleSheet.create({
   headerGradient: {
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
-    paddingBottom: 32,
+    paddingBottom: 36,
   },
 
   logoCard: {
-    width: 120, height: 80, borderRadius: 18,
-    backgroundColor: '#fff', overflow: 'hidden',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.5)',
+    width: 190,
+    height: 95,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+    marginBottom: 24,
+    padding: 20,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12 },
+      android: { elevation: 8 },
+      default: {},
+    }),
   },
-  logo: { width: '100%', height: '100%' },
+  logo: { flex: 1, width: '100%', height: '100%' },
 
   pageTitle: {
     fontSize: 30,
@@ -677,8 +744,8 @@ const styles = StyleSheet.create({
   /* ── Form body ── */
   formBody: {
     flex: 1,
-    padding: spacing.base,
-    paddingTop: spacing.xl,
+    paddingHorizontal: 20,
+    paddingTop: 24,
   },
 
   /* Error banner */
@@ -694,51 +761,68 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: CARD,
     borderRadius: 20,
-    marginBottom: spacing.md,
+    marginBottom: 20,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: BORDER,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
+      android: { elevation: 4 },
+      default: {},
+    }),
   },
   cardHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: spacing.lg, paddingTop: 16, paddingBottom: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 24, paddingTop: 20, paddingBottom: 16,
     borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
   },
   cardIconBadge: {
-    width: 32, height: 32, borderRadius: 10,
+    width: 42, height: 42, borderRadius: 21,
     backgroundColor: PRIMARY_LIGHT,
     alignItems: 'center', justifyContent: 'center',
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: TEXT_COLOR,
-    letterSpacing: -0.1,
+    letterSpacing: -0.2,
   },
-  cardBody: { padding: spacing.lg },
+  cardBody: { padding: 24 },
 
   /* Row layout */
   row: { flexDirection: 'row', gap: 10 },
 
   /* ── Address autocomplete ── */
   fieldLabel: {
-    ...typography.label,
-    color: LABEL,
-    marginBottom: 6,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 8,
   },
   addressInputWrap: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: radius.md,
+    borderRadius: 16,
     borderWidth: 1,
-    paddingHorizontal: 12,
-    height: 52,
+    height: 58,
     marginBottom: 4,
+    overflow: 'hidden',
+  },
+  addressIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+    marginRight: 4,
   },
   addressInput: {
     flex: 1,
     fontSize: 15, color: TEXT_COLOR,
     padding: 0, margin: 0,
+    paddingRight: 18,
   },
   suggestionList: {
     backgroundColor: CARD,
@@ -794,6 +878,29 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
+  /* ── Gradient submit button ── */
+  submitWrap: {
+    borderRadius: 16,
+    marginBottom: spacing.md,
+    ...Platform.select({
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.28, shadowRadius: 12 },
+      android: { elevation: 6 },
+      default: {},
+    }),
+  },
+  submitGradient: {
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+
   /* ── Terms ── */
   termsCard: {
     backgroundColor: CARD,
@@ -802,6 +909,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: BORDER,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
+      android: { elevation: 2 },
+      default: {},
+    }),
   },
   termsRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   checkbox: {

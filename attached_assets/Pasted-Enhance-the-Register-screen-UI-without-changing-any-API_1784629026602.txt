@@ -1,0 +1,148 @@
+Enhance the Register screen UI without changing any APIs, backend logic, validation, database, navigation, or functionality.
+
+IMPORTANT:
+- Keep all existing fields and workflows exactly the same.
+- Only improve the visual design.
+
+==================================
+1. FIX THE GOFIXAUTO LOGO
+==================================
+
+The current logo is stretched and improperly fitted.
+
+Requirements:
+- Display the logo inside a premium white rounded container.
+- Crop the image using "cover" (not contain) so it fills the container naturally.
+- Maintain the logo's original aspect ratio.
+- Do not stretch or squash the image.
+- Center the logo both vertically and horizontally.
+- Add 20px padding around the logo.
+- Container size:
+  Width: 180–200px
+  Height: 90–100px
+- Border Radius: 20px
+- Add a soft shadow:
+  shadowOpacity: 0.12
+  shadowRadius: 12
+  elevation: 8
+
+==================================
+2. ENHANCE INPUT FIELDS
+==================================
+
+The current input boxes look too dark and outdated.
+
+Redesign all input fields with a premium modern style.
+
+Requirements:
+
+- White background
+- Border: 1.5px solid #E2E8F0
+- Border Radius: 16px
+- Height: 58px
+- Horizontal Padding: 18px
+- Soft shadow
+- Text Color: #1E293B
+- Placeholder: #94A3B8
+
+Focused State:
+- Border Color: #2563EB
+- Slight blue glow
+- Smooth transition animation
+
+Disabled State:
+- Background: #F8FAFC
+
+==================================
+3. INPUT ICONS
+==================================
+
+Improve all icons inside text fields.
+
+- Place each icon inside a light blue circular background (#EFF6FF).
+- Icon Color: #2563EB
+- Icon Size: 20px
+- Keep consistent spacing between icon and text.
+
+==================================
+4. LABELS
+==================================
+
+Make labels cleaner.
+
+Label Style:
+- Font Size: 15px
+- Weight: 600
+- Color: #475569
+
+Required (*) should be:
+- Red (#EF4444)
+
+==================================
+5. SECTION CARDS
+==================================
+
+Personal Details
+Workshop Details
+Address Details
+Bank Details
+Documents
+
+Each section should have:
+
+- White background
+- Border Radius: 20px
+- Soft shadow
+- Border: #E2E8F0
+- Padding: 24px
+- Proper spacing between sections
+
+==================================
+6. SECTION HEADERS
+==================================
+
+Each section icon should have:
+
+- Blue circular background (#DBEAFE)
+- Blue icon (#2563EB)
+
+Title:
+22px
+Bold
+#1E293B
+
+==================================
+7. SPACING
+==================================
+
+Increase spacing between:
+
+- Labels and inputs
+- Input rows
+- Section cards
+- Screen margins
+
+Maintain a clean 16–24px spacing system throughout.
+
+==================================
+8. BUTTON
+==================================
+
+Register Button
+
+- Blue Gradient (#2563EB → #1D4ED8)
+- Height: 56px
+- Border Radius: 16px
+- White Bold Text
+- Soft shadow
+- Slight scale animation on press
+
+==================================
+9. OVERALL LOOK
+==================================
+
+The entire Register page should match the premium Dashboard design.
+
+It should feel clean, elegant, modern, and suitable for a professional automotive platform.
+
+Do NOT change any functionality, APIs, navigation, database, validation, or business logic. Only improve the UI and visual styling.
