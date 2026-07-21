@@ -1,0 +1,220 @@
+Redesign the Login and Register screens to match the same premium visual design, colors, and branding as the new GoFixAuto Dashboard.
+
+IMPORTANT:
+- Do NOT modify any APIs, authentication, OTP flow, backend logic, navigation, validation, state management, or database.
+- Only update the UI, styling, colors, spacing, typography, and component appearance.
+
+========================================
+DESIGN LANGUAGE
+========================================
+
+Use the exact same design language as the Dashboard:
+
+• Primary Blue:
+  #2563EB
+
+• Dark Background:
+  #0F172A
+
+• Background:
+  #F8FAFC
+
+• White Cards
+
+• Rounded corners (18–20px)
+
+• Soft shadows
+
+• Modern spacing
+
+• Professional automotive look
+
+The Login and Register screens should feel like they belong to the same application as the Dashboard.
+
+========================================
+LOGIN SCREEN
+========================================
+
+Replace the current plain white layout with a premium design.
+
+1. Add a premium blue gradient header similar to the Dashboard header.
+
+Gradient:
+#2563EB → #1D4ED8
+
+2. Display the GoFixAuto logo inside a white circular or rounded card with a soft shadow.
+
+3. Replace
+
+"Welcome Back"
+
+with
+
+Welcome to GoFixAuto
+
+Subtitle:
+
+Manage your garage efficiently and grow your business.
+
+4. Mobile Number field
+
+• White background
+• Rounded 16px
+• Soft border
+• Light shadow
+• Same style as dashboard cards
+
+5. OTP Button
+
+Full width
+
+Primary Blue
+
+Rounded
+
+Height 56px
+
+White bold text
+
+Soft shadow
+
+6. "Don't have an account? Sign Up"
+
+Center aligned
+
+Only "Sign Up" should use the primary blue.
+
+========================================
+REGISTER SCREEN
+========================================
+
+Keep all existing fields and APIs exactly the same.
+
+Only redesign the UI.
+
+Replace the heading
+
+"Create Account"
+
+with
+
+Join GoFixAuto
+
+Replace the subtitle
+
+"Join GoFixAuto and grow your garage business."
+
+with
+
+Create your garage partner account to receive bookings, manage services, and grow your business with GoFixAuto.
+
+Center align the heading and subtitle.
+
+========================================
+FORM DESIGN
+========================================
+
+Every section card should match the Dashboard cards.
+
+Personal Details
+
+Workshop Details
+
+Address Details
+
+Bank Details
+
+Documents
+
+Business Details
+
+Each section should have:
+
+• White card
+• Rounded 20px
+• Soft shadow
+• 24px padding
+• Small colored icon
+• Clean typography
+
+========================================
+INPUT FIELDS
+========================================
+
+Remove the current dark input boxes.
+
+Instead use:
+
+White background
+
+Light border (#E2E8F0)
+
+16px radius
+
+56px height
+
+Dark text
+
+Gray placeholder
+
+Blue border on focus
+
+========================================
+BUTTONS
+========================================
+
+Primary Button
+
+Blue (#2563EB)
+
+Rounded 16px
+
+White bold text
+
+Soft shadow
+
+Secondary buttons
+
+White background
+
+Blue border
+
+Blue text
+
+========================================
+TYPOGRAPHY
+========================================
+
+Titles:
+32px
+Bold
+
+Section Titles:
+22px
+Semi Bold
+
+Labels:
+16px
+
+Placeholder:
+15px
+
+========================================
+SPACING
+========================================
+
+Increase spacing between sections.
+
+Use generous padding.
+
+Maintain perfect alignment throughout the screen.
+
+========================================
+FINAL RESULT
+========================================
+
+The Login and Register screens must visually match the Dashboard.
+
+The entire app should have one consistent premium design system with the same colors, rounded cards, typography, buttons, shadows, and spacing.
+
+The application should look like a professional enterprise automotive platform similar to Uber, Tesla, or BMW service apps while preserving all existing functionality.

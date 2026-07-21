@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -22,16 +23,18 @@ import InputField from '@/src/components/ui/InputField';
 import PrimaryButton from '@/src/components/ui/PrimaryButton';
 import { radius, shadow, spacing, typography } from '@/constants/theme';
 
-const PRIMARY = '#C62839';
-const PRIMARY_LIGHT = '#FEF2F2';
-const TEXT_COLOR = '#111827';
-const BG = '#F4F5F7';
-const CARD = '#FFFFFF';
-const BORDER = '#E5E7EB';
-const BORDER_FOCUS = PRIMARY;
-const LABEL = '#374151';
-const MUTED = '#6B7280';
-const DANGER = '#EF4444';
+/* ── Design tokens ─────────────────────────────────── */
+const PRIMARY       = '#2563EB';
+const PRIMARY_D     = '#1D4ED8';
+const PRIMARY_LIGHT = '#DBEAFE';
+const TEXT_COLOR    = '#1E293B';
+const BG            = '#F8FAFC';
+const CARD          = '#FFFFFF';
+const BORDER        = '#E2E8F0';
+const BORDER_FOCUS  = PRIMARY;
+const LABEL         = '#374151';
+const MUTED         = '#64748B';
+const DANGER        = '#EF4444';
 
 const GOOGLE_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY ?? '';
 
@@ -39,10 +42,10 @@ const GOOGLE_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY ?? '';
 /*  Vehicle Service Type options (maps to `wheelers`)  */
 /* ─────────────────────────────────────────────────── */
 const WHEELER_OPTIONS = [
-  { id: '2W', emoji: '🏍️', label: '2W',  full: '2 Wheeler'           },
-  { id: '3W', emoji: '🛺',  label: '3W',  full: '3 Wheeler'           },
-  { id: '4W', emoji: '🚗',  label: '4W',  full: '4 Wheeler'           },
-  { id: '6W', emoji: '🚚',  label: '6W',  full: '6W / Heavy'          },
+  { id: '2W', emoji: '🏍️', label: '2W', full: '2 Wheeler' },
+  { id: '3W', emoji: '🛺',  label: '3W', full: '3 Wheeler' },
+  { id: '4W', emoji: '🚗',  label: '4W', full: '4 Wheeler' },
+  { id: '6W', emoji: '🚚',  label: '6W', full: '6W / Heavy' },
 ];
 
 /* ─────────────────────────────────────────────────── */
@@ -55,7 +58,7 @@ interface Suggestion {
 }
 
 /* ─────────────────────────────────────────────────── */
-/*  Debounce hook                                       */
+/*  Debounce hook                                      */
 /* ─────────────────────────────────────────────────── */
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -67,7 +70,7 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 /* ─────────────────────────────────────────────────── */
-/*  Address autocomplete component                      */
+/*  Address autocomplete component                     */
 /* ─────────────────────────────────────────────────── */
 interface AddressAutocompleteProps {
   value: string;
@@ -89,7 +92,6 @@ function AddressAutocomplete({ value, onChangeText, onSelect, error }: AddressAu
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debouncedValue = useDebounce(value, 400);
 
-  // Fetch autocomplete suggestions
   useEffect(() => {
     if (!GOOGLE_KEY || debouncedValue.length < 3) {
       setSuggestions([]);
@@ -138,22 +140,19 @@ function AddressAutocomplete({ value, onChangeText, onSelect, error }: AddressAu
   }
 
   const borderColor = error ? DANGER : focused ? BORDER_FOCUS : BORDER;
-  const borderWidth = focused ? 1.5 : 1;
+  const borderWidth = focused || !!error ? 1.5 : 1;
 
   return (
     <View>
-      {/* Label */}
       <Text style={styles.fieldLabel}>Address</Text>
-
-      {/* Input */}
       <View style={[styles.addressInputWrap, { borderColor, borderWidth }]}>
-        <Feather name="map-pin" size={16} color={focused ? PRIMARY : MUTED} style={{ marginRight: 10 }} />
+        <Feather name="map-pin" size={16} color={focused ? PRIMARY : '#94A3B8'} style={{ marginRight: 10 }} />
         <TextInput
           style={styles.addressInput}
           value={value}
           onChangeText={t => { onChangeText(t); setShowSuggestions(t.length >= 3); }}
           placeholder="Search your workshop address…"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor="#94A3B8"
           onFocus={() => setFocused(true)}
           onBlur={() => { setFocused(false); setTimeout(() => setShowSuggestions(false), 200); }}
           autoCapitalize="none"
@@ -162,7 +161,6 @@ function AddressAutocomplete({ value, onChangeText, onSelect, error }: AddressAu
         {loadingSuggestions && <ActivityIndicator size="small" color={PRIMARY} />}
       </View>
 
-      {/* Suggestions dropdown */}
       {showSuggestions && suggestions.length > 0 && (
         <View style={styles.suggestionList}>
           {suggestions.map((s, i) => (
@@ -170,7 +168,7 @@ function AddressAutocomplete({ value, onChangeText, onSelect, error }: AddressAu
               key={s.place_id}
               style={[
                 styles.suggestionItem,
-                i < suggestions.length - 1 && { borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+                i < suggestions.length - 1 && { borderBottomWidth: 1, borderBottomColor: BORDER },
               ]}
               onPress={() => pickSuggestion(s)}
               activeOpacity={0.7}
@@ -189,11 +187,9 @@ function AddressAutocomplete({ value, onChangeText, onSelect, error }: AddressAu
         </View>
       )}
 
-      {/* No API key fallback hint */}
       {!GOOGLE_KEY && (
         <Text style={styles.hintText}>💡 Add EXPO_PUBLIC_GOOGLE_PLACES_API_KEY to enable address suggestions</Text>
       )}
-
       {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
@@ -205,9 +201,6 @@ function AddressAutocomplete({ value, onChangeText, onSelect, error }: AddressAu
 function WheelerChip({
   emoji, label, selected, onPress,
 }: { emoji: string; label: string; selected: boolean; onPress: () => void }) {
-  // Only use Animated for scale/transform — native driver safe.
-  // Colours are handled via plain conditional styles (no Animated.Value),
-  // which avoids the native-driver conflict entirely.
   const scale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -256,14 +249,14 @@ function SectionCard({
 }) {
   return (
     <View
-      style={[styles.card, shadow.sm]}
+      style={[styles.card, shadow.md]}
       onLayout={e => {
         if (sectionKey && onSectionLayout) onSectionLayout(sectionKey, e.nativeEvent.layout.y);
       }}
     >
       <View style={styles.cardHeader}>
         <View style={styles.cardIconBadge}>
-          <Feather name={icon} size={14} color={PRIMARY} />
+          <Feather name={icon} size={15} color={PRIMARY} />
         </View>
         <Text style={styles.cardTitle}>{title}</Text>
       </View>
@@ -280,7 +273,6 @@ export default function RegisterScreen() {
   const { signUp, isLoading, error, clearError } = useAuth();
   const scrollRef = useRef<ScrollView>(null);
 
-  // Y-offsets of each section for scroll-to-error
   const sectionY = useRef<Record<string, number>>({});
 
   const [form, setForm] = useState({
@@ -299,7 +291,6 @@ export default function RegisterScreen() {
     acceptTerms:  false,
   });
 
-  // Track touched fields for inline validation
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   function set<K extends keyof typeof form>(key: K, val: typeof form[K]) {
@@ -320,7 +311,6 @@ export default function RegisterScreen() {
     }));
   }
 
-  // Validation helpers
   const errors = {
     firstName:    touched.firstName    && !form.firstName    ? 'First name is required' : '',
     workshopName: touched.workshopName && !form.workshopName ? 'Workshop name is required' : '',
@@ -341,7 +331,6 @@ export default function RegisterScreen() {
   const handleSubmit = useCallback(async () => {
     setTouched(t => ({ ...t, firstName: true, workshopName: true, phone: true, wheelers: true }));
     if (!isValid) {
-      // Scroll to the first section that has an error
       const order = ['personal', 'workshop', 'contact', 'wheelers'];
       const errs: Record<string, boolean> = {
         personal: !form.firstName,
@@ -355,20 +344,19 @@ export default function RegisterScreen() {
       }
       return;
     }
-
     await signUp({
-      first_name:    form.firstName,
-      last_name:     form.lastName   || null,
-      mobile:        form.phone,
-      email:         form.email      || '',
-      workshop_name: form.workshopName,
-      address:       form.address    || null,
-      city:          form.city       || null,
-      state:         form.state      || null,
-      zipcode:       form.zipcode    || null,
-      country:       form.country    || null,
-      mobile_2:      form.phone2     || null,
-      wheelers:      form.wheelers.length > 0 ? form.wheelers : null,
+      first_name:     form.firstName,
+      last_name:      form.lastName   || null,
+      mobile:         form.phone,
+      email:          form.email      || '',
+      workshop_name:  form.workshopName,
+      address:        form.address    || null,
+      city:           form.city       || null,
+      state:          form.state      || null,
+      zipcode:        form.zipcode    || null,
+      country:        form.country    || null,
+      mobile_2:       form.phone2     || null,
+      wheelers:       form.wheelers.length > 0 ? form.wheelers : null,
       terms_accepted: true,
     });
   }, [form, isValid, signUp]);
@@ -379,260 +367,269 @@ export default function RegisterScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
-      <StatusBar barStyle="dark-content" backgroundColor={BG} />
+      <StatusBar barStyle="light-content" backgroundColor={PRIMARY} />
 
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={[
-          styles.scroll,
-          { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 48 },
-        ]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 48 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo + header */}
-        <View style={[styles.logoCard, shadow.md]}>
-          <Image
-            source={require('../../assets/images/logo.jpg')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
-        <Text style={[typography.headline, styles.pageTitle]}>Create Account</Text>
-        <Text style={styles.pageSubtitle}>
-          Join GoFixAuto and grow your garage business.
-        </Text>
-
-        {/* API Error banner */}
-        {error ? (
-          <View style={styles.errorBanner}>
-            <Feather name="alert-circle" size={15} color={DANGER} />
-            <Text style={[typography.bodySm, { color: DANGER, flex: 1 }]}>{error}</Text>
-          </View>
-        ) : null}
-
-        {/* ── Personal Details ── */}
-        <SectionCard
-          icon="user" title="Personal Details"
-          sectionKey="personal"
-          onSectionLayout={(k, y) => { sectionY.current[k] = y; }}
+        {/* ── Gradient header ── */}
+        <LinearGradient
+          colors={[PRIMARY, PRIMARY_D]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.headerGradient, { paddingTop: insets.top + 28 }]}
         >
-          <View style={styles.row}>
-            <View style={{ flex: 1 }}>
-              <InputField
-                label="First Name *"
-                value={form.firstName}
-                onChangeText={v => set('firstName', v)}
-                onBlur={() => touch('firstName')}
-                placeholder="First name"
-                autoCapitalize="words"
-                leadingIcon="user"
-                error={errors.firstName}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <InputField
-                label="Last Name"
-                value={form.lastName}
-                onChangeText={v => set('lastName', v)}
-                placeholder="Last name"
-                autoCapitalize="words"
-              />
-            </View>
+          {/* Logo */}
+          <View style={[styles.logoCard, shadow.md]}>
+            <Image
+              source={require('../../assets/images/logo.jpg')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
           </View>
-        </SectionCard>
 
-        {/* ── Workshop Details ── */}
-        <SectionCard
-          icon="tool" title="Workshop Details"
-          sectionKey="workshop"
-          onSectionLayout={(k, y) => { sectionY.current[k] = y; }}
-        >
-          <InputField
-            label="Workshop Name *"
-            value={form.workshopName}
-            onChangeText={v => set('workshopName', v)}
-            onBlur={() => touch('workshopName')}
-            placeholder="e.g. Sharma Auto Works"
-            leadingIcon="briefcase"
-            error={errors.workshopName}
-          />
-          <InputField
-            label="Email Address"
-            value={form.email}
-            onChangeText={v => set('email', v)}
-            onBlur={() => touch('email')}
-            placeholder="email@example.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            leadingIcon="mail"
-            error={errors.email}
-          />
+          {/* Page title & subtitle inside gradient */}
+          <Text style={styles.pageTitle}>Join GoFixAuto</Text>
+          <Text style={styles.pageSubtitle}>
+            Create your garage partner account to receive bookings, manage services, and grow your business with GoFixAuto.
+          </Text>
+        </LinearGradient>
 
-          {/* Google Places address */}
-          <AddressAutocomplete
-            value={form.address}
-            onChangeText={v => set('address', v)}
-            onSelect={({ address, city, state, pincode, country }) => {
-              setForm(f => ({
-                ...f,
-                address,
-                city:    city    || f.city,
-                state:   state   || f.state,
-                zipcode: pincode || f.zipcode,
-                country: country || f.country,
-              }));
-            }}
-          />
-
-          <View style={[styles.row, { marginTop: 4 }]}>
-            <View style={{ flex: 1 }}>
-              <InputField
-                label="City"
-                value={form.city}
-                onChangeText={v => set('city', v)}
-                placeholder="City"
-                leadingIcon="map"
-              />
+        {/* ── Form body ── */}
+        <View style={styles.formBody}>
+          {/* API Error banner */}
+          {error ? (
+            <View style={styles.errorBanner}>
+              <Feather name="alert-circle" size={15} color={DANGER} />
+              <Text style={[typography.bodySm, { color: DANGER, flex: 1 }]}>{error}</Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <InputField
-                label="State"
-                value={form.state}
-                onChangeText={v => set('state', v)}
-                placeholder="State"
-              />
-            </View>
-          </View>
-          <View style={styles.row}>
-            <View style={{ flex: 1 }}>
-              <InputField
-                label="Pincode"
-                value={form.zipcode}
-                onChangeText={v => set('zipcode', v)}
-                placeholder="Pincode"
-                keyboardType="number-pad"
-                leadingIcon="hash"
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <InputField
-                label="Country"
-                value={form.country}
-                onChangeText={v => set('country', v)}
-                placeholder="India"
-              />
-            </View>
-          </View>
-        </SectionCard>
-
-        {/* ── Contact ── */}
-        <SectionCard
-          icon="phone" title="Contact"
-          sectionKey="contact"
-          onSectionLayout={(k, y) => { sectionY.current[k] = y; }}
-        >
-          {/* Full-width phone fields — stacked so +91 prefix never cramps the number */}
-          <InputField
-            label="Primary Phone *"
-            value={form.phone}
-            onChangeText={v => set('phone', v.replace(/\D/g, ''))}
-            onBlur={() => touch('phone')}
-            placeholder="Enter 10-digit mobile number"
-            keyboardType="number-pad"
-            maxLength={10}
-            prefix="+91"
-            leadingIcon="phone"
-            error={errors.phone}
-          />
-          <InputField
-            label="Alternate Phone (Optional)"
-            value={form.phone2}
-            onChangeText={v => set('phone2', v.replace(/\D/g, ''))}
-            placeholder="Enter 10-digit mobile number"
-            keyboardType="number-pad"
-            maxLength={10}
-            prefix="+91"
-            leadingIcon="phone"
-          />
-        </SectionCard>
-
-        {/* ── Vehicle Service Type ── */}
-        <SectionCard
-          icon="truck" title="Vehicle Service Type *"
-          sectionKey="wheelers"
-          onSectionLayout={(k, y) => { sectionY.current[k] = y; }}
-        >
-          <Text style={styles.wheelerHint}>Select all vehicle types your workshop services</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.hChipRow}
-            keyboardShouldPersistTaps="handled"
-          >
-            {WHEELER_OPTIONS.map(opt => (
-              <WheelerChip
-                key={opt.id}
-                emoji={opt.emoji}
-                label={opt.label}
-                selected={form.wheelers.includes(opt.id)}
-                onPress={() => { toggleWheeler(opt.id); touch('wheelers'); }}
-              />
-            ))}
-          </ScrollView>
-          {errors.wheelers ? (
-            <Text style={[styles.fieldError, { marginTop: 6 }]}>{errors.wheelers}</Text>
           ) : null}
-        </SectionCard>
 
-        {/* ── Terms & Conditions ── */}
-        <View style={styles.termsCard}>
+          {/* ── Personal Details ── */}
+          <SectionCard
+            icon="user" title="Personal Details"
+            sectionKey="personal"
+            onSectionLayout={(k, y) => { sectionY.current[k] = y; }}
+          >
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <InputField
+                  label="First Name *"
+                  value={form.firstName}
+                  onChangeText={v => set('firstName', v)}
+                  onBlur={() => touch('firstName')}
+                  placeholder="First name"
+                  autoCapitalize="words"
+                  leadingIcon="user"
+                  error={errors.firstName}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <InputField
+                  label="Last Name"
+                  value={form.lastName}
+                  onChangeText={v => set('lastName', v)}
+                  placeholder="Last name"
+                  autoCapitalize="words"
+                />
+              </View>
+            </View>
+          </SectionCard>
+
+          {/* ── Workshop Details ── */}
+          <SectionCard
+            icon="tool" title="Workshop Details"
+            sectionKey="workshop"
+            onSectionLayout={(k, y) => { sectionY.current[k] = y; }}
+          >
+            <InputField
+              label="Workshop Name *"
+              value={form.workshopName}
+              onChangeText={v => set('workshopName', v)}
+              onBlur={() => touch('workshopName')}
+              placeholder="e.g. Sharma Auto Works"
+              leadingIcon="briefcase"
+              error={errors.workshopName}
+            />
+            <InputField
+              label="Email Address"
+              value={form.email}
+              onChangeText={v => set('email', v)}
+              onBlur={() => touch('email')}
+              placeholder="email@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              leadingIcon="mail"
+              error={errors.email}
+            />
+
+            <AddressAutocomplete
+              value={form.address}
+              onChangeText={v => set('address', v)}
+              onSelect={({ address, city, state, pincode, country }) => {
+                setForm(f => ({
+                  ...f,
+                  address,
+                  city:    city    || f.city,
+                  state:   state   || f.state,
+                  zipcode: pincode || f.zipcode,
+                  country: country || f.country,
+                }));
+              }}
+            />
+
+            <View style={[styles.row, { marginTop: 4 }]}>
+              <View style={{ flex: 1 }}>
+                <InputField
+                  label="City"
+                  value={form.city}
+                  onChangeText={v => set('city', v)}
+                  placeholder="City"
+                  leadingIcon="map"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <InputField
+                  label="State"
+                  value={form.state}
+                  onChangeText={v => set('state', v)}
+                  placeholder="State"
+                />
+              </View>
+            </View>
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <InputField
+                  label="Pincode"
+                  value={form.zipcode}
+                  onChangeText={v => set('zipcode', v)}
+                  placeholder="Pincode"
+                  keyboardType="number-pad"
+                  leadingIcon="hash"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <InputField
+                  label="Country"
+                  value={form.country}
+                  onChangeText={v => set('country', v)}
+                  placeholder="India"
+                />
+              </View>
+            </View>
+          </SectionCard>
+
+          {/* ── Contact ── */}
+          <SectionCard
+            icon="phone" title="Contact"
+            sectionKey="contact"
+            onSectionLayout={(k, y) => { sectionY.current[k] = y; }}
+          >
+            <InputField
+              label="Primary Phone *"
+              value={form.phone}
+              onChangeText={v => set('phone', v.replace(/\D/g, ''))}
+              onBlur={() => touch('phone')}
+              placeholder="Enter 10-digit mobile number"
+              keyboardType="number-pad"
+              maxLength={10}
+              prefix="+91"
+              leadingIcon="phone"
+              error={errors.phone}
+            />
+            <InputField
+              label="Alternate Phone (Optional)"
+              value={form.phone2}
+              onChangeText={v => set('phone2', v.replace(/\D/g, ''))}
+              placeholder="Enter 10-digit mobile number"
+              keyboardType="number-pad"
+              maxLength={10}
+              prefix="+91"
+              leadingIcon="phone"
+            />
+          </SectionCard>
+
+          {/* ── Vehicle Service Type ── */}
+          <SectionCard
+            icon="truck" title="Vehicle Service Type *"
+            sectionKey="wheelers"
+            onSectionLayout={(k, y) => { sectionY.current[k] = y; }}
+          >
+            <Text style={styles.wheelerHint}>Select all vehicle types your workshop services</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.hChipRow}
+              keyboardShouldPersistTaps="handled"
+            >
+              {WHEELER_OPTIONS.map(opt => (
+                <WheelerChip
+                  key={opt.id}
+                  emoji={opt.emoji}
+                  label={opt.label}
+                  selected={form.wheelers.includes(opt.id)}
+                  onPress={() => { toggleWheeler(opt.id); touch('wheelers'); }}
+                />
+              ))}
+            </ScrollView>
+            {errors.wheelers ? (
+              <Text style={[styles.fieldError, { marginTop: 6 }]}>{errors.wheelers}</Text>
+            ) : null}
+          </SectionCard>
+
+          {/* ── Terms & Conditions ── */}
+          <View style={[styles.termsCard, shadow.sm]}>
+            <TouchableOpacity
+              style={styles.termsRow}
+              onPress={() => set('acceptTerms', !form.acceptTerms)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, form.acceptTerms && styles.checkboxChecked]}>
+                {form.acceptTerms && <Feather name="check" size={12} color="#fff" />}
+              </View>
+              <Text style={styles.termsText}>
+                I agree to the{' '}
+                <Text
+                  style={styles.termsLink}
+                  onPress={() => Linking.openURL('https://gofixcarz.com/terms')}
+                >
+                  Terms and Conditions
+                </Text>
+                {' '}and{' '}
+                <Text
+                  style={styles.termsLink}
+                  onPress={() => Linking.openURL('https://gofixcarz.com/privacy')}
+                >
+                  Privacy Policy
+                </Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Submit ── */}
+          <View style={[shadow.md, { borderRadius: 16, marginBottom: spacing.md }]}>
+            <PrimaryButton
+              label="Create Account"
+              onPress={handleSubmit}
+              loading={isLoading}
+              disabled={!isValid || isLoading}
+            />
+          </View>
+
           <TouchableOpacity
-            style={styles.termsRow}
-            onPress={() => set('acceptTerms', !form.acceptTerms)}
+            onPress={() => router.push('/(auth)/login')}
+            style={styles.signInRow}
             activeOpacity={0.7}
           >
-            <View style={[styles.checkbox, form.acceptTerms && styles.checkboxChecked]}>
-              {form.acceptTerms && <Feather name="check" size={12} color="#fff" />}
-            </View>
-            <Text style={styles.termsText}>
-              I agree to the{' '}
-              <Text
-                style={styles.termsLink}
-                onPress={() => Linking.openURL('https://gofixcarz.com/terms')}
-              >
-                Terms and Conditions
-              </Text>
-              {' '}and{' '}
-              <Text
-                style={styles.termsLink}
-                onPress={() => Linking.openURL('https://gofixcarz.com/privacy')}
-              >
-                Privacy Policy
-              </Text>
+            <Text style={[typography.bodySm, { color: MUTED }]}>
+              Already have an account?{' '}
+              <Text style={{ color: PRIMARY, fontWeight: '700' }}>Sign In</Text>
             </Text>
           </TouchableOpacity>
         </View>
-
-        {/* ── Submit ── */}
-        <PrimaryButton
-          label="Create Account"
-          onPress={handleSubmit}
-          loading={isLoading}
-          disabled={!isValid || isLoading}
-          style={styles.submitBtn}
-        />
-
-        <TouchableOpacity
-          onPress={() => router.push('/(auth)/login')}
-          style={styles.signInRow}
-          activeOpacity={0.7}
-        >
-          <Text style={[typography.bodySm, { color: MUTED }]}>
-            Already have an account?{' '}
-            <Text style={{ color: PRIMARY, fontWeight: '700' }}>Sign In</Text>
-          </Text>
-        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -642,27 +639,46 @@ export default function RegisterScreen() {
 /*  Styles                                             */
 /* ─────────────────────────────────────────────────── */
 const styles = StyleSheet.create({
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.base,
+  scroll: { flexGrow: 1 },
+
+  /* ── Gradient header ── */
+  headerGradient: {
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingBottom: 32,
   },
 
-  /* Header */
   logoCard: {
-    width: 120, height: 80, borderRadius: radius.lg,
-    backgroundColor: '#111', overflow: 'hidden',
-    alignSelf: 'center', marginBottom: spacing.md,
+    width: 120, height: 80, borderRadius: 18,
+    backgroundColor: '#fff', overflow: 'hidden',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.5)',
   },
   logo: { width: '100%', height: '100%' },
-  pageTitle: { color: TEXT_COLOR, textAlign: 'center', marginBottom: 6 },
-  pageSubtitle: {
-    fontSize: 16,
-    fontWeight: '500' as const,
-    color: MUTED,
+
+  pageTitle: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#FFFFFF',
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: spacing.xl,
-    paddingHorizontal: spacing.md,
+    letterSpacing: -0.3,
+    marginBottom: 10,
+  },
+  pageSubtitle: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: 'rgba(255,255,255,0.85)',
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 8,
+  },
+
+  /* ── Form body ── */
+  formBody: {
+    flex: 1,
+    padding: spacing.base,
+    paddingTop: spacing.xl,
   },
 
   /* Error banner */
@@ -674,33 +690,37 @@ const styles = StyleSheet.create({
     padding: spacing.md, marginBottom: spacing.md,
   },
 
-  /* Section card */
+  /* ── Section card ── */
   card: {
     backgroundColor: CARD,
-    borderRadius: radius.lg,
+    borderRadius: 20,
     marginBottom: spacing.md,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: BORDER,
   },
   cardHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: spacing.base, paddingTop: 14, paddingBottom: 10,
-    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+    paddingHorizontal: spacing.lg, paddingTop: 16, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
   },
   cardIconBadge: {
-    width: 28, height: 28, borderRadius: 8,
+    width: 32, height: 32, borderRadius: 10,
     backgroundColor: PRIMARY_LIGHT,
     alignItems: 'center', justifyContent: 'center',
   },
   cardTitle: {
-    ...typography.titleSm,
+    fontSize: 16,
+    fontWeight: '700',
     color: TEXT_COLOR,
+    letterSpacing: -0.1,
   },
-  cardBody: { padding: spacing.base },
+  cardBody: { padding: spacing.lg },
 
   /* Row layout */
   row: { flexDirection: 'row', gap: 10 },
 
-  /* Address autocomplete */
+  /* ── Address autocomplete ── */
   fieldLabel: {
     ...typography.label,
     color: LABEL,
@@ -708,10 +728,11 @@ const styles = StyleSheet.create({
   },
   addressInputWrap: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#FFFFFF',
     borderRadius: radius.md,
-    borderWidth: 1, borderColor: BORDER,
-    paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 14 : 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    height: 52,
     marginBottom: 4,
   },
   addressInput: {
@@ -725,7 +746,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: BORDER,
     marginBottom: spacing.sm,
     overflow: 'hidden',
-    // elevate above other inputs
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.10, shadowRadius: 12 },
       android: { elevation: 6 },
@@ -738,10 +758,10 @@ const styles = StyleSheet.create({
   },
   suggestionMain: { ...typography.bodySm, color: TEXT_COLOR, fontWeight: '600' },
   suggestionSub:  { ...typography.caption, color: MUTED },
-  hintText: { ...typography.caption, color: MUTED, marginBottom: spacing.sm, fontStyle: 'italic' },
-  fieldError: { ...typography.caption, color: DANGER, marginTop: 4, marginBottom: 4 },
+  hintText:       { ...typography.caption, color: MUTED, marginBottom: spacing.sm, fontStyle: 'italic' },
+  fieldError:     { ...typography.caption, color: DANGER, marginTop: 4, marginBottom: 4 },
 
-  /* Wheeler chips — horizontal scroll row */
+  /* ── Wheeler chips ── */
   wheelerHint: { ...typography.caption, color: MUTED, marginBottom: spacing.sm },
   hChipRow: { flexDirection: 'row', gap: 10, paddingBottom: 4 },
   hChip: {
@@ -757,15 +777,15 @@ const styles = StyleSheet.create({
     }),
   },
   hChipIdle: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F8FAFC',
     borderColor: BORDER,
   },
   hChipSelected: {
-    backgroundColor: '#FFF0F0',
+    backgroundColor: PRIMARY_LIGHT,
     borderColor: PRIMARY,
   },
-  hChipEmoji: { fontSize: 26, marginBottom: 6 },
-  hChipLabel: { ...typography.label, color: LABEL, textAlign: 'center' },
+  hChipEmoji:         { fontSize: 26, marginBottom: 6 },
+  hChipLabel:         { ...typography.label, color: LABEL, textAlign: 'center' },
   hChipLabelSelected: { color: PRIMARY, fontWeight: '700' as const },
   hChipCheck: {
     position: 'absolute', top: 6, right: 6,
@@ -774,36 +794,27 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
-  /* Terms */
+  /* ── Terms ── */
   termsCard: {
     backgroundColor: CARD,
-    borderRadius: radius.lg,
+    borderRadius: 20,
     padding: spacing.base,
     marginBottom: spacing.md,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
-      android: { elevation: 2 },
-      default: {},
-    }),
+    borderWidth: 1,
+    borderColor: BORDER,
   },
-  termsRow: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-  },
+  termsRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   checkbox: {
     width: 22, height: 22, borderRadius: 6,
-    borderWidth: 1.5, borderColor: '#D1D5DB',
+    borderWidth: 1.5, borderColor: '#CBD5E1',
     backgroundColor: '#fff',
     alignItems: 'center', justifyContent: 'center',
     marginTop: 1,
   },
-  checkboxChecked: {
-    backgroundColor: PRIMARY, borderColor: PRIMARY,
-  },
-  termsText: { ...typography.bodySm, color: LABEL, flex: 1, lineHeight: 20 },
-  termsLink: { color: PRIMARY, fontWeight: '700' },
+  checkboxChecked: { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  termsText:       { ...typography.bodySm, color: LABEL, flex: 1, lineHeight: 20 },
+  termsLink:       { color: PRIMARY, fontWeight: '700' },
 
-  /* Submit */
-  submitBtn: { marginBottom: spacing.md },
+  /* ── Footer ── */
   signInRow: { alignItems: 'center', paddingVertical: 4 },
 });
-
