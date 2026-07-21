@@ -19,7 +19,7 @@ import PrimaryButton from '@/src/components/ui/PrimaryButton';
 
 const PRIMARY = '#C62839';
 const BG = '#FFFFFF';
-const OTP_LENGTH = 4; // 4-box design per Figma
+const OTP_LENGTH = 6;
 
 export default function OtpScreen() {
   const insets = useSafeAreaInsets();
