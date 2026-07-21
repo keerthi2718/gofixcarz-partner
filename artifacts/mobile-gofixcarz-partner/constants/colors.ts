@@ -1,30 +1,28 @@
 /**
  * GoFixCarz Partner — Design tokens
- * Professional automotive service theme:  navy primary + orange accent
+ * Theme: Deep red primary (GoFixAuto brand)
  */
 
 const colors = {
   light: {
-    // Legacy aliases
     text: '#111827',
-    tint: '#FF6B2B',
+    tint: '#C62828',
 
-    // Core surfaces
-    background: '#F5F7FA',
+    background: '#F5F5F5',
     foreground: '#111827',
 
-    // Cards / elevated surfaces
     card: '#FFFFFF',
     cardForeground: '#111827',
 
-    // Primary — deep navy
-    primary: '#1B3A6B',
-    primaryLight: '#254E8E',
+    // Primary — deep red
+    primary: '#C62828',
+    primaryDark: '#B71C1C',
+    primaryLight: '#EF5350',
     primaryForeground: '#FFFFFF',
 
-    // Accent — vibrant orange (GoFixCarz brand)
-    accent: '#FF6B2B',
-    accentLight: '#FFF0E8',
+    // Accent (same red family)
+    accent: '#C62828',
+    accentLight: '#FFEBEE',
     accentForeground: '#FFFFFF',
 
     // Secondary
@@ -80,16 +78,17 @@ const colors = {
 
   dark: {
     text: '#F9FAFB',
-    tint: '#FF6B2B',
+    tint: '#EF5350',
     background: '#0F172A',
     foreground: '#F9FAFB',
     card: '#1E293B',
     cardForeground: '#F9FAFB',
-    primary: '#3B6CC9',
-    primaryLight: '#4B82E3',
+    primary: '#EF5350',
+    primaryDark: '#C62828',
+    primaryLight: '#FF8A80',
     primaryForeground: '#FFFFFF',
-    accent: '#FF6B2B',
-    accentLight: '#3D2010',
+    accent: '#EF5350',
+    accentLight: '#3D0A0A',
     accentForeground: '#FFFFFF',
     secondary: '#1E293B',
     secondaryForeground: '#CBD5E1',

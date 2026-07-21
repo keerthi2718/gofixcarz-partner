@@ -6,7 +6,6 @@ import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 
 const isIOS = Platform.OS === 'ios';
-const isWeb = Platform.OS === 'web';
 
 export default function TabLayout() {
   const colors = useColors();
@@ -17,86 +16,72 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.mutedForeground,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: '#9CA3AF',
         tabBarStyle: {
           position: 'absolute',
-          backgroundColor: isIOS ? 'transparent' : colors.card,
+          backgroundColor: isIOS ? 'transparent' : '#fff',
           borderTopWidth: 0,
           elevation: 0,
-          height: isWeb ? 84 : 62,
-          paddingBottom: isWeb ? 34 : 10,
+          height: 60,
+          paddingBottom: 8,
         },
         tabBarBackground: () =>
           isIOS ? (
             <BlurView
               intensity={95}
               tint={isDark ? 'dark' : 'light'}
-              style={[
-                StyleSheet.absoluteFill,
-                { borderTopWidth: 0.5, borderTopColor: colors.border },
-              ]}
+              style={[StyleSheet.absoluteFill, { borderTopWidth: 0.5, borderTopColor: '#E5E7EB' }]}
             />
-          ) : isWeb ? (
+          ) : (
             <View
               style={[
                 StyleSheet.absoluteFill,
-                {
-                  backgroundColor: colors.card,
-                  borderTopWidth: 1,
-                  borderTopColor: colors.border,
-                },
+                { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E7EB' },
               ]}
             />
-          ) : null,
+          ),
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginBottom: 2 },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="home" size={size ?? 22} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="bookings"
-        options={{
-          title: 'Bookings',
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="calendar" size={size ?? 22} color={color} />
-          ),
+          title: 'Home',
+          tabBarIcon: ({ color, size }) => <Feather name="home" size={size ?? 22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="jobs"
         options={{
           title: 'Jobs',
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="tool" size={size ?? 22} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Feather name="briefcase" size={size ?? 22} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="services"
+        name="bookings"
         options={{
-          title: 'Services',
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="package" size={size ?? 22} color={color} />
-          ),
+          title: 'Bookings',
+          tabBarIcon: ({ color, size }) => <Feather name="calendar" size={size ?? 22} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="more"
+        name="analytics"
         options={{
-          title: 'More',
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="menu" size={size ?? 22} color={color} />
-          ),
+          title: 'Analytics',
+          tabBarIcon: ({ color, size }) => <Feather name="trending-up" size={size ?? 22} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color, size }) => <Feather name="user" size={size ?? 22} color={color} />,
+        }}
+      />
+      {/* Hidden routes — still navigable but not in tab bar */}
+      <Tabs.Screen name="services" options={{ href: null }} />
+      <Tabs.Screen name="more" options={{ href: null }} />
     </Tabs>
   );
 }
