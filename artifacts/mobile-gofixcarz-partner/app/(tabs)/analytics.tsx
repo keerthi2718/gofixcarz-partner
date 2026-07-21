@@ -1,22 +1,26 @@
 import React, { useState } from 'react';
 import {
-  Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View,
+  Platform, ScrollView, StatusBar, StyleSheet, Text,
+  TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
-import { useColors } from '@/hooks/useColors';
 import { QUERY_KEYS } from '@/src/constants/api';
 import AnalyticsService from '@/src/services/analytics.service';
+import { useColors } from '@/hooks/useColors';
+import { formatCurrency } from '@/src/utils/helpers';
 import LoadingState from '@/src/components/ui/LoadingState';
 import ErrorState from '@/src/components/ui/ErrorState';
-import { formatCurrency } from '@/src/utils/helpers';
+import Card from '@/src/components/ui/Card';
+import SectionHeader from '@/src/components/ui/SectionHeader';
+import { radius, shadow, spacing, typography } from '@/constants/theme';
 import type { AnalyticsPeriod } from '@/src/types';
 
 const PERIODS: { label: string; value: AnalyticsPeriod }[] = [
-  { label: 'Week', value: 'week' },
+  { label: 'Week',  value: 'week' },
   { label: 'Month', value: 'month' },
-  { label: 'Year', value: 'year' },
+  { label: 'Year',  value: 'year' },
 ];
 
 export default function AnalyticsScreen() {
@@ -30,26 +34,29 @@ export default function AnalyticsScreen() {
     queryFn: () => AnalyticsService.get({ period }),
   });
 
-  const maxRevenue = Math.max(...(data?.graph_data?.map(p => p.revenue) ?? [1]));
+  const maxRev = Math.max(...(data?.graph_data?.map(p => p.revenue) ?? [1]), 1);
   const statusEntries = Object.entries(data?.status_counts ?? {}).filter(([, v]) => (v ?? 0) > 0);
+  const totalJobs = statusEntries.reduce((acc, [, v]) => acc + (v ?? 0), 0);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* Red header */}
+      {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 14, backgroundColor: colors.primary }]}>
-        <Text style={styles.headerTitle}>Analytics</Text>
-        <Text style={styles.headerSub}>Performance overview</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[typography.title, { color: '#fff' }]}>Analytics</Text>
+          <Text style={[typography.caption, { color: 'rgba(255,255,255,0.75)', marginTop: 2 }]}>Performance overview</Text>
+        </View>
       </View>
 
       {isLoading ? <LoadingState /> : error ? <ErrorState onRetry={refetch} /> : (
         <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 90 }]}
+          contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 100 }]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Period selector */}
-          <View style={[styles.periodCard, { backgroundColor: colors.card }]}>
+          {/* Period toggle */}
+          <View style={[styles.periodCard, { backgroundColor: colors.surface, borderColor: colors.border }, shadow.sm]}>
             {PERIODS.map(p => (
               <TouchableOpacity
                 key={p.value}
@@ -57,70 +64,77 @@ export default function AnalyticsScreen() {
                 onPress={() => setPeriod(p.value)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.periodText, { color: period === p.value ? '#fff' : colors.mutedForeground }]}>
+                <Text style={[typography.label, { color: period === p.value ? '#fff' : colors.textSecondary }]}>
                   {p.label}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          {/* Summary cards */}
-          <View style={styles.summaryRow}>
-            <View style={[styles.summaryCard, { backgroundColor: colors.primary }]}>
-              <Feather name="trending-up" size={20} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.summaryValue}>{formatCurrency(data?.total_revenue ?? 0)}</Text>
-              <Text style={styles.summaryLabel}>Total Revenue</Text>
-            </View>
-            <View style={[styles.summaryCard, { backgroundColor: '#2E7D32' }]}>
-              <Feather name="briefcase" size={20} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.summaryValue}>{data?.total_jobs ?? 0}</Text>
-              <Text style={styles.summaryLabel}>Total Jobs</Text>
-            </View>
+          {/* Summary KPIs */}
+          <View style={styles.kpiRow}>
+            {[
+              { label: 'Total Revenue', value: formatCurrency(data?.total_revenue ?? 0), icon: 'trending-up' as const, color: colors.primary },
+              { label: 'Total Jobs',    value: String(data?.total_jobs ?? 0),             icon: 'briefcase' as const,  color: '#8B5CF6' },
+            ].map(k => (
+              <Card key={k.label} style={styles.kpiCard} padding={spacing.base}>
+                <View style={[styles.kpiIcon, { backgroundColor: k.color + '18' }]}>
+                  <Feather name={k.icon} size={18} color={k.color} />
+                </View>
+                <Text style={[typography.headline, { color: colors.text, marginTop: 8 }]}>{k.value}</Text>
+                <Text style={[typography.caption, { color: colors.textSecondary }]}>{k.label}</Text>
+              </Card>
+            ))}
           </View>
 
           {/* Revenue chart */}
           {data?.graph_data?.length ? (
-            <View style={[styles.chartCard, { backgroundColor: colors.card }]}>
-              <Text style={[styles.chartTitle, { color: colors.foreground }]}>Revenue Trend</Text>
+            <Card>
+              <SectionHeader title="Revenue Trend" style={{ marginBottom: spacing.base }} />
               <View style={styles.chart}>
-                {data.graph_data.slice(-12).map((point, i) => {
-                  const h = maxRevenue > 0 ? (point.revenue / maxRevenue) * 120 : 4;
+                {data.graph_data.slice(-10).map((pt, i) => {
+                  const h = Math.max((pt.revenue / maxRev) * 100, 4);
                   return (
-                    <View key={i} style={styles.barWrap}>
-                      <Text style={[styles.barValue, { color: colors.mutedForeground }]}>
-                        {point.revenue >= 1000 ? `${(point.revenue / 1000).toFixed(0)}k` : String(Math.round(point.revenue))}
+                    <View key={i} style={styles.barCol}>
+                      <Text style={[typography.labelSm, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {pt.revenue >= 1000 ? `${(pt.revenue / 1000).toFixed(0)}k` : String(Math.round(pt.revenue))}
                       </Text>
-                      <View style={[styles.bar, { height: Math.max(h, 4), backgroundColor: colors.primary }]} />
-                      <Text style={[styles.barLabel, { color: colors.mutedForeground }]} numberOfLines={1}>{point.label}</Text>
+                      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+                        <View style={[styles.bar, { height: h, backgroundColor: colors.primary, borderRadius: 4 }]} />
+                      </View>
+                      <Text style={[typography.labelSm, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {pt.label}
+                      </Text>
                     </View>
                   );
                 })}
               </View>
-            </View>
+            </Card>
           ) : null}
 
-          {/* Job status breakdown */}
+          {/* Status breakdown */}
           {statusEntries.length ? (
-            <View style={[styles.chartCard, { backgroundColor: colors.card }]}>
-              <Text style={[styles.chartTitle, { color: colors.foreground }]}>Jobs by Status</Text>
-              <View style={styles.statusList}>
+            <Card>
+              <SectionHeader title="Jobs by Status" style={{ marginBottom: spacing.base }} />
+              <View style={{ gap: 12 }}>
                 {statusEntries.map(([status, count]) => {
-                  const total = statusEntries.reduce((acc, [, v]) => acc + (v ?? 0), 0);
-                  const pct = total > 0 ? ((count ?? 0) / total) * 100 : 0;
+                  const pct = totalJobs > 0 ? ((count ?? 0) / totalJobs) * 100 : 0;
                   return (
-                    <View key={status} style={styles.statusRow}>
-                      <Text style={[styles.statusLabel, { color: colors.foreground }]}>
-                        {status.replace(/_/g, ' ')}
-                      </Text>
-                      <View style={[styles.statusBarBg, { backgroundColor: colors.secondary }]}>
-                        <View style={[styles.statusBarFill, { width: `${pct}%`, backgroundColor: colors.primary }]} />
+                    <View key={status}>
+                      <View style={styles.statusLabelRow}>
+                        <Text style={[typography.bodySm, { color: colors.text, fontWeight: '500', flex: 1 }]}>
+                          {status.replace(/_/g, ' ')}
+                        </Text>
+                        <Text style={[typography.label, { color: colors.text }]}>{count}</Text>
                       </View>
-                      <Text style={[styles.statusCount, { color: colors.foreground }]}>{count}</Text>
+                      <View style={[styles.trackBg, { backgroundColor: colors.border }]}>
+                        <View style={[styles.trackFill, { width: `${pct}%`, backgroundColor: colors.primary }]} />
+                      </View>
                     </View>
                   );
                 })}
               </View>
-            </View>
+            </Card>
           ) : null}
         </ScrollView>
       )}
@@ -130,28 +144,20 @@ export default function AnalyticsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingBottom: 20 },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
-  headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
-  content: { padding: 16, gap: 14 },
-  periodCard: { flexDirection: 'row', borderRadius: 12, padding: 4, gap: 4 },
-  periodBtn: { flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: 'center' },
-  periodText: { fontSize: 13, fontWeight: '700' },
-  summaryRow: { flexDirection: 'row', gap: 12 },
-  summaryCard: { flex: 1, borderRadius: 16, padding: 18, gap: 6 },
-  summaryValue: { fontSize: 22, fontWeight: '800', color: '#fff' },
-  summaryLabel: { fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: '500' },
-  chartCard: { borderRadius: 16, padding: 16, elevation: 3 },
-  chartTitle: { fontSize: 15, fontWeight: '700', marginBottom: 16 },
-  chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 160 },
-  barWrap: { flex: 1, alignItems: 'center', gap: 4 },
-  barValue: { fontSize: 9 },
-  bar: { width: '70%', borderRadius: 4, minHeight: 4 },
-  barLabel: { fontSize: 9, textAlign: 'center' },
-  statusList: { gap: 12 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  statusLabel: { fontSize: 12, fontWeight: '500', width: 110 },
-  statusBarBg: { flex: 1, height: 8, borderRadius: 4, overflow: 'hidden' },
-  statusBarFill: { height: '100%', borderRadius: 4 },
-  statusCount: { fontSize: 12, fontWeight: '700', width: 30, textAlign: 'right' },
+  header: { paddingHorizontal: spacing.base, paddingBottom: spacing.base },
+  body: { padding: spacing.base, gap: spacing.sm },
+  periodCard: {
+    flexDirection: 'row', borderRadius: radius.lg,
+    padding: 4, gap: 4, borderWidth: 1,
+  },
+  periodBtn: { flex: 1, paddingVertical: 9, borderRadius: radius.md, alignItems: 'center' },
+  kpiRow: { flexDirection: 'row', gap: spacing.sm },
+  kpiCard: { flex: 1 },
+  kpiIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  chart: { flexDirection: 'row', alignItems: 'flex-end', height: 140, gap: 4 },
+  barCol: { flex: 1, alignItems: 'center', height: '100%', gap: 4 },
+  bar: { width: '70%' },
+  statusLabelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  trackBg: { height: 6, borderRadius: 4, overflow: 'hidden' },
+  trackFill: { height: '100%', borderRadius: 4 },
 });

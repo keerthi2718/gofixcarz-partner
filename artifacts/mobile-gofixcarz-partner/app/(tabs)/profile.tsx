@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform,
-  ScrollView, StatusBar, StyleSheet, Text, TextInput,
+  ScrollView, StatusBar, StyleSheet, Text,
   TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,11 +12,23 @@ import { useColors } from '@/hooks/useColors';
 import { QUERY_KEYS } from '@/src/constants/api';
 import ProfileService from '@/src/services/profile.service';
 import { useAuth } from '@/src/context/AuthContext';
+import Avatar from '@/src/components/ui/Avatar';
+import InputField from '@/src/components/ui/InputField';
+import PrimaryButton from '@/src/components/ui/PrimaryButton';
+import Card from '@/src/components/ui/Card';
+import SectionHeader from '@/src/components/ui/SectionHeader';
 import LoadingState from '@/src/components/ui/LoadingState';
-import ErrorState from '@/src/components/ui/ErrorState';
+import { radius, shadow, spacing, typography } from '@/constants/theme';
 import type { ProfileUpdate } from '@/src/types';
 
 type FormData = { name: string; email: string; mobile: string };
+
+const MENU_ITEMS = [
+  { icon: 'bell' as const,     label: 'Notifications',  route: '/(tabs)/more/notifications' },
+  { icon: 'map-pin' as const,  label: 'My Garage',       route: '/(tabs)/more/garage' },
+  { icon: 'help-circle' as const, label: 'Help & Support', route: null },
+  { icon: 'shield' as const,   label: 'Privacy Policy',  route: null },
+];
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -26,7 +38,7 @@ export default function ProfileScreen() {
   const [editMode, setEditMode] = useState(false);
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: QUERY_KEYS.PROFILE,
     queryFn: ProfileService.get,
   });
@@ -48,8 +60,6 @@ export default function ProfileScreen() {
     mutate({ name: d.name || null, email: d.email || null, mobile: d.mobile || null });
   }
 
-  const initials = (data?.name ?? data?.mobile ?? 'G').charAt(0).toUpperCase();
-
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -57,132 +67,125 @@ export default function ProfileScreen() {
     >
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
-      {/* Red header */}
-      <View style={[styles.header, { paddingTop: topPad + 14, backgroundColor: colors.primary }]}>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>{initials}</Text>
+      {/* Hero header */}
+      <View style={[styles.hero, { paddingTop: topPad + 16, backgroundColor: colors.primary }]}>
+        <Avatar name={data?.name ?? data?.mobile} size={72} color={colors.primary} style={{ borderWidth: 3, borderColor: 'rgba(255,255,255,0.3)' }} />
+        <View style={{ alignItems: 'center', gap: 3, marginTop: 12 }}>
+          <Text style={[typography.title, { color: '#fff' }]}>{data?.name ?? 'Garage Owner'}</Text>
+          <Text style={[typography.caption, { color: 'rgba(255,255,255,0.75)' }]}>{data?.mobile}</Text>
         </View>
-        <Text style={styles.headerName}>{data?.name ?? 'Garage Owner'}</Text>
-        <Text style={styles.headerMobile}>{data?.mobile}</Text>
-        <TouchableOpacity style={styles.editIconBtn} onPress={() => setEditMode(v => !v)}>
-          <Feather name={editMode ? 'x' : 'edit-2'} size={16} color="#fff" />
+        <TouchableOpacity
+          style={styles.editBtn}
+          onPress={() => setEditMode(v => !v)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Feather name={editMode ? 'x' : 'edit-2'} size={15} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      {isLoading ? <LoadingState /> : error ? <ErrorState /> : (
+      {isLoading ? <LoadingState /> : (
         <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
+          contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 100 }]}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          {[
-            { name: 'name' as const, label: 'Full Name', placeholder: 'Your name', keyboard: 'default' as const },
-            { name: 'email' as const, label: 'Email Address', placeholder: 'your@email.com', keyboard: 'email-address' as const },
-            { name: 'mobile' as const, label: 'Mobile Number', placeholder: '10-digit mobile', keyboard: 'phone-pad' as const },
-          ].map(({ name, label, placeholder, keyboard }) => (
-            <Controller
-              key={name}
-              control={control}
-              name={name}
-              render={({ field: { value, onChange } }) => (
-                <View style={styles.field}>
-                  <Text style={[styles.label, { color: colors.mutedForeground }]}>{label}</Text>
-                  <TextInput
+          {editMode ? (
+            <Card>
+              <SectionHeader title="Edit Profile" style={{ marginBottom: spacing.base }} />
+              <Controller control={control} name="name" render={({ field: { value, onChange } }) => (
+                <InputField label="Full Name" value={value} onChangeText={onChange} placeholder="Your name" leadingIcon="user" />
+              )} />
+              <Controller control={control} name="email" render={({ field: { value, onChange } }) => (
+                <InputField label="Email" value={value} onChangeText={onChange} placeholder="email@example.com" keyboardType="email-address" autoCapitalize="none" leadingIcon="mail" />
+              )} />
+              <Controller control={control} name="mobile" render={({ field: { value, onChange } }) => (
+                <InputField label="Mobile" value={value} onChangeText={onChange} placeholder="10-digit" keyboardType="phone-pad" leadingIcon="phone" />
+              )} />
+              <View style={styles.formActions}>
+                <PrimaryButton label="Cancel" onPress={() => { setEditMode(false); if (data) reset(); }} variant="outline" />
+                <PrimaryButton label="Save" onPress={handleSubmit(onSubmit)} loading={isPending} style={{ flex: 1 }} />
+              </View>
+            </Card>
+          ) : (
+            <>
+              {/* Info card */}
+              <Card>
+                {[
+                  { icon: 'user' as const,     label: 'Name',    value: data?.name },
+                  { icon: 'mail' as const,     label: 'Email',   value: data?.email },
+                  { icon: 'phone' as const,    label: 'Mobile',  value: data?.mobile },
+                  { icon: 'clock' as const,    label: 'Member since', value: data?.created_at ? new Date(data.created_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) : null },
+                ].map(row => (
+                  <View key={row.label} style={[styles.infoRow, { borderBottomColor: colors.divider }]}>
+                    <View style={[styles.infoIcon, { backgroundColor: colors.primaryLight }]}>
+                      <Feather name={row.icon} size={14} color={colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[typography.caption, { color: colors.textSecondary }]}>{row.label}</Text>
+                      <Text style={[typography.bodySm, { color: colors.text, fontWeight: '500' }]}>{row.value || '—'}</Text>
+                    </View>
+                  </View>
+                ))}
+              </Card>
+
+              {/* Menu */}
+              <Card padding={0} style={{ overflow: 'hidden' }}>
+                {MENU_ITEMS.map((item, i) => (
+                  <TouchableOpacity
+                    key={item.label}
                     style={[
-                      styles.input,
-                      {
-                        backgroundColor: editMode ? colors.card : colors.secondary,
-                        borderColor: colors.border,
-                        color: colors.foreground,
-                      },
+                      styles.menuRow,
+                      { borderBottomColor: colors.divider },
+                      i < MENU_ITEMS.length - 1 && { borderBottomWidth: 1 },
                     ]}
-                    value={value}
-                    onChangeText={onChange}
-                    editable={editMode}
-                    placeholder={placeholder}
-                    placeholderTextColor={colors.mutedForeground}
-                    keyboardType={keyboard}
-                    autoCapitalize="none"
-                  />
-                </View>
-              )}
-            />
-          ))}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.menuIcon, { backgroundColor: colors.background }]}>
+                      <Feather name={item.icon} size={16} color={colors.textSecondary} />
+                    </View>
+                    <Text style={[typography.body, { color: colors.text, flex: 1 }]}>{item.label}</Text>
+                    <Feather name="chevron-right" size={16} color={colors.textDisabled} />
+                  </TouchableOpacity>
+                ))}
+              </Card>
 
-          <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
-            <Feather name="info" size={14} color={colors.mutedForeground} />
-            <Text style={[styles.infoText, { color: colors.mutedForeground }]}>
-              Member since {data?.created_at
-                ? new Date(data.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
-                : '—'}
-            </Text>
-          </View>
-
-          {/* Logout */}
-          <TouchableOpacity
-            style={[styles.logoutBtn, { borderColor: colors.primary }]}
-            onPress={logout}
-            activeOpacity={0.8}
-          >
-            <Feather name="log-out" size={16} color={colors.primary} />
-            <Text style={[styles.logoutText, { color: colors.primary }]}>Sign Out</Text>
-          </TouchableOpacity>
+              {/* Sign out */}
+              <TouchableOpacity
+                style={[styles.logoutBtn, { borderColor: colors.danger + '50', backgroundColor: colors.dangerLight }]}
+                onPress={logout}
+                activeOpacity={0.8}
+              >
+                <Feather name="log-out" size={16} color={colors.danger} />
+                <Text style={[typography.body, { color: colors.danger, fontWeight: '600' }]}>Sign Out</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </ScrollView>
-      )}
-
-      {editMode && (
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: colors.card, borderTopColor: colors.border }]}>
-          <TouchableOpacity
-            style={[styles.cancelBtn, { borderColor: colors.border }]}
-            onPress={() => { setEditMode(false); if (data) reset(); }}
-          >
-            <Text style={{ color: colors.foreground, fontWeight: '600' }}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: isPending ? 0.7 : 1 }]}
-            onPress={handleSubmit(onSubmit)}
-            disabled={isPending}
-          >
-            {isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>Save Changes</Text>}
-          </TouchableOpacity>
-        </View>
       )}
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: 20, paddingBottom: 24,
-    alignItems: 'center', gap: 4, position: 'relative',
+  hero: {
+    alignItems: 'center', paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.base, position: 'relative',
   },
-  avatarCircle: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 8,
-  },
-  avatarText: { fontSize: 30, fontWeight: '800', color: '#fff' },
-  headerName: { fontSize: 18, fontWeight: '700', color: '#fff' },
-  headerMobile: { fontSize: 13, color: 'rgba(255,255,255,0.75)' },
-  editIconBtn: {
-    position: 'absolute', top: 16, right: 20,
+  editBtn: {
+    position: 'absolute', top: 16, right: spacing.base,
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
-  content: { padding: 16, gap: 4 },
-  field: { marginBottom: 14, gap: 6 },
-  label: { fontSize: 12, fontWeight: '600' },
-  input: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, borderWidth: 1 },
-  infoCard: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 10, padding: 12, marginTop: 8 },
-  infoText: { fontSize: 12 },
+  body: { padding: spacing.base, gap: spacing.sm },
+  formActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 12, borderBottomWidth: 1 },
+  infoIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  menuRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.base, paddingVertical: 16 },
+  menuIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, borderRadius: 12, paddingVertical: 14,
-    borderWidth: 1.5, marginTop: 24,
+    gap: spacing.sm, borderRadius: radius.lg, paddingVertical: 16,
+    borderWidth: 1,
   },
-  logoutText: { fontSize: 14, fontWeight: '700' },
-  footer: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1 },
-  cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1 },
-  saveBtn: { flex: 2, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  saveText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });

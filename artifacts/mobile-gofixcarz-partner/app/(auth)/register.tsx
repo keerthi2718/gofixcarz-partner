@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import {
-  ActivityIndicator, Image, KeyboardAvoidingView, Platform,
-  ScrollView, StatusBar, StyleSheet, Text, TextInput,
+  Image, KeyboardAvoidingView, Platform,
+  ScrollView, StatusBar, StyleSheet, Text,
   TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@/src/context/AuthContext';
+import InputField from '@/src/components/ui/InputField';
+import PrimaryButton from '@/src/components/ui/PrimaryButton';
+import { radius, shadow, spacing, typography } from '@/constants/theme';
 
-const RED = '#C62828';
-const DURATIONS = ['2W', '3W', '4W', '6W'];
+const PRIMARY = '#C62839';
+const BG = '#F7F8FA';
 
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
@@ -19,7 +23,7 @@ export default function RegisterScreen() {
     firstName: '', lastName: '', workshopName: '',
     email: '', address: '', city: '', state: '',
     zipcode: '', country: 'India',
-    phone: '', phone2: '', duration: '2W',
+    phone: '', phone2: '',
     acceptTerms: false,
   });
 
@@ -46,145 +50,165 @@ export default function RegisterScreen() {
     });
   }
 
-  const isValid =
-    form.firstName && form.workshopName && form.phone.length >= 10 && form.acceptTerms;
+  const isValid = !!(form.firstName && form.workshopName && form.phone.length >= 10 && form.acceptTerms);
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#fff' }}
+      style={{ flex: 1, backgroundColor: BG }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="dark-content" backgroundColor={BG} />
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 },
+          { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 40 },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {/* Logo */}
-        <View style={styles.logoContainer}>
-          <Image
-            source={require('../../assets/images/logo.jpg')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+        <View style={[styles.logoCard, shadow.md]}>
+          <Image source={require('../../assets/images/logo.jpg')} style={styles.logo} resizeMode="contain" />
         </View>
-        <Text style={styles.tagline}>SMART WORKSHOP MANAGER</Text>
 
+        <Text style={[typography.headline, styles.title]}>Create Account</Text>
+        <Text style={[typography.bodySm, styles.subtitle]}>Register your garage to get started</Text>
+
+        {/* Error */}
         {error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={styles.errorBanner}>
+            <Feather name="alert-circle" size={14} color="#EF4444" />
+            <Text style={[typography.bodySm, { color: '#EF4444', flex: 1 }]}>{error}</Text>
           </View>
         ) : null}
 
-        {/* Two-column fields */}
+        {/* Section: Personal */}
+        <Text style={styles.sectionLabel}>PERSONAL DETAILS</Text>
         <View style={styles.row}>
-          <View style={styles.half}>
-            <Text style={styles.label}>First name*</Text>
-            <TextInput style={styles.input} value={form.firstName} onChangeText={v => set('firstName', v)} placeholder="First name" placeholderTextColor="#9CA3AF" />
+          <View style={{ flex: 1 }}>
+            <InputField
+              label="First Name *"
+              value={form.firstName}
+              onChangeText={v => set('firstName', v)}
+              placeholder="First name"
+              autoCapitalize="words"
+              leadingIcon="user"
+            />
           </View>
-          <View style={styles.half}>
-            <Text style={styles.label}>Last Name</Text>
-            <TextInput style={styles.input} value={form.lastName} onChangeText={v => set('lastName', v)} placeholder="Last name" placeholderTextColor="#9CA3AF" />
+          <View style={{ flex: 1 }}>
+            <InputField
+              label="Last Name"
+              value={form.lastName}
+              onChangeText={v => set('lastName', v)}
+              placeholder="Last name"
+              autoCapitalize="words"
+            />
           </View>
         </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Workshop Name*</Text>
-          <TextInput style={styles.input} value={form.workshopName} onChangeText={v => set('workshopName', v)} placeholder="Your workshop name" placeholderTextColor="#9CA3AF" />
-        </View>
-
+        {/* Section: Workshop */}
+        <Text style={styles.sectionLabel}>WORKSHOP DETAILS</Text>
+        <InputField
+          label="Workshop Name *"
+          value={form.workshopName}
+          onChangeText={v => set('workshopName', v)}
+          placeholder="e.g. Sharma Auto Works"
+          leadingIcon="tool"
+        />
+        <InputField
+          label="Email"
+          value={form.email}
+          onChangeText={v => set('email', v)}
+          placeholder="email@example.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          leadingIcon="mail"
+        />
+        <InputField
+          label="Address"
+          value={form.address}
+          onChangeText={v => set('address', v)}
+          placeholder="Street address"
+          leadingIcon="map-pin"
+        />
         <View style={styles.row}>
-          <View style={styles.half}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput style={styles.input} value={form.email} onChangeText={v => set('email', v)} placeholder="Email" placeholderTextColor="#9CA3AF" keyboardType="email-address" autoCapitalize="none" />
+          <View style={{ flex: 1 }}>
+            <InputField label="City" value={form.city} onChangeText={v => set('city', v)} placeholder="City" />
           </View>
-          <View style={styles.half}>
-            <Text style={styles.label}>Address</Text>
-            <TextInput style={styles.input} value={form.address} onChangeText={v => set('address', v)} placeholder="Address" placeholderTextColor="#9CA3AF" />
+          <View style={{ flex: 1 }}>
+            <InputField label="State" value={form.state} onChangeText={v => set('state', v)} placeholder="State" />
           </View>
         </View>
-
         <View style={styles.row}>
-          <View style={styles.half}>
-            <Text style={styles.label}>City</Text>
-            <TextInput style={styles.input} value={form.city} onChangeText={v => set('city', v)} placeholder="City" placeholderTextColor="#9CA3AF" />
+          <View style={{ flex: 1 }}>
+            <InputField label="Zipcode" value={form.zipcode} onChangeText={v => set('zipcode', v)} placeholder="Zipcode" keyboardType="number-pad" />
           </View>
-          <View style={styles.half}>
-            <Text style={styles.label}>State</Text>
-            <TextInput style={styles.input} value={form.state} onChangeText={v => set('state', v)} placeholder="State" placeholderTextColor="#9CA3AF" />
+          <View style={{ flex: 1 }}>
+            <InputField label="Country" value={form.country} onChangeText={v => set('country', v)} placeholder="India" />
           </View>
         </View>
 
+        {/* Section: Contact */}
+        <Text style={styles.sectionLabel}>CONTACT</Text>
         <View style={styles.row}>
-          <View style={styles.half}>
-            <Text style={styles.label}>Zipcode</Text>
-            <TextInput style={styles.input} value={form.zipcode} onChangeText={v => set('zipcode', v)} placeholder="Zipcode" placeholderTextColor="#9CA3AF" keyboardType="number-pad" />
+          <View style={{ flex: 1 }}>
+            <InputField
+              label="Phone *"
+              value={form.phone}
+              onChangeText={v => set('phone', v)}
+              placeholder="10-digit"
+              keyboardType="phone-pad"
+              maxLength={10}
+              prefix="+91"
+              leadingIcon="phone"
+            />
           </View>
-          <View style={styles.half}>
-            <Text style={styles.label}>Country</Text>
-            <TextInput style={styles.input} value={form.country} onChangeText={v => set('country', v)} placeholder="Country" placeholderTextColor="#9CA3AF" />
+          <View style={{ flex: 1 }}>
+            <InputField
+              label="Phone 2"
+              value={form.phone2}
+              onChangeText={v => set('phone2', v)}
+              placeholder="Optional"
+              keyboardType="phone-pad"
+              maxLength={10}
+              prefix="+91"
+            />
           </View>
-        </View>
-
-        <View style={styles.row}>
-          <View style={styles.half}>
-            <Text style={styles.label}>Phone Number*</Text>
-            <View style={styles.phoneRow}>
-              <Text style={styles.phonePrefix}>+91</Text>
-              <TextInput style={[styles.input, { flex: 1, borderWidth: 0 }]} value={form.phone} onChangeText={v => set('phone', v)} placeholder="Mobile" placeholderTextColor="#9CA3AF" keyboardType="phone-pad" maxLength={10} />
-            </View>
-          </View>
-          <View style={styles.half}>
-            <Text style={styles.label}>Phone Number 2</Text>
-            <View style={styles.phoneRow}>
-              <Text style={styles.phonePrefix}>+91</Text>
-              <TextInput style={[styles.input, { flex: 1, borderWidth: 0 }]} value={form.phone2} onChangeText={v => set('phone2', v)} placeholder="Mobile" placeholderTextColor="#9CA3AF" keyboardType="phone-pad" maxLength={10} />
-            </View>
-          </View>
-        </View>
-
-        {/* Duration */}
-        <View style={styles.durationRow}>
-          {DURATIONS.map(d => (
-            <TouchableOpacity
-              key={d}
-              style={[styles.durationBtn, form.duration === d && styles.durationBtnActive]}
-              onPress={() => set('duration', d)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.durationText, form.duration === d && styles.durationTextActive]}>{d}</Text>
-            </TouchableOpacity>
-          ))}
         </View>
 
         {/* Terms */}
-        <TouchableOpacity style={styles.termsRow} onPress={() => set('acceptTerms', !form.acceptTerms)} activeOpacity={0.8}>
-          <View style={[styles.checkbox, form.acceptTerms && styles.checkboxActive]}>
-            {form.acceptTerms && <Text style={styles.checkmark}>✓</Text>}
+        <TouchableOpacity
+          style={styles.termsRow}
+          onPress={() => set('acceptTerms', !form.acceptTerms)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.checkbox, form.acceptTerms && { backgroundColor: PRIMARY, borderColor: PRIMARY }]}>
+            {form.acceptTerms && <Feather name="check" size={12} color="#fff" />}
           </View>
-          <Text style={styles.termsText}>
-            I accept <Text style={{ color: RED }}>Terms and conditions</Text>
+          <Text style={[typography.bodySm, { color: '#374151', flex: 1 }]}>
+            I accept the{' '}
+            <Text style={{ color: PRIMARY, fontWeight: '700' }}>Terms and Conditions</Text>
           </Text>
         </TouchableOpacity>
 
         {/* Submit */}
-        <TouchableOpacity
-          style={[styles.btn, { opacity: isValid && !isLoading ? 1 : 0.6 }]}
+        <PrimaryButton
+          label="Create Account"
           onPress={handleSubmit}
-          disabled={!isValid || isLoading}
-          activeOpacity={0.85}
-        >
-          {isLoading
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.btnText}>Send OTP</Text>
-          }
-        </TouchableOpacity>
+          loading={isLoading}
+          disabled={!isValid}
+          style={{ marginTop: 8 }}
+        />
 
-        <TouchableOpacity onPress={() => router.push('/(auth)/login')} activeOpacity={0.8} style={{ alignSelf: 'flex-end' }}>
-          <Text style={[styles.termsText, { color: RED, fontWeight: '600' }]}>Already have an account?</Text>
+        <TouchableOpacity
+          onPress={() => router.push('/(auth)/login')}
+          style={styles.linkRow}
+          activeOpacity={0.7}
+        >
+          <Text style={[typography.bodySm, { color: '#6B7280' }]}>
+            Already have an account?{' '}
+            <Text style={{ color: PRIMARY, fontWeight: '700' }}>Sign In</Text>
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -192,54 +216,35 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flexGrow: 1, paddingHorizontal: 20 },
-  logoContainer: {
-    width: 120, height: 80, borderRadius: 12,
-    overflow: 'hidden', marginBottom: 8, backgroundColor: '#111', alignSelf: 'center',
+  scroll: { flexGrow: 1, paddingHorizontal: spacing.base },
+  logoCard: {
+    width: 140, height: 96, borderRadius: radius.lg,
+    backgroundColor: '#111', overflow: 'hidden',
+    marginBottom: spacing.base, alignSelf: 'center',
   },
   logo: { width: '100%', height: '100%' },
-  tagline: {
+  title: { color: '#111827', textAlign: 'center', marginBottom: 4 },
+  subtitle: { color: '#6B7280', textAlign: 'center', marginBottom: spacing.xl },
+  errorBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FEF2F2', borderRadius: radius.md,
+    borderWidth: 1, borderColor: '#FECACA',
+    padding: spacing.md, marginBottom: spacing.md,
+  },
+  sectionLabel: {
     fontSize: 11, fontWeight: '700', color: '#9CA3AF',
-    letterSpacing: 2, textTransform: 'uppercase', textAlign: 'center', marginBottom: 20,
+    letterSpacing: 1.5, marginBottom: spacing.sm, marginTop: 4,
   },
-  errorBox: {
-    backgroundColor: '#FEF2F2', borderRadius: 10, padding: 12, marginBottom: 12,
+  row: { flexDirection: 'row', gap: 10 },
+  termsRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginBottom: spacing.base, marginTop: 4,
   },
-  errorText: { fontSize: 13, color: '#EF4444' },
-  row: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  half: { flex: 1, gap: 4 },
-  field: { gap: 4, marginBottom: 10 },
-  label: { fontSize: 12, fontWeight: '600', color: '#374151' },
-  input: {
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8,
-    paddingHorizontal: 10, paddingVertical: 10, fontSize: 13, color: '#111827',
+  checkbox: {
+    width: 20, height: 20, borderRadius: 5,
+    borderWidth: 1.5, borderColor: '#D1D5DB',
+    alignItems: 'center', justifyContent: 'center',
     backgroundColor: '#fff',
   },
-  phoneRow: {
-    flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8,
-    backgroundColor: '#fff', overflow: 'hidden',
-  },
-  phonePrefix: { paddingHorizontal: 8, fontSize: 13, color: '#374151', fontWeight: '600' },
-  durationRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
-  durationBtn: {
-    flex: 1, paddingVertical: 9, borderRadius: 8,
-    borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center',
-  },
-  durationBtnActive: { backgroundColor: RED, borderColor: RED },
-  durationText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
-  durationTextActive: { color: '#fff' },
-  termsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
-  checkbox: {
-    width: 18, height: 18, borderRadius: 4,
-    borderWidth: 1.5, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center',
-  },
-  checkboxActive: { backgroundColor: RED, borderColor: RED },
-  checkmark: { fontSize: 11, color: '#fff', fontWeight: '700' },
-  termsText: { fontSize: 13, color: '#374151' },
-  btn: {
-    backgroundColor: RED, borderRadius: 10,
-    paddingVertical: 14, alignItems: 'center', marginBottom: 12,
-  },
-  btnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  linkRow: { alignItems: 'center', marginTop: spacing.base },
 });

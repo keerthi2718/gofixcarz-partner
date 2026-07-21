@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
 import {
-  ActivityIndicator, Image, KeyboardAvoidingView, Platform,
+  Image, KeyboardAvoidingView, Platform,
   ScrollView, StatusBar, StyleSheet, Text,
-  TextInput, TouchableOpacity, View,
+  TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@/src/context/AuthContext';
+import InputField from '@/src/components/ui/InputField';
+import PrimaryButton from '@/src/components/ui/PrimaryButton';
+import { radius, shadow, spacing, typography } from '@/constants/theme';
 
-const RED = '#C62828';
+const PRIMARY = '#C62839';
+const BG = '#F7F8FA';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -18,26 +23,25 @@ export default function LoginScreen() {
   const isValid = mobile.replace(/\s/g, '').length >= 10;
 
   async function handleSendOtp() {
-    const cleaned = mobile.replace(/\s/g, '');
-    await signIn(cleaned);
+    await signIn(mobile.replace(/\s/g, ''));
   }
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#fff' }}
+      style={{ flex: 1, backgroundColor: BG }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="dark-content" backgroundColor={BG} />
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 40 },
+          { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo */}
-        <View style={styles.logoContainer}>
+        {/* Logo card */}
+        <View style={[styles.logoCard, shadow.md]}>
           <Image
             source={require('../../assets/images/logo.jpg')}
             style={styles.logo}
@@ -45,61 +49,54 @@ export default function LoginScreen() {
           />
         </View>
 
-        {/* Title */}
-        <Text style={styles.title}>Welcome Back</Text>
-        <Text style={styles.subtitle}>Sign in to your garage account</Text>
+        {/* Headings */}
+        <Text style={[typography.headline, styles.title]}>Welcome Back</Text>
+        <Text style={[typography.body, styles.subtitle]}>Sign in to your garage account</Text>
 
-        {/* Error */}
+        {/* Error banner */}
         {error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity onPress={clearError}>
-              <Text style={[styles.errorText, { fontWeight: '700' }]}>✕</Text>
+          <View style={styles.errorBanner}>
+            <Feather name="alert-circle" size={14} color="#EF4444" />
+            <Text style={[typography.bodySm, { color: '#EF4444', flex: 1 }]}>{error}</Text>
+            <TouchableOpacity onPress={clearError} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Feather name="x" size={14} color="#EF4444" />
             </TouchableOpacity>
           </View>
         ) : null}
 
-        {/* Mobile Input */}
-        <Text style={styles.label}>Mobile Number</Text>
-        <View style={styles.inputRow}>
-          <View style={styles.prefix}>
-            <Text style={styles.prefixText}>+91</Text>
-          </View>
-          <View style={styles.dividerLine} />
-          <TextInput
-            style={styles.input}
-            value={mobile}
-            onChangeText={t => { clearError(); setMobile(t); }}
-            placeholder="Enter 10-digit number"
-            placeholderTextColor="#9CA3AF"
-            keyboardType="phone-pad"
-            maxLength={10}
-            autoFocus
-          />
-        </View>
+        {/* Phone input */}
+        <InputField
+          label="Mobile Number"
+          leadingIcon="smartphone"
+          prefix="+91"
+          value={mobile}
+          onChangeText={t => { clearError(); setMobile(t); }}
+          placeholder="10-digit number"
+          keyboardType="phone-pad"
+          maxLength={10}
+          autoFocus
+          returnKeyType="done"
+          onSubmitEditing={handleSendOtp}
+        />
 
-        {/* Send OTP */}
-        <TouchableOpacity
-          style={[styles.btn, { opacity: isValid && !isLoading ? 1 : 0.6 }]}
+        {/* CTA */}
+        <PrimaryButton
+          label="Send OTP"
           onPress={handleSendOtp}
-          disabled={!isValid || isLoading}
-          activeOpacity={0.85}
-        >
-          {isLoading
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.btnText}>Send OTP</Text>
-          }
-        </TouchableOpacity>
+          loading={isLoading}
+          disabled={!isValid}
+          style={{ marginTop: 8 }}
+        />
 
-        {/* Sign Up link */}
+        {/* Sign up link */}
         <TouchableOpacity
           onPress={() => router.push('/(auth)/register')}
-          activeOpacity={0.8}
           style={styles.linkRow}
+          activeOpacity={0.7}
         >
-          <Text style={styles.linkText}>
+          <Text style={[typography.bodySm, { color: '#6B7280' }]}>
             Don't have an account?{' '}
-            <Text style={[styles.linkText, { color: RED, fontWeight: '700' }]}>Sign Up</Text>
+            <Text style={{ color: PRIMARY, fontWeight: '700' }}>Sign Up</Text>
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -108,39 +105,20 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flexGrow: 1, paddingHorizontal: 28, alignItems: 'center' },
-  logoContainer: {
-    width: 120,
-    height: 80,
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 24,
-    backgroundColor: '#111',
+  scroll: { flexGrow: 1, paddingHorizontal: spacing.xl, alignItems: 'center' },
+  logoCard: {
+    width: 140, height: 96, borderRadius: radius.lg,
+    backgroundColor: '#111', overflow: 'hidden', marginBottom: spacing.xl,
   },
   logo: { width: '100%', height: '100%' },
-  title: { fontSize: 22, fontWeight: '800', color: '#111827', marginBottom: 4, textAlign: 'center' },
-  subtitle: { fontSize: 13, color: '#6B7280', marginBottom: 28, textAlign: 'center' },
-  errorBox: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#FEF2F2', borderRadius: 10, padding: 12, marginBottom: 16,
+  title: { color: '#111827', textAlign: 'center', marginBottom: 6 },
+  subtitle: { color: '#6B7280', textAlign: 'center', marginBottom: 32 },
+  errorBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FEF2F2', borderRadius: radius.md,
+    borderWidth: 1, borderColor: '#FECACA',
+    padding: spacing.md, marginBottom: spacing.base,
     width: '100%',
   },
-  errorText: { fontSize: 13, color: '#EF4444', flex: 1 },
-  label: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8, alignSelf: 'flex-start', width: '100%' },
-  inputRow: {
-    flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 10,
-    backgroundColor: '#fff', marginBottom: 20, width: '100%', height: 50,
-  },
-  prefix: { paddingHorizontal: 14, justifyContent: 'center' },
-  prefixText: { fontSize: 15, fontWeight: '600', color: '#374151' },
-  dividerLine: { width: 1, height: 24, backgroundColor: '#E5E7EB' },
-  input: { flex: 1, paddingHorizontal: 14, fontSize: 15, color: '#111827' },
-  btn: {
-    width: '100%', backgroundColor: RED, borderRadius: 10,
-    paddingVertical: 15, alignItems: 'center', marginBottom: 20,
-  },
-  btnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  linkRow: { marginTop: 4 },
-  linkText: { fontSize: 13, color: '#6B7280', textAlign: 'center' },
+  linkRow: { marginTop: spacing.lg, alignItems: 'center' },
 });

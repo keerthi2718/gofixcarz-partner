@@ -1,0 +1,442 @@
+Redesign the entire GoFixCarz Partner mobile application to be production-ready, modern, and fully optimized for both Android and iOS using React Native + Expo.
+
+IMPORTANT:
+- Preserve all existing APIs, business logic, authentication, navigation, and backend integration.
+- Only improve the UI/UX and design system.
+- The app should automatically adapt to Android and iOS using Platform APIs where appropriate.
+
+==================================================
+DESIGN GOAL
+==================================================
+
+Create a premium mobile experience comparable to Uber Driver, Swiggy Partner, Zomato Partner, RazorpayX, and Google Pay Business.
+
+The UI should be:
+- Clean
+- Modern
+- Minimal
+- Professional
+- Fast
+- Consistent
+- Production-ready
+
+==================================================
+BRANDING
+==================================================
+
+Application Name:
+GoFixCarz Partner
+
+Use the official logo from:
+/assets/images/logo.png
+
+Replace every placeholder logo and remove all "SMART WORKSHOP MANAGER" branding.
+
+Update:
+- Splash Screen
+- Login
+- Registration
+- OTP
+- Forgot Password
+- Reset Password
+- Home
+- Profile
+- Settings
+- Drawer/Header
+- App Icon
+- Splash Icon
+- Adaptive Icon
+- Favicon
+
+==================================================
+PLATFORM SUPPORT
+==================================================
+
+Support both Android and iOS.
+
+Automatically use:
+- SafeAreaView
+- KeyboardAvoidingView
+- Platform.select()
+- StatusBar handling
+- Proper spacing for Dynamic Island and Android Status Bar
+
+Follow:
+- Apple's Human Interface Guidelines
+- Material Design 3
+
+The UI should feel native on each platform while maintaining one consistent brand identity.
+
+==================================================
+COLOR SYSTEM
+==================================================
+
+Primary:
+#C62839
+
+Primary Dark:
+#A91E2C
+
+Success:
+#22C55E
+
+Warning:
+#F59E0B
+
+Danger:
+#EF4444
+
+Background:
+#F7F8FA
+
+Surface:
+#FFFFFF
+
+Border:
+#E5E7EB
+
+Primary Text:
+#111827
+
+Secondary Text:
+#6B7280
+
+==================================================
+TYPOGRAPHY
+==================================================
+
+Use system fonts:
+- SF Pro on iOS
+- Roboto on Android
+
+Create typography hierarchy:
+Display
+Headline
+Title
+Body
+Caption
+Label
+
+Maintain consistent spacing.
+
+==================================================
+BUTTONS
+==================================================
+
+Primary Buttons:
+- Height 56
+- Radius 14
+- Full width
+- Bold text
+- Ripple on Android
+- Native touch feedback on iOS
+
+Secondary Buttons
+
+Outlined Buttons
+
+Icon Buttons
+
+Floating Action Button
+
+Loading Buttons
+
+Disabled Buttons
+
+==================================================
+TEXT INPUTS
+==================================================
+
+Rounded corners
+
+Soft background
+
+Clear focus state
+
+Leading icons
+
+Validation states
+
+Password visibility toggle
+
+OTP inputs
+
+Keyboard optimized
+
+==================================================
+CARDS
+==================================================
+
+White cards
+
+Radius 16
+
+Soft elevation
+
+Consistent padding
+
+Modern shadows
+
+==================================================
+BOTTOM NAVIGATION
+==================================================
+
+Modern rounded Bottom Tab Bar
+
+Animated active indicator
+
+Native transitions
+
+Responsive spacing
+
+==================================================
+ANIMATIONS
+==================================================
+
+Smooth animations using React Native Reanimated where appropriate.
+
+Fade
+
+Scale
+
+Slide
+
+Card transitions
+
+Button press animations
+
+Loading transitions
+
+==================================================
+ICONS
+==================================================
+
+Use Expo Vector Icons.
+
+Consistent icon sizes.
+
+No mixed icon libraries.
+
+==================================================
+SCREENS TO REDESIGN
+==================================================
+
+Splash
+
+Welcome
+
+Login
+
+Register
+
+OTP Verification
+
+Forgot Password
+
+Reset Password
+
+Dashboard
+
+Bookings
+
+Job Cards
+
+Vehicles
+
+Customers (if enabled)
+
+Services
+
+Inventory
+
+Technicians
+
+Invoices
+
+Reports
+
+Notifications
+
+Profile
+
+Settings
+
+Help & Support
+
+==================================================
+FORMS
+==================================================
+
+Improve spacing.
+
+Better alignment.
+
+Error handling.
+
+Validation messages.
+
+Keyboard avoidance.
+
+Auto-scroll.
+
+==================================================
+LISTS
+==================================================
+
+Modern list items.
+
+Swipe actions.
+
+Pull to refresh.
+
+Infinite scrolling.
+
+Empty states.
+
+Loading skeletons.
+
+==================================================
+DASHBOARD
+==================================================
+
+Professional garage dashboard.
+
+Statistics cards.
+
+Today's Bookings.
+
+Pending Jobs.
+
+Revenue Summary.
+
+Quick Actions.
+
+Recent Activity.
+
+Modern charts.
+
+==================================================
+STATUS
+==================================================
+
+Use colored chips:
+
+Pending
+
+Confirmed
+
+In Progress
+
+Completed
+
+Cancelled
+
+Paid
+
+Unpaid
+
+==================================================
+LOADING
+==================================================
+
+Skeleton loaders.
+
+Native ActivityIndicator.
+
+Progress indicators.
+
+==================================================
+ERROR STATES
+==================================================
+
+Friendly empty states.
+
+Retry buttons.
+
+Offline support.
+
+==================================================
+ACCESSIBILITY
+==================================================
+
+VoiceOver
+
+TalkBack
+
+Dynamic Text
+
+Minimum touch target 44x44
+
+High contrast
+
+==================================================
+RESPONSIVE
+==================================================
+
+Support:
+
+Android Phones
+
+Android Tablets
+
+iPhones
+
+iPads
+
+Different screen sizes
+
+==================================================
+PERFORMANCE
+==================================================
+
+Optimize rendering.
+
+Lazy loading.
+
+FlatList optimization.
+
+Memoization.
+
+Image optimization.
+
+Avoid unnecessary re-renders.
+
+==================================================
+CODE QUALITY
+==================================================
+
+Create reusable components:
+
+PrimaryButton
+
+SecondaryButton
+
+InputField
+
+SearchBar
+
+Card
+
+StatCard
+
+EmptyState
+
+LoadingSkeleton
+
+Avatar
+
+StatusBadge
+
+SectionHeader
+
+Modal
+
+BottomSheet
+
+Use a centralized theme with colors, typography, spacing, radius, shadows, and component variants.
+
+==================================================
+FINAL RESULT
+==================================================
+
+The application should look like a polished, enterprise-grade garage management platform that could be published on both the Apple App Store and Google Play Store without requiring additional UI redesign. Ensure consistent branding, excellent usability, and native behavior on both Android and iOS while preserving all existing functionality and API integrations.

@@ -1,87 +1,108 @@
 import React from 'react';
-import { Platform, StyleSheet, useColorScheme, View } from 'react-native';
-import { useColors } from '@/hooks/useColors';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Tabs, usePathname } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useColors } from '@/hooks/useColors';
+import { shadow, typography } from '@/constants/theme';
 
-const isIOS = Platform.OS === 'ios';
+const TABS = [
+  { name: 'index',     label: 'Home',      icon: 'home' as const },
+  { name: 'jobs',      label: 'Jobs',      icon: 'briefcase' as const },
+  { name: 'bookings',  label: 'Bookings',  icon: 'calendar' as const },
+  { name: 'analytics', label: 'Analytics', icon: 'trending-up' as const },
+  { name: 'profile',   label: 'Profile',   icon: 'user' as const },
+];
+
+function TabBar({ state, descriptors, navigation }: any) {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const isIOS = Platform.OS === 'ios';
+
+  const Container = isIOS ? BlurView : View;
+  const containerProps = isIOS
+    ? { intensity: 90, tint: 'light' as const }
+    : {};
+
+  return (
+    <View style={[styles.wrapper, shadow.lg, { paddingBottom: insets.bottom || 8 }]}>
+      <Container {...containerProps} style={[StyleSheet.absoluteFill, { borderRadius: 24 }]} />
+      <View style={styles.inner}>
+        {state.routes.map((route: any, idx: number) => {
+          const { options } = descriptors[route.key];
+          if (options.href === null) return null;
+
+          const tabDef = TABS.find(t => t.name === route.name);
+          if (!tabDef) return null;
+
+          const focused = state.index === idx;
+
+          return (
+            <TouchableOpacity
+              key={route.key}
+              style={styles.tab}
+              onPress={() => {
+                const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+                if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
+              }}
+              activeOpacity={0.8}
+              accessibilityRole="tab"
+              accessibilityLabel={tabDef.label}
+            >
+              <View style={[styles.iconWrap, focused && { backgroundColor: colors.primary }]}>
+                <Feather
+                  name={tabDef.icon}
+                  size={20}
+                  color={focused ? '#fff' : colors.textSecondary}
+                />
+              </View>
+              <Text style={[
+                typography.labelSm,
+                { color: focused ? colors.primary : colors.textSecondary, marginTop: 3 },
+              ]}>
+                {tabDef.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
 
 export default function TabLayout() {
   const colors = useColors();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
 
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: '#9CA3AF',
-        tabBarStyle: {
-          position: 'absolute',
-          backgroundColor: isIOS ? 'transparent' : '#fff',
-          borderTopWidth: 0,
-          elevation: 0,
-          height: 60,
-          paddingBottom: 8,
-        },
-        tabBarBackground: () =>
-          isIOS ? (
-            <BlurView
-              intensity={95}
-              tint={isDark ? 'dark' : 'light'}
-              style={[StyleSheet.absoluteFill, { borderTopWidth: 0.5, borderTopColor: '#E5E7EB' }]}
-            />
-          ) : (
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E7EB' },
-              ]}
-            />
-          ),
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginBottom: 2 },
-      }}
+      screenOptions={{ headerShown: false }}
+      tabBar={props => <TabBar {...props} />}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, size }) => <Feather name="home" size={size ?? 22} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="jobs"
-        options={{
-          title: 'Jobs',
-          tabBarIcon: ({ color, size }) => <Feather name="briefcase" size={size ?? 22} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="bookings"
-        options={{
-          title: 'Bookings',
-          tabBarIcon: ({ color, size }) => <Feather name="calendar" size={size ?? 22} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="analytics"
-        options={{
-          title: 'Analytics',
-          tabBarIcon: ({ color, size }) => <Feather name="trending-up" size={size ?? 22} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => <Feather name="user" size={size ?? 22} color={color} />,
-        }}
-      />
-      {/* Hidden routes — still navigable but not in tab bar */}
+      <Tabs.Screen name="index" />
+      <Tabs.Screen name="jobs" />
+      <Tabs.Screen name="bookings" />
+      <Tabs.Screen name="analytics" />
+      <Tabs.Screen name="profile" />
       <Tabs.Screen name="services" options={{ href: null }} />
       <Tabs.Screen name="more" options={{ href: null }} />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  wrapper: {
+    position: 'absolute', bottom: 16, left: 16, right: 16,
+    borderRadius: 24, overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderWidth: 1, borderColor: 'rgba(229,231,235,0.8)',
+  },
+  inner: {
+    flexDirection: 'row', paddingTop: 10, paddingHorizontal: 4,
+  },
+  tab: { flex: 1, alignItems: 'center', paddingBottom: 4 },
+  iconWrap: {
+    width: 40, height: 32, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center',
+  },
+});

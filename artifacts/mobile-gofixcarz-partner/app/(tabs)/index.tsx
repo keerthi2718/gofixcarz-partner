@@ -1,7 +1,7 @@
 import React from 'react';
 import {
-  FlatList, Platform, RefreshControl, ScrollView,
-  StatusBar, StyleSheet, Text, TouchableOpacity, View,
+  FlatList, Platform, Pressable, RefreshControl,
+  ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -11,203 +11,170 @@ import { QUERY_KEYS } from '@/src/constants/api';
 import DashboardService from '@/src/services/dashboard.service';
 import BookingService from '@/src/services/booking.service';
 import { formatCurrency } from '@/src/utils/helpers';
-import { SkeletonList } from '@/src/components/ui/SkeletonCard';
-import ErrorState from '@/src/components/ui/ErrorState';
+import { useColors } from '@/hooks/useColors';
+import Avatar from '@/src/components/ui/Avatar';
+import SectionHeader from '@/src/components/ui/SectionHeader';
+import Card from '@/src/components/ui/Card';
+import { radius, shadow, spacing, typography } from '@/constants/theme';
 
-const RED = '#C62828';
-const RED_DARK = '#B71C1C';
-
-const STATUS_LABEL: Record<string, string> = {
-  PENDING: 'Pending',
-  ACCEPTED: 'Confirmed',
-  REJECTED: 'Rejected',
-  CONVERTED: 'Converted',
-};
-const STATUS_COLOR: Record<string, string> = {
-  PENDING: '#F59E0B',
-  ACCEPTED: '#10B981',
-  REJECTED: '#EF4444',
-  CONVERTED: '#8B5CF6',
+const BOOKING_STATUS: Record<string, { label: string; color: string; bg: string }> = {
+  PENDING:   { label: 'Pending',   color: '#F59E0B', bg: '#FFFBEB' },
+  ACCEPTED:  { label: 'Confirmed', color: '#22C55E', bg: '#DCFCE7' },
+  REJECTED:  { label: 'Rejected',  color: '#EF4444', bg: '#FEF2F2' },
+  CONVERTED: { label: 'Converted', color: '#8B5CF6', bg: '#F5F3FF' },
 };
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
-  const { data, isLoading, error, refetch, isRefetching } = useQuery({
+  const { data, isLoading, isRefetching, refetch } = useQuery({
     queryKey: QUERY_KEYS.DASHBOARD,
     queryFn: DashboardService.get,
   });
-
   const { data: bookingsData } = useQuery({
     queryKey: QUERY_KEYS.BOOKINGS({ page_size: 5 }),
     queryFn: () => BookingService.list({ page_size: 5 }),
   });
 
-  const todayBookings = bookingsData?.items ?? [];
+  const bookings = bookingsData?.items ?? [];
 
-  if (isLoading) {
-    return (
-      <View style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={RED} />
-        <View style={[styles.header, { paddingTop: topPad + 14 }]}>
-          <Text style={styles.headerTitle}>Dashboard</Text>
-          <Text style={styles.headerSub}>Loading…</Text>
-        </View>
-        <ScrollView contentContainerStyle={{ padding: 16 }}>
-          <SkeletonList count={4} />
-        </ScrollView>
-      </View>
-    );
-  }
+  const stats = [
+    { label: 'Active Jobs',  value: data?.open_jobs ?? 0,        icon: 'tool' as const,       color: colors.primary,  bg: colors.primaryLight },
+    { label: 'Pending',      value: data?.pending_bookings ?? 0,  icon: 'clock' as const,      color: '#F59E0B',        bg: '#FFFBEB' },
+    { label: 'Completed',    value: data?.completed_jobs ?? 0,    icon: 'check-circle' as const, color: '#22C55E',      bg: '#DCFCE7' },
+  ];
 
-  if (error) {
-    return (
-      <View style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={RED} />
-        <View style={[styles.header, { paddingTop: topPad + 14 }]}>
-          <Text style={styles.headerTitle}>Dashboard</Text>
-        </View>
-        <ErrorState onRetry={refetch} />
-      </View>
-    );
-  }
+  const quickActions = [
+    { label: 'New Job',      icon: 'plus-circle' as const, bg: colors.primary,   route: '/(tabs)/jobs/create' },
+    { label: 'Bookings',     icon: 'calendar' as const,   bg: '#3B82F6',         route: '/(tabs)/bookings' },
+    { label: 'Services',     icon: 'settings' as const,   bg: '#8B5CF6',         route: '/(tabs)/services' },
+    { label: 'Analytics',    icon: 'bar-chart-2' as const,bg: '#22C55E',         route: '/(tabs)/analytics' },
+  ];
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={RED} />
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: topPad + 14, backgroundColor: colors.primary }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={[typography.labelSm, { color: 'rgba(255,255,255,0.7)', marginBottom: 2 }]}>Good morning 👋</Text>
+          <Text style={[typography.title, { color: '#fff' }]}>Dashboard</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.bellBtn}
+          onPress={() => router.push('/(tabs)/more/notifications')}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Feather name="bell" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
 
       <FlatList
-        data={todayBookings}
+        data={bookings}
         keyExtractor={item => item.id}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={RED} />}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={() => (
-          <View>
-            {/* Red Header */}
-            <View style={[styles.header, { paddingTop: topPad + 14 }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.headerTitle}>Dashboard</Text>
-                <Text style={styles.headerSub}>AutoCare Garage</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.bellBtn}
-                onPress={() => router.push('/(tabs)/more/notifications')}
-              >
-                <Feather name="bell" size={20} color="#fff" />
-              </TouchableOpacity>
+          <View style={{ padding: spacing.base, gap: spacing.base }}>
+            {/* Revenue cards */}
+            <View style={styles.revenueRow}>
+              {[
+                { label: "Today's Revenue", value: data?.revenue_today ?? 0,      icon: 'dollar-sign' as const, accent: colors.primary },
+                { label: 'This Month',       value: data?.revenue_this_month ?? 0, icon: 'trending-up' as const, accent: '#8B5CF6' },
+              ].map(c => (
+                <View key={c.label} style={[styles.revenueCard, { backgroundColor: c.accent }, shadow.md]}>
+                  <View style={styles.revenueIconWrap}>
+                    <Feather name={c.icon} size={16} color="rgba(255,255,255,0.85)" />
+                  </View>
+                  <Text style={[typography.caption, { color: 'rgba(255,255,255,0.8)', marginTop: 8 }]}>{c.label}</Text>
+                  <Text style={[typography.headline, { color: '#fff' }]}>{formatCurrency(c.value)}</Text>
+                </View>
+              ))}
             </View>
 
-            <View style={styles.body}>
-              {/* Revenue Cards */}
-              <View style={styles.revenueRow}>
-                <View style={[styles.revenueCard, { backgroundColor: RED }]}>
-                  <View style={styles.revenueIconRow}>
-                    <Feather name="dollar-sign" size={14} color="rgba(255,255,255,0.8)" />
-                  </View>
-                  <Text style={styles.revenueLabel}>Today's Revenue</Text>
-                  <Text style={styles.revenueValue}>{formatCurrency(data?.revenue_today ?? 0)}</Text>
-                </View>
-                <View style={[styles.revenueCard, { backgroundColor: RED_DARK }]}>
-                  <View style={styles.revenueIconRow}>
-                    <Feather name="trending-up" size={14} color="rgba(255,255,255,0.8)" />
-                  </View>
-                  <Text style={styles.revenueLabel}>This Week</Text>
-                  <Text style={styles.revenueValue}>{formatCurrency(data?.revenue_this_month ?? 0)}</Text>
-                </View>
-              </View>
-
-              {/* Stats Row */}
-              <View style={[styles.statsCard, { backgroundColor: '#fff' }]}>
-                <View style={styles.statItem}>
-                  <View style={[styles.statIcon, { backgroundColor: '#FFF5F5' }]}>
-                    <Feather name="tool" size={18} color={RED} />
-                  </View>
-                  <Text style={styles.statValue}>{data?.open_jobs ?? 0}</Text>
-                  <Text style={styles.statLabel}>Active Jobs</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <View style={[styles.statIcon, { backgroundColor: '#FFFBEB' }]}>
-                    <Feather name="clock" size={18} color="#F59E0B" />
-                  </View>
-                  <Text style={styles.statValue}>{data?.pending_bookings ?? 0}</Text>
-                  <Text style={styles.statLabel}>Pending</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <View style={[styles.statIcon, { backgroundColor: '#F0FFF4' }]}>
-                    <Feather name="check-circle" size={18} color="#10B981" />
-                  </View>
-                  <Text style={styles.statValue}>{data?.completed_jobs ?? 0}</Text>
-                  <Text style={styles.statLabel}>Completed</Text>
-                </View>
-              </View>
-
-              {/* Quick Actions */}
-              <Text style={styles.sectionTitle}>Quick Actions</Text>
-              <View style={styles.actionsRow}>
-                {[
-                  { label: 'New\nBooking', icon: 'calendar', bg: RED, onPress: () => router.push('/(tabs)/bookings') },
-                  { label: 'Add\nService', icon: 'settings', bg: '#212121', onPress: () => router.push('/(tabs)/services') },
-                  { label: 'Analytics', icon: 'bar-chart-2', bg: '#2E7D32', onPress: () => router.push('/(tabs)/analytics') },
-                  { label: 'New\nJob', icon: 'plus-circle', bg: '#E65100', onPress: () => router.push('/(tabs)/jobs/create') },
-                ].map(({ label, icon, bg, onPress }) => (
-                  <TouchableOpacity key={label} style={styles.actionBtn} onPress={onPress} activeOpacity={0.8}>
-                    <View style={[styles.actionIcon, { backgroundColor: bg }]}>
-                      <Feather name={icon as never} size={20} color="#fff" />
+            {/* Stats row */}
+            <Card padding={0} style={{ overflow: 'hidden' }}>
+              <View style={styles.statsRow}>
+                {stats.map((s, i) => (
+                  <React.Fragment key={s.label}>
+                    {i > 0 && <View style={[styles.statsDivider, { backgroundColor: colors.border }]} />}
+                    <View style={styles.statItem}>
+                      <View style={[styles.statIcon, { backgroundColor: s.bg }]}>
+                        <Feather name={s.icon} size={16} color={s.color} />
+                      </View>
+                      <Text style={[typography.headline, { color: colors.text }]}>{s.value}</Text>
+                      <Text style={[typography.caption, { color: colors.textSecondary }]}>{s.label}</Text>
                     </View>
-                    <Text style={styles.actionLabel} numberOfLines={2}>{label}</Text>
-                  </TouchableOpacity>
+                  </React.Fragment>
                 ))}
               </View>
+            </Card>
 
-              {/* Today's Bookings header */}
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Today's Bookings</Text>
-                <TouchableOpacity onPress={() => router.push('/(tabs)/bookings')}>
-                  <Text style={[styles.viewAll, { color: RED }]}>View All →</Text>
-                </TouchableOpacity>
-              </View>
+            {/* Quick actions */}
+            <SectionHeader title="Quick Actions" />
+            <View style={styles.actionsRow}>
+              {quickActions.map(a => (
+                <Pressable
+                  key={a.label}
+                  style={styles.actionBtn}
+                  onPress={() => router.push(a.route as any)}
+                  android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
+                >
+                  <View style={[styles.actionIcon, { backgroundColor: a.bg }, shadow.sm]}>
+                    <Feather name={a.icon} size={22} color="#fff" />
+                  </View>
+                  <Text style={[typography.caption, { color: colors.text, textAlign: 'center', marginTop: 6, fontWeight: '600' }]}>{a.label}</Text>
+                </Pressable>
+              ))}
             </View>
+
+            {/* Bookings header */}
+            <SectionHeader
+              title="Today's Bookings"
+              actionLabel="View All →"
+              onAction={() => router.push('/(tabs)/bookings')}
+            />
           </View>
         )}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.bookingRow}
-            onPress={() => router.push(`/(tabs)/bookings/${item.id}`)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.bookingLeft}>
-              <View style={styles.avatarCircle}>
-                <Text style={styles.avatarLetter}>
-                  {(item.customer_name ?? 'C').charAt(0).toUpperCase()}
-                </Text>
-              </View>
+        renderItem={({ item }) => {
+          const st = BOOKING_STATUS[item.status] ?? { label: item.status, color: '#6B7280', bg: '#F3F4F6' };
+          return (
+            <TouchableOpacity
+              style={[styles.bookingCard, { backgroundColor: colors.surface, borderColor: colors.border }, shadow.sm]}
+              onPress={() => router.push(`/(tabs)/bookings/${item.id}` as any)}
+              activeOpacity={0.85}
+            >
+              <Avatar name={item.customer_name} size={42} />
               <View style={styles.bookingInfo}>
-                <Text style={styles.bookingCustomer}>{item.customer_name ?? '—'}</Text>
-                <Text style={styles.bookingService} numberOfLines={1}>
+                <Text style={[typography.titleSm, { color: colors.text }]} numberOfLines={1}>
+                  {item.customer_name ?? '—'}
+                </Text>
+                <Text style={[typography.caption, { color: colors.textSecondary }]} numberOfLines={1}>
                   {item.service_requested ?? '—'}
                 </Text>
               </View>
-            </View>
-            <View style={styles.bookingRight}>
-              <Text style={styles.bookingTime}>
-                {item.booking_date ? new Date(item.booking_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}
-              </Text>
-              <View style={[styles.statusPill, { backgroundColor: (STATUS_COLOR[item.status] ?? '#9CA3AF') + '20' }]}>
-                <Text style={[styles.statusPillText, { color: STATUS_COLOR[item.status] ?? '#9CA3AF' }]}>
-                  {STATUS_LABEL[item.status] ?? item.status}
+              <View style={styles.bookingRight}>
+                <View style={[styles.statusPill, { backgroundColor: st.bg }]}>
+                  <Text style={[typography.labelSm, { color: st.color }]}>{st.label}</Text>
+                </View>
+                <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 4 }]}>
+                  {item.booking_date ? new Date(item.booking_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}
                 </Text>
               </View>
-            </View>
-          </TouchableOpacity>
-        )}
+            </TouchableOpacity>
+          );
+        }}
         ListEmptyComponent={
-          <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
-            <Text style={{ color: '#9CA3AF', textAlign: 'center', fontSize: 13 }}>No bookings today</Text>
-          </View>
+          !isLoading ? (
+            <View style={styles.emptyWrap}>
+              <Feather name="calendar" size={32} color={colors.textDisabled} />
+              <Text style={[typography.body, { color: colors.textSecondary, marginTop: 8 }]}>No bookings today</Text>
+            </View>
+          ) : null
         }
       />
     </View>
@@ -215,63 +182,37 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F5F5F5' },
+  root: { flex: 1 },
   header: {
-    flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
-    backgroundColor: RED, paddingHorizontal: 20, paddingBottom: 20,
+    flexDirection: 'row', alignItems: 'flex-end',
+    paddingHorizontal: spacing.base, paddingBottom: spacing.base,
   },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
-  headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
   bellBtn: {
-    width: 38, height: 38, borderRadius: 19,
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  revenueRow: { flexDirection: 'row', gap: spacing.sm },
+  revenueCard: { flex: 1, borderRadius: radius.lg, padding: spacing.base },
+  revenueIconWrap: {
+    width: 32, height: 32, borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
-  body: { padding: 16, gap: 0 },
-  revenueRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  revenueCard: {
-    flex: 1, borderRadius: 14, padding: 16, gap: 4,
-  },
-  revenueIconRow: { marginBottom: 4 },
-  revenueLabel: { fontSize: 11, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
-  revenueValue: { fontSize: 20, fontWeight: '800', color: '#fff' },
-  revenueChange: { fontSize: 11, color: 'rgba(255,255,255,0.8)', fontWeight: '600' },
-  statsCard: {
-    flexDirection: 'row', borderRadius: 14, paddingVertical: 16,
-    marginBottom: 20, elevation: 2,
-  },
+  statsRow: { flexDirection: 'row', paddingVertical: spacing.base },
   statItem: { flex: 1, alignItems: 'center', gap: 6 },
-  statIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  statValue: { fontSize: 22, fontWeight: '800', color: '#111827' },
-  statLabel: { fontSize: 11, color: '#6B7280', fontWeight: '500' },
-  statDivider: { width: 1, backgroundColor: '#E5E7EB', marginVertical: 8 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 12 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  viewAll: { fontSize: 13, fontWeight: '600' },
-  actionsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  actionBtn: { flex: 1, alignItems: 'center', gap: 8 },
-  actionIcon: {
-    width: 52, height: 52, borderRadius: 26,
-    alignItems: 'center', justifyContent: 'center',
+  statsDivider: { width: 1, marginVertical: 8 },
+  statIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  actionsRow: { flexDirection: 'row', gap: 0 },
+  actionBtn: { flex: 1, alignItems: 'center', paddingVertical: 4 },
+  actionIcon: { width: 56, height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  bookingCard: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    marginHorizontal: spacing.base, marginBottom: spacing.sm,
+    borderRadius: radius.lg, padding: spacing.md, borderWidth: 1,
   },
-  actionLabel: { fontSize: 11, fontWeight: '600', color: '#374151', textAlign: 'center' },
-  bookingRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#fff', marginHorizontal: 16, marginBottom: 8,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
-    elevation: 1,
-  },
-  bookingLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  avatarCircle: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: '#FFF5F5', alignItems: 'center', justifyContent: 'center',
-  },
-  avatarLetter: { fontSize: 16, fontWeight: '700', color: RED },
-  bookingInfo: { flex: 1, gap: 2 },
-  bookingCustomer: { fontSize: 14, fontWeight: '700', color: '#111827' },
-  bookingService: { fontSize: 12, color: '#6B7280' },
-  bookingRight: { alignItems: 'flex-end', gap: 4 },
-  bookingTime: { fontSize: 12, color: '#6B7280', fontWeight: '500' },
-  statusPill: { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
-  statusPillText: { fontSize: 11, fontWeight: '700' },
+  bookingInfo: { flex: 1, gap: 3 },
+  bookingRight: { alignItems: 'flex-end' },
+  statusPill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
+  emptyWrap: { alignItems: 'center', paddingVertical: 40 },
 });
