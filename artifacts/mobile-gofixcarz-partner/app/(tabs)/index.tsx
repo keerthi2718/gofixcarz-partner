@@ -60,8 +60,8 @@ export default function DashboardScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 14, backgroundColor: colors.primary }]}>
         <View style={{ flex: 1 }}>
-          <Text style={[typography.labelSm, { color: 'rgba(255,255,255,0.7)', marginBottom: 2 }]}>Good morning 👋</Text>
-          <Text style={[typography.title, { color: '#fff' }]}>Dashboard</Text>
+          <Text style={{ fontSize: 30, fontWeight: '800', color: '#FFFFFF', lineHeight: 36 }}>GoFixAuto</Text>
+          <Text style={{ fontSize: 20, fontWeight: '600', color: 'rgba(255,255,255,0.90)', lineHeight: 26 }}>Dashboard</Text>
         </View>
         <TouchableOpacity
           style={styles.bellBtn}
