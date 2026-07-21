@@ -442,16 +442,14 @@ export default function RegisterScreen() {
           colors={[PRIMARY, PRIMARY_D]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[styles.headerGradient, { paddingTop: insets.top + 28 }]}
+          style={[styles.headerGradient, { paddingTop: insets.top + 24 }]}
         >
-          {/* Logo */}
-          <View style={styles.logoCard}>
-            <Image
-              source={require('../../assets/images/logo.jpg')}
-              style={styles.logo}
-              resizeMode="cover"
-            />
-          </View>
+          {/* Logo — clean transparent PNG on gradient */}
+          <Image
+            source={require('../../assets/images/logo_clean.png')}
+            style={styles.logoImg}
+            resizeMode="contain"
+          />
 
           {/* Page title & subtitle inside gradient */}
           <Text style={styles.pageTitle}>Join GoFixAuto</Text>
@@ -708,21 +706,11 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
   },
 
-  logoCard: {
-    width: 190,
-    height: 95,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    overflow: 'hidden',
+  logoImg: {
+    width: 200,
+    height: 120,
     marginBottom: 24,
-    padding: 20,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12 },
-      android: { elevation: 8 },
-      default: {},
-    }),
   },
-  logo: { flex: 1, width: '100%', height: '100%' },
 
   pageTitle: {
     fontSize: 30,

@@ -67,16 +67,13 @@ export default function LoginScreen() {
           colors={[PRIMARY, PRIMARY_D]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[styles.headerGradient, { paddingTop: insets.top + 32 }]}
+          style={[styles.headerGradient, { paddingTop: insets.top + 24 }]}
         >
-          {/* Logo card */}
-          <View style={[styles.logoCard, shadow.md]}>
-            <Image
-              source={require('../../assets/images/logo.jpg')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </View>
+          <Image
+            source={require('../../assets/images/logo_clean.png')}
+            style={styles.logoImg}
+            resizeMode="contain"
+          />
         </LinearGradient>
 
         {/* ── Form area ── */}
@@ -187,17 +184,12 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
-  /* Logo card — white rounded, floats on gradient */
-  logoCard: {
-    width: 140,
-    height: 96,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.6)',
+  /* Logo — clean transparent PNG direct on gradient */
+  logoImg: {
+    width: 200,
+    height: 120,
+    marginBottom: 24,
   },
-  logo: { width: '100%', height: '100%' },
 
   /* Form area */
   formArea: {
