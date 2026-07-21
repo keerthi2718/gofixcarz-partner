@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Image,
   KeyboardAvoidingView,
   Linking,
@@ -38,10 +39,10 @@ const GOOGLE_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY ?? '';
 /*  Vehicle Service Type options (maps to `wheelers`)  */
 /* ─────────────────────────────────────────────────── */
 const WHEELER_OPTIONS = [
-  { id: '2W', label: '2 Wheeler',           sub: 'Bikes & Scooters' },
-  { id: '3W', label: '3 Wheeler',           sub: 'Auto Rickshaws'   },
-  { id: '4W', label: '4 Wheeler',           sub: 'Cars & SUVs'      },
-  { id: '6W', label: '6W / Heavy Vehicles', sub: 'Trucks & Buses'   },
+  { id: '2W', emoji: '🏍️', label: '2W',  full: '2 Wheeler'           },
+  { id: '3W', emoji: '🛺',  label: '3W',  full: '3 Wheeler'           },
+  { id: '4W', emoji: '🚗',  label: '4W',  full: '4 Wheeler'           },
+  { id: '6W', emoji: '🚚',  label: '6W',  full: '6W / Heavy'          },
 ];
 
 /* ─────────────────────────────────────────────────── */
@@ -199,17 +200,60 @@ function AddressAutocomplete({ value, onChangeText, onSelect, error }: AddressAu
 }
 
 /* ─────────────────────────────────────────────────── */
+/*  Animated horizontal wheeler chip                   */
+/* ─────────────────────────────────────────────────── */
+function WheelerChip({
+  emoji, label, selected, onPress,
+}: { emoji: string; label: string; selected: boolean; onPress: () => void }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const bg    = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scale, { toValue: selected ? 1.06 : 1, useNativeDriver: true, friction: 6, tension: 200 }),
+      Animated.timing(bg,    { toValue: selected ? 1 : 0,    useNativeDriver: false, duration: 160 }),
+    ]).start();
+  }, [selected]);
+
+  const backgroundColor = bg.interpolate({ inputRange: [0, 1], outputRange: ['#F9FAFB', '#FFF0F0'] });
+  const borderColor     = bg.interpolate({ inputRange: [0, 1], outputRange: [BORDER, PRIMARY] });
+
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+      <Animated.View style={[styles.hChip, { backgroundColor, borderColor, transform: [{ scale }] }]}>
+        {selected && (
+          <View style={styles.hChipCheck}>
+            <Feather name="check" size={9} color="#fff" />
+          </View>
+        )}
+        <Text style={styles.hChipEmoji}>{emoji}</Text>
+        <Text style={[styles.hChipLabel, selected && { color: PRIMARY, fontWeight: '700' }]}>
+          {label}
+        </Text>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
+/* ─────────────────────────────────────────────────── */
 /*  Section card wrapper                               */
 /* ─────────────────────────────────────────────────── */
 function SectionCard({
-  icon, title, children,
+  icon, title, children, sectionKey, onSectionLayout,
 }: {
   icon: React.ComponentProps<typeof Feather>['name'];
   title: string;
   children: React.ReactNode;
+  sectionKey?: string;
+  onSectionLayout?: (key: string, y: number) => void;
 }) {
   return (
-    <View style={[styles.card, shadow.sm]}>
+    <View
+      style={[styles.card, shadow.sm]}
+      onLayout={e => {
+        if (sectionKey && onSectionLayout) onSectionLayout(sectionKey, e.nativeEvent.layout.y);
+      }}
+    >
       <View style={styles.cardHeader}>
         <View style={styles.cardIconBadge}>
           <Feather name={icon} size={14} color={PRIMARY} />
@@ -228,6 +272,9 @@ export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
   const { signUp, isLoading, error, clearError } = useAuth();
   const scrollRef = useRef<ScrollView>(null);
+
+  // Y-offsets of each section for scroll-to-error
+  const sectionY = useRef<Record<string, number>>({});
 
   const [form, setForm] = useState({
     firstName:    '',
@@ -285,9 +332,22 @@ export default function RegisterScreen() {
   );
 
   const handleSubmit = useCallback(async () => {
-    // Touch all required fields to show validation
     setTouched(t => ({ ...t, firstName: true, workshopName: true, phone: true, wheelers: true }));
-    if (!isValid) return;
+    if (!isValid) {
+      // Scroll to the first section that has an error
+      const order = ['personal', 'workshop', 'contact', 'wheelers'];
+      const errs: Record<string, boolean> = {
+        personal: !form.firstName,
+        workshop: !form.workshopName,
+        contact:  form.phone.length < 10,
+        wheelers: form.wheelers.length === 0,
+      };
+      const first = order.find(k => errs[k]);
+      if (first && sectionY.current[first] != null) {
+        scrollRef.current?.scrollTo({ y: sectionY.current[first] - 16, animated: true });
+      }
+      return;
+    }
 
     await signUp({
       first_name:    form.firstName,
@@ -345,7 +405,11 @@ export default function RegisterScreen() {
         ) : null}
 
         {/* ── Personal Details ── */}
-        <SectionCard icon="user" title="Personal Details">
+        <SectionCard
+          icon="user" title="Personal Details"
+          sectionKey="personal"
+          onSectionLayout={(k, y) => { sectionY.current[k] = y; }}
+        >
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
               <InputField
@@ -372,7 +436,11 @@ export default function RegisterScreen() {
         </SectionCard>
 
         {/* ── Workshop Details ── */}
-        <SectionCard icon="tool" title="Workshop Details">
+        <SectionCard
+          icon="tool" title="Workshop Details"
+          sectionKey="workshop"
+          onSectionLayout={(k, y) => { sectionY.current[k] = y; }}
+        >
           <InputField
             label="Workshop Name *"
             value={form.workshopName}
@@ -452,68 +520,60 @@ export default function RegisterScreen() {
         </SectionCard>
 
         {/* ── Contact ── */}
-        <SectionCard icon="phone" title="Contact">
-          <View style={styles.row}>
-            <View style={{ flex: 1 }}>
-              <InputField
-                label="Primary Phone *"
-                value={form.phone}
-                onChangeText={v => { set('phone', v.replace(/\D/g, '')); }}
-                onBlur={() => touch('phone')}
-                placeholder="10-digit number"
-                keyboardType="phone-pad"
-                maxLength={10}
-                prefix="+91"
-                leadingIcon="phone"
-                error={errors.phone}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <InputField
-                label="Phone 2 (Optional)"
-                value={form.phone2}
-                onChangeText={v => set('phone2', v.replace(/\D/g, ''))}
-                placeholder="Alternate number"
-                keyboardType="phone-pad"
-                maxLength={10}
-                prefix="+91"
-              />
-            </View>
-          </View>
+        <SectionCard
+          icon="phone" title="Contact"
+          sectionKey="contact"
+          onSectionLayout={(k, y) => { sectionY.current[k] = y; }}
+        >
+          {/* Full-width phone fields — stacked so +91 prefix never cramps the number */}
+          <InputField
+            label="Primary Phone *"
+            value={form.phone}
+            onChangeText={v => set('phone', v.replace(/\D/g, ''))}
+            onBlur={() => touch('phone')}
+            placeholder="Enter 10-digit mobile number"
+            keyboardType="number-pad"
+            maxLength={10}
+            prefix="+91"
+            leadingIcon="phone"
+            error={errors.phone}
+          />
+          <InputField
+            label="Alternate Phone (Optional)"
+            value={form.phone2}
+            onChangeText={v => set('phone2', v.replace(/\D/g, ''))}
+            placeholder="Enter 10-digit mobile number"
+            keyboardType="number-pad"
+            maxLength={10}
+            prefix="+91"
+          />
         </SectionCard>
 
         {/* ── Vehicle Service Type ── */}
-        <SectionCard icon="truck" title="Vehicle Service Type *">
-          <Text style={styles.wheelerHint}>Select all types your workshop services</Text>
-          <View style={styles.wheelerGrid}>
-            {WHEELER_OPTIONS.map(opt => {
-              const selected = form.wheelers.includes(opt.id);
-              return (
-                <TouchableOpacity
-                  key={opt.id}
-                  style={[styles.wheelerChip, selected && styles.wheelerChipSelected]}
-                  onPress={() => { toggleWheeler(opt.id); touch('wheelers'); }}
-                  activeOpacity={0.75}
-                >
-                  <View style={styles.wheelerCheckbox}>
-                    {selected ? (
-                      <Feather name="check" size={11} color="#fff" />
-                    ) : null}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.wheelerLabel, selected && styles.wheelerLabelSelected]}>
-                      {opt.label}
-                    </Text>
-                    <Text style={[styles.wheelerSub, selected && { color: PRIMARY }]}>
-                      {opt.sub}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+        <SectionCard
+          icon="truck" title="Vehicle Service Type *"
+          sectionKey="wheelers"
+          onSectionLayout={(k, y) => { sectionY.current[k] = y; }}
+        >
+          <Text style={styles.wheelerHint}>Select all vehicle types your workshop services</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hChipRow}
+            keyboardShouldPersistTaps="handled"
+          >
+            {WHEELER_OPTIONS.map(opt => (
+              <WheelerChip
+                key={opt.id}
+                emoji={opt.emoji}
+                label={opt.label}
+                selected={form.wheelers.includes(opt.id)}
+                onPress={() => { toggleWheeler(opt.id); touch('wheelers'); }}
+              />
+            ))}
+          </ScrollView>
           {errors.wheelers ? (
-            <Text style={styles.fieldError}>{errors.wheelers}</Text>
+            <Text style={[styles.fieldError, { marginTop: 6 }]}>{errors.wheelers}</Text>
           ) : null}
         </SectionCard>
 
@@ -665,29 +725,29 @@ const styles = StyleSheet.create({
   hintText: { ...typography.caption, color: MUTED, marginBottom: spacing.sm, fontStyle: 'italic' },
   fieldError: { ...typography.caption, color: DANGER, marginTop: 4, marginBottom: 4 },
 
-  /* Wheeler chips */
+  /* Wheeler chips — horizontal scroll row */
   wheelerHint: { ...typography.caption, color: MUTED, marginBottom: spacing.sm },
-  wheelerGrid: { gap: 8 },
-  wheelerChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderWidth: 1.5, borderColor: BORDER,
-    borderRadius: radius.md,
-    backgroundColor: '#FAFAFA',
-    paddingVertical: 12, paddingHorizontal: 14,
+  hChipRow: { flexDirection: 'row', gap: 10, paddingBottom: 4 },
+  hChip: {
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderRadius: radius.lg,
+    paddingVertical: 14, paddingHorizontal: 18,
+    minWidth: 76,
+    position: 'relative',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6 },
+      android: { elevation: 2 },
+      default: {},
+    }),
   },
-  wheelerChipSelected: {
-    borderColor: PRIMARY,
-    backgroundColor: '#FFF5F5',
-  },
-  wheelerCheckbox: {
-    width: 20, height: 20, borderRadius: 5,
-    borderWidth: 1.5, borderColor: BORDER,
-    backgroundColor: '#fff',
+  hChipEmoji: { fontSize: 26, marginBottom: 6 },
+  hChipLabel: { ...typography.label, color: LABEL, textAlign: 'center' },
+  hChipCheck: {
+    position: 'absolute', top: 6, right: 6,
+    width: 16, height: 16, borderRadius: 8,
+    backgroundColor: PRIMARY,
     alignItems: 'center', justifyContent: 'center',
   },
-  wheelerLabel:         { ...typography.bodySm, fontWeight: '600', color: LABEL },
-  wheelerLabelSelected: { color: PRIMARY },
-  wheelerSub:           { ...typography.caption, color: MUTED, marginTop: 1 },
 
   /* Terms */
   termsCard: {

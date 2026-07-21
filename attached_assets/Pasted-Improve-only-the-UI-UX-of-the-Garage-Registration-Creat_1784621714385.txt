@@ -1,0 +1,87 @@
+Improve only the UI/UX of the Garage Registration (Create Account) screen.
+
+⚠️ IMPORTANT
+- DO NOT modify any backend APIs.
+- DO NOT change API endpoints.
+- DO NOT change request/response payloads.
+- DO NOT rename any backend fields.
+- DO NOT modify authentication, business logic, validation logic, or database schema.
+- DO NOT disturb any existing API integrations.
+- Preserve all existing functionality exactly as it is.
+- Only make frontend/UI improvements.
+
+UI Changes Required
+
+1. Vehicle Service Type
+- Change the current vertical layout to a horizontal chip/card layout.
+- Display all options in a single horizontal row with horizontal scrolling if needed.
+- Each option should be a selectable card with an icon and label.
+- Users should be able to select multiple vehicle types.
+
+Example:
+
+[🏍️ 2W]   [🛺 3W]   [🚗 4W]   [🚚 6W]
+
+Selected cards should:
+- Show the primary app color.
+- Display a checkmark.
+- Have a subtle elevation/shadow.
+- Animate smoothly on selection.
+
+Do not use the current large vertical cards.
+
+2. Phone Number Input
+The mobile number input looks cramped.
+
+Improve it by:
+- Increasing the width available for entering the number.
+- Keep +91 fixed.
+- Add proper spacing between +91 and the input field.
+- Ensure all 10 digits are clearly visible while typing.
+- Prevent text clipping.
+- Vertically center the text.
+- Keep the cursor aligned correctly.
+- Use numeric keyboard.
+- Improve placeholder to "Enter 10-digit mobile number".
+
+The alternate phone number should follow the same UI.
+
+3. Validation Messages
+- Show validation messages below the input field.
+- Do not allow the error text to overlap with other sections.
+- Maintain consistent spacing before the next section.
+- Automatically scroll to the first validation error when submitting.
+
+4. Responsive Keyboard Behavior
+When the keyboard opens:
+- Automatically scroll the focused field into view.
+- Ensure the keyboard never covers the active input.
+- Prevent the Vehicle Service Type section from being hidden.
+- Use KeyboardAvoidingView (React Native) or equivalent.
+- Add sufficient bottom padding while the keyboard is open.
+
+5. Vehicle Service Type Section
+Reduce the vertical space significantly.
+
+Use compact selectable chips similar to:
+
+🏍️ 2W    🛺 3W    🚗 4W    🚚 6W
+
+instead of tall cards.
+
+Allow horizontal scrolling if required.
+
+6. Overall UI Polish
+- Improve spacing.
+- Improve alignment.
+- Keep consistent margins.
+- Make input fields slightly taller.
+- Improve border radius.
+- Improve shadows.
+- Improve typography.
+- Keep the existing branding and colors.
+
+Final Requirement
+Only improve the frontend design and user experience.
+Do NOT modify or disturb any existing backend APIs, request payloads, response payloads, authentication flow, or business logic.
+The registration functionality must continue working exactly as it does today.
