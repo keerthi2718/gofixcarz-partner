@@ -205,39 +205,36 @@ function AddressAutocomplete({ value, onChangeText, onSelect, error }: AddressAu
 function WheelerChip({
   emoji, label, selected, onPress,
 }: { emoji: string; label: string; selected: boolean; onPress: () => void }) {
+  // Only use Animated for scale/transform — native driver safe.
+  // Colours are handled via plain conditional styles (no Animated.Value),
+  // which avoids the native-driver conflict entirely.
   const scale = useRef(new Animated.Value(1)).current;
-  const bg    = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // scale uses useNativeDriver: true (transform is supported natively)
     Animated.spring(scale, {
       toValue: selected ? 1.06 : 1,
       useNativeDriver: true,
       friction: 6,
       tension: 200,
     }).start();
-    // bg/border colour uses useNativeDriver: false (layout props are NOT supported natively)
-    // Must be a separate call — never mix true/false in Animated.parallel
-    Animated.timing(bg, {
-      toValue: selected ? 1 : 0,
-      useNativeDriver: false,
-      duration: 160,
-    }).start();
   }, [selected]);
-
-  const backgroundColor = bg.interpolate({ inputRange: [0, 1], outputRange: ['#F9FAFB', '#FFF0F0'] });
-  const borderColor     = bg.interpolate({ inputRange: [0, 1], outputRange: [BORDER, PRIMARY] });
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-      <Animated.View style={[styles.hChip, { backgroundColor, borderColor, transform: [{ scale }] }]}>
+      <Animated.View
+        style={[
+          styles.hChip,
+          selected ? styles.hChipSelected : styles.hChipIdle,
+          { transform: [{ scale }] },
+        ]}
+      >
         {selected && (
           <View style={styles.hChipCheck}>
             <Feather name="check" size={9} color="#fff" />
           </View>
         )}
         <Text style={styles.hChipEmoji}>{emoji}</Text>
-        <Text style={[styles.hChipLabel, selected && { color: PRIMARY, fontWeight: '700' }]}>
+        <Text style={[styles.hChipLabel, selected && styles.hChipLabelSelected]}>
           {label}
         </Text>
       </Animated.View>
@@ -750,8 +747,17 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
+  hChipIdle: {
+    backgroundColor: '#F9FAFB',
+    borderColor: BORDER,
+  },
+  hChipSelected: {
+    backgroundColor: '#FFF0F0',
+    borderColor: PRIMARY,
+  },
   hChipEmoji: { fontSize: 26, marginBottom: 6 },
   hChipLabel: { ...typography.label, color: LABEL, textAlign: 'center' },
+  hChipLabelSelected: { color: PRIMARY, fontWeight: '700' as const },
   hChipCheck: {
     position: 'absolute', top: 6, right: 6,
     width: 16, height: 16, borderRadius: 8,
