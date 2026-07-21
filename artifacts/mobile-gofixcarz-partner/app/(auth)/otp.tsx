@@ -258,18 +258,20 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  /* OTP boxes */
+  /* OTP boxes — 6 × 50px + 5 × 7px gap = 335px < 338px usable width */
   otpRow: {
     flexDirection: 'row',
-    gap: 14,
+    gap: 7,
     marginBottom: 32,
     justifyContent: 'center',
+    width: '100%',
   },
   otpBox: {
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-    fontSize: 24,
+    flex: 1,          // distribute evenly so they always fill available space
+    maxWidth: 52,
+    height: 56,
+    borderRadius: 10,
+    fontSize: 22,
     fontWeight: '700',
   },
 
