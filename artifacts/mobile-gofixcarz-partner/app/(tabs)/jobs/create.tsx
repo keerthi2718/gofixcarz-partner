@@ -6,9 +6,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import JobService from '@/src/services/job.service';
-import { QUERY_KEYS } from '@/src/constants/api';
 import { formatCurrency } from '@/src/utils/helpers';
 
 const RED = '#C62828';
@@ -23,9 +22,8 @@ export default function CreateJobScreen() {
   const [step, setStep] = useState(0);
 
   // Step 1 — Customer & Vehicle
-  const [customerSearch, setCustomerSearch] = useState('');
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [selectedCustomerName, setSelectedCustomerName] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [regNumber, setRegNumber] = useState('');
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
@@ -53,13 +51,6 @@ export default function CreateJobScreen() {
   // Step 5/6 — created job
   const [createdJobId, setCreatedJobId] = useState<string | null>(null);
 
-  // Mock customers for Step 1 demo (replace with real API query)
-  const mockCustomers = [
-    { id: '1', name: 'Rajesh Kumar', mobile: '+91 98765 43210' },
-    { id: '2', name: 'Priya Sharma', mobile: '+91 87654 32100' },
-    { id: '3', name: 'Amit Patel', mobile: '+91 76543 21000' },
-  ].filter(c => customerSearch ? c.name.toLowerCase().includes(customerSearch.toLowerCase()) : true);
-
   // Mock technicians for Step 4
   const mockTechs = [
     { id: 't1', name: 'Suresh Kumar', role: 'Senior Mechanic', available: true },
@@ -75,8 +66,8 @@ export default function CreateJobScreen() {
 
   const { mutate: createJob, isPending } = useMutation({
     mutationFn: () => JobService.create({
-      customer_id: selectedCustomerId,
-      customer_name: selectedCustomerName || null,
+      customer_name: customerName || null,
+      customer_mobile: customerPhone || null,
       registration_number: regNumber || null,
       brand: brand || null,
       vehicle_model: model || null,
@@ -114,7 +105,7 @@ export default function CreateJobScreen() {
   }
 
   function canProceed() {
-    if (step === 0) return !!(selectedCustomerId && regNumber && brand && model);
+    if (step === 0) return !!(customerName.trim() && regNumber.trim() && brand.trim() && model.trim());
     if (step === 1) return !!complaint;
     if (step === 2) return services.length > 0;
     if (step === 3) return !!selectedTechId;
@@ -179,42 +170,27 @@ export default function CreateJobScreen() {
         {/* ── Step 0: Customer & Vehicle ── */}
         {step === 0 && (
           <>
-            <Text style={styles.sectionLabel}>CUSTOMER</Text>
-            <View style={styles.searchBox}>
-              <Feather name="search" size={14} color="#9CA3AF" />
-              <TextInput
-                style={styles.searchInput}
-                value={customerSearch}
-                onChangeText={setCustomerSearch}
-                placeholder="Search by name or phone..."
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
-            {mockCustomers.map(c => (
-              <TouchableOpacity
-                key={c.id}
-                style={[styles.customerRow, selectedCustomerId === c.id && styles.customerRowSelected]}
-                onPress={() => { setSelectedCustomerId(c.id); setSelectedCustomerName(c.name); }}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.customerAvatar, selectedCustomerId === c.id && { backgroundColor: RED }]}>
-                  <Text style={[styles.customerAvatarText, selectedCustomerId === c.id && { color: '#fff' }]}>
-                    {c.name.charAt(0)}
-                  </Text>
-                </View>
-                <View>
-                  <Text style={styles.customerName}>{c.name}</Text>
-                  <Text style={styles.customerPhone}>{c.mobile}</Text>
-                </View>
-                {selectedCustomerId === c.id && <Feather name="check-circle" size={18} color={RED} style={{ marginLeft: 'auto' }} />}
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={styles.addCustomerBtn}>
-              <Feather name="plus" size={14} color={RED} />
-              <Text style={[styles.addCustomerText, { color: RED }]}>Add New Customer</Text>
-            </TouchableOpacity>
+            <Text style={styles.sectionLabel}>CUSTOMER DETAILS</Text>
+            <Text style={styles.fieldLabel}>Customer Name *</Text>
+            <TextInput
+              style={styles.input}
+              value={customerName}
+              onChangeText={setCustomerName}
+              placeholder="Full name"
+              placeholderTextColor="#9CA3AF"
+              autoCapitalize="words"
+            />
+            <Text style={styles.fieldLabel}>Phone Number</Text>
+            <TextInput
+              style={styles.input}
+              value={customerPhone}
+              onChangeText={setCustomerPhone}
+              placeholder="+91 98765 43210"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="phone-pad"
+            />
 
-            <Text style={[styles.sectionLabel, { marginTop: 20 }]}>VEHICLE DETAILS</Text>
+            <Text style={[styles.sectionLabel, { marginTop: 8 }]}>VEHICLE DETAILS</Text>
             <Text style={styles.fieldLabel}>Registration Number *</Text>
             <TextInput style={styles.input} value={regNumber} onChangeText={setRegNumber} placeholder="KA-01-AB-1234" placeholderTextColor="#9CA3AF" autoCapitalize="characters" />
             <View style={styles.twoCol}>
@@ -479,7 +455,7 @@ export default function CreateJobScreen() {
                 </View>
               </View>
               <View style={styles.invoiceMeta}>
-                <Text style={styles.invoiceMetaText}>Customer: {selectedCustomerName || '—'}</Text>
+                <Text style={styles.invoiceMetaText}>Customer: {customerName || '—'}</Text>
                 <Text style={styles.invoiceMetaText}>Vehicle: {regNumber || '—'}</Text>
                 <Text style={styles.invoiceMetaText}>Date: {new Date().toLocaleDateString('en-IN')}</Text>
               </View>
@@ -607,27 +583,6 @@ const styles = StyleSheet.create({
   },
   textarea: { height: 90, textAlignVertical: 'top' },
   twoCol: { flexDirection: 'row', gap: 10 },
-  searchBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#fff', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
-    borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 10,
-  },
-  searchInput: { flex: 1, fontSize: 14, color: '#111827' },
-  customerRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#fff', borderRadius: 10, padding: 12,
-    marginBottom: 8, borderWidth: 1, borderColor: '#E5E7EB',
-  },
-  customerRowSelected: { borderColor: RED, borderWidth: 1.5 },
-  customerAvatar: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#FFF5F5', alignItems: 'center', justifyContent: 'center',
-  },
-  customerAvatarText: { fontSize: 15, fontWeight: '700', color: RED },
-  customerName: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  customerPhone: { fontSize: 12, color: '#6B7280' },
-  addCustomerBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 },
-  addCustomerText: { fontSize: 13, fontWeight: '600' },
   fuelRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   fuelBtn: {
     flex: 1, paddingVertical: 10, borderRadius: 8,
