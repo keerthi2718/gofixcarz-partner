@@ -104,14 +104,14 @@ export default function InputField({
         ) : null}
 
         {prefix ? (
-          <View style={styles.prefixWrap}>
-            <Text style={[typography.body, { color: TEXT_COLOR, fontWeight: '600' }]}>{prefix}</Text>
+          <View style={[styles.prefixWrap, leadingIcon ? styles.prefixWrapWithIcon : styles.prefixWrapAlone]}>
+            <Text style={styles.prefixText}>{prefix}</Text>
             <View style={styles.prefixDivider} />
           </View>
         ) : null}
 
         <TextInput
-          style={[styles.input, typography.body, { color: TEXT_COLOR }, style]}
+          style={[styles.input, typography.body, { color: TEXT_COLOR }, prefix ? styles.inputWithPrefix : null, style]}
           placeholderTextColor={PLACEHOLDER}
           onFocus={handleFocus}
           onBlur={handleBlur}
@@ -177,8 +177,37 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   trailIcon:    { marginRight: spacing.md },
-  prefixWrap:   { flexDirection: 'row', alignItems: 'center', paddingLeft: spacing.md },
-  prefixDivider: { width: 1, height: 22, marginHorizontal: spacing.sm, backgroundColor: BORDER_DEFAULT },
-  input:        { paddingHorizontal: 18, height: '100%', flex: 1 },
+
+  /* Prefix (+91) — shared */
+  prefixWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  /* When there's no leading icon, give left breathing room */
+  prefixWrapAlone: {
+    paddingLeft: 14,
+  },
+  /* When the icon badge is present, butt up tight behind it */
+  prefixWrapWithIcon: {
+    paddingLeft: 2,
+  },
+  prefixText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E293B',
+    letterSpacing: 0.2,
+    paddingRight: 2,
+  },
+  prefixDivider: {
+    width: 1,
+    height: 20,
+    marginHorizontal: 10,
+    backgroundColor: '#CBD5E1',
+    borderRadius: 1,
+  },
+
+  /* Input — less left padding when prefix already handles it */
+  input:          { paddingHorizontal: 18, height: '100%', flex: 1 },
+  inputWithPrefix: { paddingLeft: 4 },
   errorRow:     { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
 });
