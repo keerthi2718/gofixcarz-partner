@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
 import {
-  FlatList, Platform, Pressable, RefreshControl,
-  StatusBar, StyleSheet, Text, TextInput,
-  TouchableOpacity, View,
+  ActivityIndicator, KeyboardAvoidingView, Platform,
+  RefreshControl, ScrollView, StatusBar, StyleSheet,
+  Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import ServicePackageService from '@/src/services/service-package.service';
-import ServicePackageCard from '@/src/components/services/ServicePackageCard';
-import ErrorState from '@/src/components/ui/ErrorState';
-import LoadingState from '@/src/components/ui/LoadingState';
 
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
@@ -21,138 +19,220 @@ const PRIMARY = '#2563EB';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
-const SUCCESS = '#10B981';
+const DANGER  = '#EF4444';
 
 export default function ServicesScreen() {
   const insets = useSafeAreaInsets();
-  const [search, setSearch]         = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [activeOnly, setActiveOnly] = useState(false);
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const qc = useQueryClient();
 
-  const { data, isLoading, error, refetch, isRefetching } = useQuery({
-    queryKey: QUERY_KEYS.SERVICE_PACKAGES({ search: search || undefined, active_only: activeOnly || undefined }),
-    queryFn:  () => ServicePackageService.list({ search: search || undefined, active_only: activeOnly || undefined, page_size: 50 }),
+  /* Add service form state */
+  const [name,        setName]        = useState('');
+  const [price,       setPrice]       = useState('');
+  const [duration,    setDuration]    = useState('');
+  const [description, setDescription] = useState('');
+
+  const { data, isLoading, isRefetching, refetch } = useQuery({
+    queryKey: QUERY_KEYS.SERVICE_PACKAGES({}),
+    queryFn:  () => ServicePackageService.list({ page_size: 50 }),
   });
 
-  const items     = data?.items ?? [];
-  const totalAmt  = items.reduce((s, p) => s + p.price, 0);
-  const activeCount = items.filter(p => p.is_active).length;
+  const addMut = useMutation({
+    mutationFn: () => ServicePackageService.create({
+      name:             name.trim(),
+      price:            parseFloat(price) || 0,
+      duration_minutes: parseInt(duration) || null,
+      description:      description.trim() || null,
+      is_active:        true,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.SERVICE_PACKAGES({}) });
+      setName(''); setPrice(''); setDuration(''); setDescription('');
+    },
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => ServicePackageService.delete(id),
+    onSuccess:  () => qc.invalidateQueries({ queryKey: QUERY_KEYS.SERVICE_PACKAGES({}) }),
+  });
+
+  const items = data?.items ?? [];
+  const canAdd = name.trim().length > 0 && parseFloat(price) > 0;
+
+  function durationLabel(mins: number | null | undefined) {
+    if (!mins) return '';
+    if (mins < 60) return `${mins} mins`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h} hour${h > 1 ? 's' : ''}`;
+  }
 
   return (
-    <View style={[styles.root, { backgroundColor: BG }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={BG} />
+    <KeyboardAvoidingView
+      style={[styles.root, { backgroundColor: BG }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <StatusBar barStyle="light-content" backgroundColor="#1D4ED8" />
 
-      {/* ── Page header ── */}
-      <View style={[styles.topBar, { paddingTop: topPad + 16 }]}>
-        <View>
-          <Text style={styles.pageTitle}>Services</Text>
-          <Text style={styles.pageSubtitle}>{items.length} packages • {activeCount} active</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => setSearchOpen(v => !v)}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Feather name={searchOpen ? 'x' : 'search'} size={18} color={TEXT} />
-        </TouchableOpacity>
-      </View>
-
-      {/* ── Search bar ── */}
-      {searchOpen && (
-        <View style={styles.searchWrap}>
-          <View style={styles.searchBox}>
-            <Feather name="search" size={15} color={MUTED} />
-            <TextInput
-              style={styles.searchInput}
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search service packages…"
-              placeholderTextColor="#94A3B8"
-              autoFocus
-            />
-            {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Feather name="x-circle" size={15} color={MUTED} />
-              </TouchableOpacity>
-            )}
+      {/* ── Gradient header ── */}
+      <LinearGradient
+        colors={['#1D4ED8', '#2563EB']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.gradHeader, { paddingTop: topPad + 16 }]}
+      >
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Feather name="arrow-left" size={20} color="#fff" />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>Service Packages</Text>
+            <Text style={styles.headerSub}>Manage your service offerings</Text>
           </View>
         </View>
-      )}
+      </LinearGradient>
 
-      {/* ── Filter row ── */}
-      <View style={styles.filterRow}>
-        <Pressable
-          style={[styles.filterChip, activeOnly && styles.filterChipActive]}
-          onPress={() => setActiveOnly(v => !v)}
-        >
-          <View style={[styles.filterDot, { backgroundColor: activeOnly ? '#fff' : '#CBD5E1' }]} />
-          <Text style={[styles.filterText, activeOnly && styles.filterTextActive]}>
-            {activeOnly ? 'Active Only' : 'All Packages'}
-          </Text>
-        </Pressable>
-
-        {/* Summary chip */}
-        <View style={styles.summaryChip}>
-          <Feather name="trending-up" size={11} color={PRIMARY} />
-          <Text style={styles.summaryText}>
-            ₹{totalAmt.toLocaleString('en-IN')} avg pool
-          </Text>
-        </View>
-      </View>
-
-      {/* ── List ── */}
-      {isLoading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState onRetry={refetch} />
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={item => item.id}
-          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 130 }]}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={PRIMARY} />}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <ServicePackageCard
-              pkg={item}
-              onPress={() => router.push(`/(tabs)/services/${item.id}` as any)}
-            />
-          )}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <View style={styles.emptyIcon}>
-                <Feather name="package" size={28} color={PRIMARY} />
-              </View>
-              <Text style={styles.emptyTitle}>No service packages</Text>
-              <Text style={styles.emptySubtitle}>
-                {search ? 'Try a different search term.' : 'Tap + Add to create your first package.'}
-              </Text>
-              {!search && (
-                <TouchableOpacity
-                  style={styles.emptyAction}
-                  onPress={() => router.push('/(tabs)/services/create')}
-                  activeOpacity={0.85}
-                >
-                  <Feather name="plus" size={14} color="#fff" />
-                  <Text style={styles.emptyActionText}>Add Package</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          }
-        />
-      )}
-
-      {/* ── FAB ── */}
-      <Pressable
-        style={[styles.fab, { bottom: insets.bottom + 90 }]}
-        onPress={() => router.push('/(tabs)/services/create')}
-        android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: false }}
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={PRIMARY} />}
       >
-        <Feather name="plus" size={18} color="#fff" />
-        <Text style={styles.fabText}>Add Service</Text>
-      </Pressable>
-    </View>
+        {/* ── Add New Service form card ── */}
+        <View style={styles.formCard}>
+          <Text style={styles.formTitle}>Add New Service</Text>
+
+          {/* Service Name */}
+          <View style={styles.fieldWrap}>
+            <Text style={styles.fieldLabel}>Service Name</Text>
+            <TextInput
+              style={styles.input}
+              value={name}
+              onChangeText={setName}
+              placeholder="e.g. Full Service, Oil Change…"
+              placeholderTextColor="#94A3B8"
+              autoCapitalize="words"
+            />
+          </View>
+
+          {/* Price | Duration row */}
+          <View style={styles.row}>
+            <View style={[styles.fieldWrap, { flex: 1 }]}>
+              <Text style={styles.fieldLabel}>Price (₹)</Text>
+              <TextInput
+                style={styles.input}
+                value={price}
+                onChangeText={setPrice}
+                placeholder="0"
+                placeholderTextColor="#94A3B8"
+                keyboardType="number-pad"
+              />
+            </View>
+            <View style={[styles.fieldWrap, { flex: 1 }]}>
+              <Text style={styles.fieldLabel}>Duration (mins)</Text>
+              <TextInput
+                style={styles.input}
+                value={duration}
+                onChangeText={setDuration}
+                placeholder="30"
+                placeholderTextColor="#94A3B8"
+                keyboardType="number-pad"
+              />
+            </View>
+          </View>
+
+          {/* Description */}
+          <View style={styles.fieldWrap}>
+            <Text style={styles.fieldLabel}>Description (optional)</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Brief description of the service…"
+              placeholderTextColor="#94A3B8"
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
+
+          {/* Add button */}
+          <TouchableOpacity
+            style={[styles.addBtn, !canAdd && { opacity: 0.5 }]}
+            onPress={() => canAdd && addMut.mutate()}
+            disabled={!canAdd || addMut.isPending}
+            activeOpacity={0.85}
+          >
+            {addMut.isPending
+              ? <ActivityIndicator color="#fff" size="small" />
+              : (
+                <>
+                  <Feather name="plus" size={16} color="#fff" />
+                  <Text style={styles.addBtnText}>Add Service</Text>
+                </>
+              )
+            }
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Current Services ── */}
+        {isLoading ? (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color={PRIMARY} />
+            <Text style={styles.loadingText}>Loading services…</Text>
+          </View>
+        ) : items.length > 0 ? (
+          <View style={styles.servicesCard}>
+            <Text style={styles.sectionTitle}>Current Services</Text>
+            {items.map((item, i) => (
+              <View
+                key={item.id}
+                style={[styles.serviceRow, i < items.length - 1 && styles.serviceRowBorder]}
+              >
+                <View style={styles.serviceDot} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.serviceName}>{item.name}</Text>
+                  <Text style={styles.serviceMeta}>
+                    ₹{item.price.toLocaleString('en-IN')}
+                    {item.duration_minutes ? ` • ${durationLabel(item.duration_minutes)}` : ''}
+                    {!item.is_active ? ' • Inactive' : ''}
+                  </Text>
+                </View>
+                <View style={styles.serviceActions}>
+                  <TouchableOpacity
+                    style={styles.serviceEditBtn}
+                    onPress={() => router.push(`/(tabs)/services/${item.id}` as any)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Feather name="edit-2" size={13} color={PRIMARY} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.serviceDeleteBtn}
+                    onPress={() => deleteMut.mutate(item.id)}
+                    disabled={deleteMut.isPending}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    {deleteMut.isPending && deleteMut.variables === item.id
+                      ? <ActivityIndicator size="small" color={DANGER} />
+                      : <Feather name="x" size={15} color={DANGER} />
+                    }
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyWrap}>
+            <Feather name="package" size={32} color="#CBD5E1" />
+            <Text style={styles.emptyText}>No services added yet</Text>
+          </View>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -160,95 +240,104 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
 
   /* Header */
-  topBar: {
-    flexDirection: 'row', alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingBottom: 12,
+  gradHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 22,
   },
-  pageTitle:    { fontSize: 26, fontWeight: '800', color: TEXT, letterSpacing: -0.5 },
-  pageSubtitle: { fontSize: 13, color: MUTED, marginTop: 2 },
-  iconBtn: {
-    width: 42, height: 42, borderRadius: 21,
-    backgroundColor: CARD, borderWidth: 1, borderColor: BORDER,
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  backBtn: {
+    width: 38, height: 38, borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center', justifyContent: 'center',
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
-      android: { elevation: 2 },
-      default: {},
-    }),
   },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.4 },
+  headerSub:   { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
 
-  /* Search */
-  searchWrap: { paddingHorizontal: 20, paddingBottom: 10 },
-  searchBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: CARD, borderRadius: 14,
-    borderWidth: 1, borderColor: BORDER,
-    paddingHorizontal: 14, height: 46,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
-      android: { elevation: 2 },
-      default: {},
-    }),
-  },
-  searchInput: { flex: 1, fontSize: 15, color: TEXT },
+  content: { padding: 20, gap: 16 },
 
-  /* Filters */
-  filterRow: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingBottom: 14, gap: 10,
-  },
-  filterChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 20, borderWidth: 1.5, borderColor: BORDER,
+  /* Form card */
+  formCard: {
     backgroundColor: CARD,
+    borderRadius: 20, borderWidth: 1, borderColor: BORDER,
+    padding: 18, gap: 0,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10 },
+      android: { elevation: 3 },
+      default: {},
+    }),
   },
-  filterChipActive: { backgroundColor: SUCCESS, borderColor: SUCCESS },
-  filterDot:        { width: 7, height: 7, borderRadius: 4 },
-  filterText:       { fontSize: 12, fontWeight: '600', color: MUTED },
-  filterTextActive: { color: '#fff' },
+  formTitle: { fontSize: 16, fontWeight: '700', color: TEXT, marginBottom: 16 },
 
-  summaryChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: 20, backgroundColor: '#EEF2FF',
-    borderWidth: 1.5, borderColor: '#93C5FD',
+  row: { flexDirection: 'row', gap: 10 },
+
+  fieldWrap: { marginBottom: 14 },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 6 },
+  input: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12, borderWidth: 1.5, borderColor: BORDER,
+    paddingHorizontal: 14, height: 48,
+    fontSize: 15, color: TEXT,
   },
-  summaryText: { fontSize: 12, fontWeight: '600', color: PRIMARY },
+  textArea: { height: 80, paddingTop: 12 },
 
-  /* List */
-  list: { paddingHorizontal: 20 },
+  addBtn: {
+    backgroundColor: PRIMARY,
+    borderRadius: 14, height: 50,
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', gap: 8,
+    marginTop: 4,
+    ...Platform.select({
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10 },
+      android: { elevation: 6 },
+      default: {},
+    }),
+  },
+  addBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+  /* Services list card */
+  servicesCard: {
+    backgroundColor: CARD,
+    borderRadius: 20, borderWidth: 1, borderColor: BORDER,
+    paddingHorizontal: 18, paddingTop: 16, paddingBottom: 6,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10 },
+      android: { elevation: 3 },
+      default: {},
+    }),
+  },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: TEXT, marginBottom: 14 },
+
+  serviceRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 13,
+  },
+  serviceRowBorder: { borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  serviceDot: {
+    width: 8, height: 8, borderRadius: 4,
+    backgroundColor: PRIMARY, flexShrink: 0,
+  },
+  serviceName: { fontSize: 14, fontWeight: '600', color: TEXT, marginBottom: 2 },
+  serviceMeta: { fontSize: 12, color: MUTED },
+  serviceActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  serviceEditBtn: {
+    width: 30, height: 30, borderRadius: 9,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  serviceDeleteBtn: {
+    width: 30, height: 30, borderRadius: 9,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  /* Loading */
+  loadingRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 10, paddingVertical: 30,
+  },
+  loadingText: { fontSize: 14, color: MUTED },
 
   /* Empty */
-  empty: { alignItems: 'center', paddingVertical: 60 },
-  emptyIcon: {
-    width: 68, height: 68, borderRadius: 22,
-    backgroundColor: '#EEF2FF',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-  },
-  emptyTitle:    { fontSize: 16, fontWeight: '700', color: TEXT, marginBottom: 6 },
-  emptySubtitle: { fontSize: 13, color: MUTED, marginBottom: 20, textAlign: 'center' },
-  emptyAction: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: PRIMARY, paddingHorizontal: 20, paddingVertical: 12,
-    borderRadius: 14,
-  },
-  emptyActionText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-
-  /* FAB */
-  fab: {
-    position: 'absolute', right: 20,
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: PRIMARY,
-    paddingHorizontal: 20, paddingVertical: 14,
-    borderRadius: 28,
-    ...Platform.select({
-      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 14 },
-      android: { elevation: 8 },
-      default: {},
-    }),
-  },
-  fabText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  emptyWrap: { alignItems: 'center', paddingVertical: 40, gap: 10 },
+  emptyText: { fontSize: 14, color: MUTED },
 });

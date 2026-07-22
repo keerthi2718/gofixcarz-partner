@@ -21,7 +21,6 @@ import DashboardService from '@/src/services/dashboard.service';
 import BookingService from '@/src/services/booking.service';
 import GarageService from '@/src/services/garage.service';
 import { formatCurrency } from '@/src/utils/helpers';
-import Avatar from '@/src/components/ui/Avatar';
 
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
@@ -206,6 +205,10 @@ export default function DashboardScreen() {
           const dateStr = item.booking_date
             ? new Date(item.booking_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
             : null;
+          const displayTime = timeStr ?? dateStr;
+          const carInfo = (item as any).vehicle_model || (item as any).registration_number
+            ? [(item as any).vehicle_model, (item as any).registration_number].filter(Boolean).join(' • ')
+            : null;
 
           return (
             <TouchableOpacity
@@ -213,31 +216,30 @@ export default function DashboardScreen() {
               onPress={() => router.push(`/(tabs)/bookings/${item.id}` as any)}
               activeOpacity={0.86}
             >
-              {/* Avatar */}
-              <Avatar name={item.customer_name ?? '?'} size={44} />
-
-              {/* Info */}
-              <View style={styles.bookingInfo}>
+              {/* Row 1: name + time */}
+              <View style={styles.bookingRow1}>
                 <Text style={styles.bookingName} numberOfLines={1}>
                   {item.customer_name ?? '—'}
                 </Text>
-                <Text style={styles.bookingService} numberOfLines={1}>
-                  {item.service_requested ?? 'General Service'}
-                </Text>
-                {item.customer_mobile ? (
-                  <Text style={styles.bookingMeta} numberOfLines={1}>
-                    {item.customer_mobile}
-                  </Text>
+                {displayTime ? (
+                  <Text style={styles.bookingTime}>{displayTime}</Text>
                 ) : null}
               </View>
 
-              {/* Right — time + status */}
-              <View style={styles.bookingRight}>
-                {timeStr ? (
-                  <Text style={styles.bookingTime}>{timeStr}</Text>
-                ) : dateStr ? (
-                  <Text style={styles.bookingTime}>{dateStr}</Text>
-                ) : null}
+              {/* Row 2: service */}
+              {item.service_requested ? (
+                <Text style={styles.bookingService} numberOfLines={1}>
+                  {item.service_requested}
+                </Text>
+              ) : null}
+
+              {/* Row 3: car info + status chip */}
+              <View style={styles.bookingRow3}>
+                {carInfo ? (
+                  <Text style={styles.bookingMeta} numberOfLines={1}>{carInfo}</Text>
+                ) : item.customer_mobile ? (
+                  <Text style={styles.bookingMeta} numberOfLines={1}>{item.customer_mobile}</Text>
+                ) : <View style={{ flex: 1 }} />}
                 <View style={[styles.statusPill, { backgroundColor: st.bg }]}>
                   <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
                 </View>
@@ -394,24 +396,23 @@ const styles = StyleSheet.create({
 
   /* ── Booking cards ── */
   bookingCard: {
-    flexDirection: 'row', alignItems: 'center',
     backgroundColor: CARD,
     marginHorizontal: 20, marginBottom: 10,
     borderRadius: 16, padding: 14,
     borderWidth: 1, borderColor: BORDER,
-    gap: 12,
+    gap: 5,
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
       android: { elevation: 2 },
       default: {},
     }),
   },
-  bookingInfo:    { flex: 1, gap: 2 },
-  bookingName:    { fontSize: 14, fontWeight: '700', color: TEXT },
+  bookingRow1:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  bookingRow3:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  bookingName:    { fontSize: 14, fontWeight: '700', color: TEXT, flex: 1 },
   bookingService: { fontSize: 12, color: MUTED },
-  bookingMeta:    { fontSize: 11, color: '#94A3B8' },
-  bookingRight:   { alignItems: 'flex-end', gap: 6 },
-  bookingTime:    { fontSize: 12, color: MUTED, fontWeight: '500' },
+  bookingMeta:    { fontSize: 12, color: MUTED, flex: 1 },
+  bookingTime:    { fontSize: 12, color: MUTED, fontWeight: '600' },
   statusPill: {
     borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
   },

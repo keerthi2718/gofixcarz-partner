@@ -25,12 +25,12 @@ const SUCCESS = '#10B981';
 const DANGER  = '#EF4444';
 
 const STEPS = [
-  { label: 'Customer', icon: 'user'      as const },
-  { label: 'Inspect',  icon: 'clipboard' as const },
-  { label: 'Services', icon: 'tool'      as const },
-  { label: 'Labour',   icon: 'users'     as const },
-  { label: 'Progress', icon: 'activity'  as const },
-  { label: 'Invoice',  icon: 'file-text' as const },
+  { label: 'Customer' },
+  { label: 'Inspect'  },
+  { label: 'Services' },
+  { label: 'Labour'   },
+  { label: 'Progress' },
+  { label: 'Invoice'  },
 ];
 
 const FUEL_LEVELS  = ['E', '1/4', '1/2', '3/4', 'F'];
@@ -98,6 +98,7 @@ export default function CreateJobScreen() {
   const [step, setStep] = useState(0);
 
   /* Step 0 — Customer & Vehicle */
+  const [customerSearch, setCustomerSearch] = useState('');
   const [customerName,  setCustomerName]  = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [regNumber,     setRegNumber]     = useState('');
@@ -131,6 +132,13 @@ export default function CreateJobScreen() {
     { id: 't1', name: 'Suresh Kumar', role: 'Senior Mechanic',  available: true },
     { id: 't2', name: 'Mahesh Reddy', role: 'Electrician',      available: true },
     { id: 't3', name: 'Ganesh Patel', role: 'AC Specialist',    available: false },
+  ];
+
+  const mockCustomers = [
+    { id: 'c1', name: 'Rajesh Kumar',  phone: '+91 98765 43210' },
+    { id: 'c2', name: 'Priya Sharma',  phone: '+91 87654 32109' },
+    { id: 'c3', name: 'Amit Patel',    phone: '+91 76543 21098' },
+    { id: 'c4', name: 'Sneha Reddy',   phone: '+91 65432 10987' },
   ];
 
   const servicesTotal = services.reduce((sum, s) => sum + s.price * s.qty, 0);
@@ -234,12 +242,9 @@ export default function CreateJobScreen() {
               ]}>
                 {i < step
                   ? <Feather name="check" size={11} color="#fff" />
-                  : <Feather name={s.icon} size={11} color={i === step ? '#fff' : MUTED} />
+                  : <Text style={[styles.stepNum, i === step && { color: '#fff' }]}>{i + 1}</Text>
                 }
               </View>
-              <Text style={[styles.stepLabel, i === step && styles.stepLabelActive]}>
-                {s.label}
-              </Text>
             </View>
           </React.Fragment>
         ))}
@@ -255,26 +260,99 @@ export default function CreateJobScreen() {
         {/* ══════════════════════════════════════════ */}
         {step === 0 && (
           <>
-            <StepCard icon="user" title="Customer Details">
-              <InputField
-                label="Customer Name *"
-                value={customerName}
-                onChangeText={setCustomerName}
-                placeholder="Full name"
-                autoCapitalize="words"
-                leadingIcon="user"
-              />
-              <InputField
-                label="Phone Number"
-                value={customerPhone}
-                onChangeText={v => setCustomerPhone(v.replace(/\D/g, '').slice(0, 10))}
-                placeholder="10-digit mobile"
-                keyboardType="phone-pad"
-                leadingIcon="phone"
-                prefix="+91"
-                maxLength={10}
-              />
-            </StepCard>
+            {/* Customer picker */}
+            <View style={cardStyles.card}>
+              <View style={cardStyles.header}>
+                <View style={[cardStyles.iconWrap, { backgroundColor: '#EEF2FF' }]}>
+                  <Feather name="user" size={16} color={PRIMARY} />
+                </View>
+                <Text style={cardStyles.title}>Customer</Text>
+              </View>
+              <View style={cardStyles.body}>
+                {/* Search */}
+                <View style={styles.custSearch}>
+                  <Feather name="search" size={15} color={MUTED} />
+                  <TextInput
+                    style={styles.custSearchInput}
+                    value={customerSearch}
+                    onChangeText={setCustomerSearch}
+                    placeholder="Search by name or phone…"
+                    placeholderTextColor="#94A3B8"
+                  />
+                  {customerSearch.length > 0 && (
+                    <TouchableOpacity onPress={() => setCustomerSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Feather name="x-circle" size={15} color={MUTED} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {/* Customer list */}
+                {mockCustomers
+                  .filter(c =>
+                    !customerSearch ||
+                    c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+                    c.phone.includes(customerSearch)
+                  )
+                  .map(c => {
+                    const selected = customerName === c.name;
+                    return (
+                      <TouchableOpacity
+                        key={c.id}
+                        style={[styles.custRow, selected && styles.custRowActive]}
+                        onPress={() => { setCustomerName(c.name); setCustomerPhone(c.phone.replace(/\D/g, '').slice(-10)); }}
+                        activeOpacity={0.8}
+                      >
+                        <View style={[styles.custAvatar, selected && { backgroundColor: PRIMARY }]}>
+                          <Text style={[styles.custAvatarText, selected && { color: '#fff' }]}>
+                            {c.name.charAt(0)}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.custName, selected && { color: PRIMARY }]}>{c.name}</Text>
+                          <Text style={styles.custPhone}>{c.phone}</Text>
+                        </View>
+                        <Feather name={selected ? 'check-circle' : 'chevron-right'} size={16} color={selected ? PRIMARY : '#CBD5E1'} />
+                      </TouchableOpacity>
+                    );
+                  })
+                }
+                {/* Add new */}
+                <TouchableOpacity
+                  style={styles.addCustBtn}
+                  onPress={() => {
+                    setCustomerName('');
+                    setCustomerPhone('');
+                    setCustomerSearch('');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="plus-circle" size={15} color={PRIMARY} />
+                  <Text style={styles.addCustText}>Add New Customer</Text>
+                </TouchableOpacity>
+                {/* Manual entry if adding new */}
+                {customerName === '' && customerSearch === '' && (
+                  <>
+                    <InputField
+                      label="Customer Name *"
+                      value={customerName}
+                      onChangeText={setCustomerName}
+                      placeholder="Full name"
+                      autoCapitalize="words"
+                      leadingIcon="user"
+                    />
+                    <InputField
+                      label="Phone Number"
+                      value={customerPhone}
+                      onChangeText={v => setCustomerPhone(v.replace(/\D/g, '').slice(0, 10))}
+                      placeholder="10-digit mobile"
+                      keyboardType="phone-pad"
+                      leadingIcon="phone"
+                      prefix="+91"
+                      maxLength={10}
+                    />
+                  </>
+                )}
+              </View>
+            </View>
 
             <StepCard icon="truck" title="Vehicle Details" iconBg="#FFF7ED" iconFg="#F97316">
               <InputField
@@ -304,24 +382,28 @@ export default function CreateJobScreen() {
                   />
                 </View>
               </View>
-              <FieldLabel text="Fuel Type" />
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.chipRow}
-                style={{ marginBottom: 14 }}
-              >
-                {FUEL_TYPES.map(ft => (
-                  <TouchableOpacity
-                    key={ft}
-                    style={[styles.chip, fuelType === ft && styles.chipActive]}
-                    onPress={() => setFuelType(ft)}
-                    activeOpacity={0.8}
+              <View style={styles.row}>
+                <View style={{ flex: 1 }}>
+                  <FieldLabel text="Fuel Type" />
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chipRow}
+                    style={{ marginBottom: 14 }}
                   >
-                    <Text style={[styles.chipText, fuelType === ft && styles.chipTextActive]}>{ft}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+                    {FUEL_TYPES.map(ft => (
+                      <TouchableOpacity
+                        key={ft}
+                        style={[styles.chip, fuelType === ft && styles.chipActive]}
+                        onPress={() => setFuelType(ft)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.chipText, fuelType === ft && styles.chipTextActive]}>{ft}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
               <InputField
                 label="Odometer (km)"
                 value={odometer}
@@ -884,8 +966,7 @@ const styles = StyleSheet.create({
   },
   stepCircleDone:   { backgroundColor: SUCCESS, borderColor: SUCCESS },
   stepCircleActive: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  stepLabel:        { fontSize: 9, color: MUTED, fontWeight: '500', letterSpacing: 0.1 },
-  stepLabelActive:  { color: PRIMARY, fontWeight: '700' },
+  stepNum: { fontSize: 11, fontWeight: '700', color: MUTED },
 
   /* ── Body ── */
   body: { padding: 20 },
@@ -898,6 +979,34 @@ const styles = StyleSheet.create({
 
   /* ── Layout helpers ── */
   row: { flexDirection: 'row', gap: 10 },
+
+  /* ── Customer picker ── */
+  custSearch: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#F8FAFC', borderRadius: 12,
+    borderWidth: 1.5, borderColor: BORDER,
+    paddingHorizontal: 12, height: 44, marginBottom: 12,
+  },
+  custSearchInput: { flex: 1, fontSize: 14, color: TEXT },
+  custRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+  },
+  custRowActive: { backgroundColor: '#EEF2FF', borderRadius: 12, paddingHorizontal: 8, marginHorizontal: -8 },
+  custAvatar: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  custAvatarText: { fontSize: 16, fontWeight: '700', color: TEXT },
+  custName:  { fontSize: 14, fontWeight: '600', color: TEXT, marginBottom: 2 },
+  custPhone: { fontSize: 12, color: MUTED },
+  addCustBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#F1F5F9', marginTop: 4,
+  },
+  addCustText: { fontSize: 14, fontWeight: '600', color: PRIMARY },
 
   /* ── Chips ── */
   chipRow: { gap: 8 },

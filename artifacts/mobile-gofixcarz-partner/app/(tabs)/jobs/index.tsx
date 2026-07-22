@@ -11,7 +11,6 @@ import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import JobService from '@/src/services/job.service';
 import { formatCurrency } from '@/src/utils/helpers';
-import Avatar from '@/src/components/ui/Avatar';
 import type { JobStatus } from '@/src/types';
 
 /* ── Design tokens ── */
@@ -41,6 +40,15 @@ const JOB_STATUS: Record<string, { label: string; color: string; bg: string }> =
   CANCELLED:         { label: 'Cancelled',   color: '#EF4444', bg: '#FEF2F2' },
 };
 
+/* Pipeline stages for the workflow strip */
+const PIPELINE = [
+  { label: 'Open',    color: '#3B82F6' },
+  { label: 'In Prog', color: '#8B5CF6' },
+  { label: 'QC',      color: '#6366F1' },
+  { label: 'Ready',   color: '#10B981' },
+  { label: 'Done',    color: '#059669' },
+];
+
 export default function JobsScreen() {
   const insets  = useSafeAreaInsets();
   const [filter, setFilter] = useState<JobStatus | ''>('');
@@ -59,6 +67,8 @@ export default function JobsScreen() {
     (j.registration_number ?? '').toLowerCase().includes(search.toLowerCase()),
   );
 
+  const activeCount = (data?.items ?? []).filter(j => j.status === 'IN_PROGRESS').length;
+
   return (
     <View style={[styles.root, { backgroundColor: BG }]}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
@@ -67,7 +77,9 @@ export default function JobsScreen() {
       <View style={[styles.topBar, { paddingTop: topPad + 16 }]}>
         <View>
           <Text style={styles.pageTitle}>Job Cards</Text>
-          <Text style={styles.pageSubtitle}>{data?.total ?? 0} total</Text>
+          <Text style={styles.pageSubtitle}>
+            {data?.total ?? 0} total{activeCount > 0 ? ` • ${activeCount} active` : ''}
+          </Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity
@@ -76,6 +88,12 @@ export default function JobsScreen() {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Feather name={searchOpen ? 'x' : 'search'} size={18} color={TEXT} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Feather name="sliders" size={18} color={TEXT} />
           </TouchableOpacity>
         </View>
       </View>
@@ -122,6 +140,19 @@ export default function JobsScreen() {
         ))}
       </ScrollView>
 
+      {/* ── Pipeline progress strip ── */}
+      <View style={styles.pipeline}>
+        {PIPELINE.map((stage, i) => (
+          <React.Fragment key={stage.label}>
+            <View style={[styles.pipelineDot, { backgroundColor: stage.color }]} />
+            <Text style={styles.pipelineLabel}>{stage.label}</Text>
+            {i < PIPELINE.length - 1 && (
+              <Feather name="chevron-right" size={10} color="#CBD5E1" style={{ marginHorizontal: 2 }} />
+            )}
+          </React.Fragment>
+        ))}
+      </View>
+
       <FlatList
         data={jobs}
         keyExtractor={item => item.id}
@@ -131,47 +162,61 @@ export default function JobsScreen() {
         renderItem={({ item, index }) => {
           const st = JOB_STATUS[item.status] ?? { label: item.status, color: MUTED, bg: '#F3F4F6' };
           const amount = item.final_amount ?? item.estimated_amount ?? 0;
+          const carLine = [item.brand, item.vehicle_model].filter(Boolean).join(' ');
+          const carInfo = [carLine, item.registration_number].filter(Boolean).join(' • ');
+          const serviceNames = item.services?.map(s => s.name).join(', ') ?? '';
+          const dateStr = item.created_at
+            ? new Date(item.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+            : null;
+
           return (
             <TouchableOpacity
               style={styles.card}
               onPress={() => router.push(`/(tabs)/jobs/${item.id}` as any)}
               activeOpacity={0.86}
             >
-              {/* Top row: job number + status */}
+              {/* Top row: job number + status + amount */}
               <View style={styles.cardTop}>
                 <Text style={styles.jobNumber}>JC-{String(index + 1).padStart(3, '0')}</Text>
+                <View style={{ flex: 1 }} />
                 <View style={[styles.statusPill, { backgroundColor: st.bg }]}>
                   <View style={[styles.dot, { backgroundColor: st.color }]} />
                   <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
                 </View>
+                <Text style={styles.cardAmount}>{formatCurrency(amount)}</Text>
               </View>
 
-              {/* Main row */}
-              <View style={styles.cardMain}>
-                <Avatar name={item.customer_name} size={46} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.cardName} numberOfLines={1}>
-                    {item.customer_name ?? '—'}
-                  </Text>
-                  {(item.brand || item.registration_number) ? (
-                    <Text style={styles.cardSub} numberOfLines={1}>
-                      {[item.brand, item.vehicle_model].filter(Boolean).join(' ')}
-                      {item.registration_number ? ` · ${item.registration_number}` : ''}
-                    </Text>
-                  ) : null}
-                  {item.services && item.services.length > 0 ? (
-                    <Text style={styles.cardSub} numberOfLines={1}>
-                      {item.services.map(s => s.name).join(', ')}
-                    </Text>
-                  ) : null}
+              {/* Customer name */}
+              <Text style={styles.cardName} numberOfLines={1}>
+                {item.customer_name ?? '—'}
+              </Text>
+
+              {/* Car info */}
+              {carInfo ? (
+                <View style={styles.cardInfoRow}>
+                  <Feather name="truck" size={11} color={MUTED} />
+                  <Text style={styles.cardSub} numberOfLines={1}>{carInfo}</Text>
                 </View>
-                <View style={styles.cardRight}>
-                  <Text style={styles.cardAmount}>{formatCurrency(amount)}</Text>
-                  <Text style={styles.cardDate}>
-                    {new Date(item.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                  </Text>
+              ) : null}
+
+              {/* Services */}
+              {serviceNames ? (
+                <View style={styles.cardInfoRow}>
+                  <Feather name="tool" size={11} color={MUTED} />
+                  <Text style={styles.cardSub} numberOfLines={1}>{serviceNames}</Text>
                 </View>
-              </View>
+              ) : null}
+
+              {/* Bottom row: date */}
+              {dateStr ? (
+                <View style={styles.cardBottom}>
+                  <View />
+                  <View style={styles.cardInfoRow}>
+                    <Feather name="clock" size={11} color={MUTED} />
+                    <Text style={styles.cardSub}>{dateStr}</Text>
+                  </View>
+                </View>
+              ) : null}
             </TouchableOpacity>
           );
         }}
@@ -182,7 +227,7 @@ export default function JobsScreen() {
                 <Feather name="briefcase" size={28} color={PRIMARY} />
               </View>
               <Text style={styles.emptyTitle}>No job cards</Text>
-              <Text style={styles.emptySubtitle}>Tap + New Job to create your first</Text>
+              <Text style={styles.emptySubtitle}>Tap + New Job Card to create your first</Text>
             </View>
           ) : null
         }
@@ -195,7 +240,7 @@ export default function JobsScreen() {
         android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: false }}
       >
         <Feather name="plus" size={18} color="#fff" />
-        <Text style={styles.fabText}>New Job</Text>
+        <Text style={styles.fabText}>New Job Card</Text>
       </Pressable>
     </View>
   );
@@ -237,7 +282,7 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 15, color: TEXT },
 
   chipBar: { flexGrow: 0 },
-  chipRow: { paddingHorizontal: 20, paddingBottom: 14, gap: 8 },
+  chipRow: { paddingHorizontal: 20, paddingBottom: 10, gap: 8 },
   chip: {
     paddingHorizontal: 16, paddingVertical: 7,
     borderRadius: 20, borderWidth: 1.5, borderColor: BORDER,
@@ -247,12 +292,23 @@ const styles = StyleSheet.create({
   chipText:       { fontSize: 12, fontWeight: '600', color: MUTED },
   chipTextActive: { color: '#fff' },
 
+  /* Pipeline strip */
+  pipeline: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 8,
+    backgroundColor: CARD,
+    borderTopWidth: 1, borderBottomWidth: 1, borderColor: BORDER,
+    marginBottom: 12,
+  },
+  pipelineDot:   { width: 7, height: 7, borderRadius: 4 },
+  pipelineLabel: { fontSize: 11, color: MUTED, fontWeight: '500', marginLeft: 4 },
+
   list: { paddingHorizontal: 20, gap: 10 },
 
   card: {
     backgroundColor: CARD,
-    borderRadius: 18, borderWidth: 1, borderColor: BORDER,
-    padding: 14, gap: 10,
+    borderRadius: 16, borderWidth: 1, borderColor: BORDER,
+    padding: 14, gap: 6,
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
       android: { elevation: 2 },
@@ -260,20 +316,19 @@ const styles = StyleSheet.create({
     }),
   },
   cardTop: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2,
   },
   jobNumber: { fontSize: 11, color: MUTED, fontWeight: '600', letterSpacing: 0.3 },
+  cardName:  { fontSize: 15, fontWeight: '700', color: TEXT },
+  cardAmount:{ fontSize: 14, fontWeight: '700', color: PRIMARY },
 
-  cardMain: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  cardName:  { fontSize: 15, fontWeight: '600', color: TEXT, marginBottom: 2 },
-  cardSub:   { fontSize: 12, color: MUTED, lineHeight: 17 },
-  cardRight: { alignItems: 'flex-end', gap: 3 },
-  cardAmount:{ fontSize: 15, fontWeight: '700', color: PRIMARY },
-  cardDate:  { fontSize: 11, color: MUTED },
+  cardInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  cardSub:   { fontSize: 12, color: MUTED, flex: 1 },
+  cardBottom: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
 
   statusPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
   },
   dot:        { width: 5, height: 5, borderRadius: 3 },
   statusText: { fontSize: 11, fontWeight: '600' },
