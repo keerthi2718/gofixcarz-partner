@@ -47,21 +47,23 @@ export default function InputField({
   leadingIcon, trailingIcon, onTrailingIconPress,
   containerStyle, isPassword, prefix,
   style, editable = true,
+  onFocus: externalOnFocus,
+  onBlur:  externalOnBlur,
   ...rest
 }: Props) {
   const [focused, setFocused] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const glowAnim = useRef(new Animated.Value(0)).current;
 
-  function onFocus() {
+  function handleFocus(e: any) {
     setFocused(true);
     Animated.timing(glowAnim, { toValue: 1, duration: 180, useNativeDriver: false }).start();
-    rest.onFocus?.({ nativeEvent: {} } as any);
+    externalOnFocus?.(e);
   }
-  function onBlur() {
+  function handleBlur(e: any) {
     setFocused(false);
     Animated.timing(glowAnim, { toValue: 0, duration: 180, useNativeDriver: false }).start();
-    rest.onBlur?.({ nativeEvent: {} } as any);
+    externalOnBlur?.(e);
   }
 
   const borderColor = error ? BORDER_ERROR : focused ? BORDER_FOCUS : BORDER_DEFAULT;
@@ -111,8 +113,8 @@ export default function InputField({
         <TextInput
           style={[styles.input, typography.body, { color: TEXT_COLOR }, style]}
           placeholderTextColor={PLACEHOLDER}
-          onFocus={onFocus}
-          onBlur={onBlur}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           secureTextEntry={isPassword && !showPw}
           editable={editable}
           {...rest}

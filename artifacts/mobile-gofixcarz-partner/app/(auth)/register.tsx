@@ -501,7 +501,7 @@ export default function RegisterScreen() {
 
           {/* ── Workshop Details ── */}
           <SectionCard
-            icon="tool" title="Workshop Details"
+            icon="home" title="Workshop Details"
             sectionKey="workshop"
             onSectionLayout={(k, y) => { sectionY.current[k] = y; }}
           >
