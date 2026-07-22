@@ -1,60 +1,27 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Animated, Image, StatusBar, StyleSheet, Text, View,
+  ActivityIndicator, Animated, Image,
+  StatusBar, StyleSheet, Text, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Redirect } from 'expo-router';
 import { useAuthStore } from '@/src/store/auth.store';
 import LoadingState from '@/src/components/ui/LoadingState';
 
-const SPLASH_MS = 2400;
-
-function RedSpinner() {
-  const spin = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.timing(spin, {
-        toValue: 1,
-        duration: 900,
-        useNativeDriver: true,
-      })
-    ).start();
-  }, []);
-
-  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-
-  return (
-    <View style={spinner.track}>
-      <Animated.View style={[spinner.arc, { transform: [{ rotate }] }]} />
-    </View>
-  );
-}
-
-const spinner = StyleSheet.create({
-  track: {
-    width: 28, height: 28, borderRadius: 14,
-    borderWidth: 2.5, borderColor: 'rgba(198,40,57,0.2)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  arc: {
-    position: 'absolute',
-    width: 28, height: 28, borderRadius: 14,
-    borderWidth: 2.5, borderColor: 'transparent',
-    borderTopColor: '#C62839',
-  },
-});
+const SPLASH_MS = 2600;
+const BG        = '#0D0D0D';
+const RED       = '#C62839';
 
 export default function Index() {
   const { isAuthenticated, isLoading } = useAuthStore();
   const [splashDone, setSplashDone] = useState(false);
-  const insets  = useSafeAreaInsets();
+  const insets   = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 600,
+      duration: 700,
       useNativeDriver: true,
     }).start();
 
@@ -65,22 +32,33 @@ export default function Index() {
   if (!splashDone) {
     return (
       <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <StatusBar barStyle="light-content" backgroundColor={BG} />
 
-        {/* Logo + text — vertically centred, slightly above middle */}
-        <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+        {/* ── Logo + text block ── */}
+        <Animated.View style={[styles.middle, { opacity: fadeAnim }]}>
+
+          {/* Red glow layers behind the logo */}
+          <View style={styles.glowWrap} pointerEvents="none">
+            <View style={styles.glowOuter} />
+            <View style={styles.glowMid} />
+            <View style={styles.glowCore} />
+          </View>
+
+          {/* Logo — contain so full circular logo is never cropped */}
           <Image
             source={require('../assets/images/logo_clean.png')}
             style={styles.logo}
             resizeMode="contain"
           />
+
+          {/* Text */}
           <Text style={styles.title}>Garage Owner Portal</Text>
           <Text style={styles.subtitle}>SMART GARAGE MANAGEMENT</Text>
         </Animated.View>
 
-        {/* Red spinner pinned to bottom */}
-        <Animated.View style={[styles.spinnerWrap, { opacity: fadeAnim }]}>
-          <RedSpinner />
+        {/* ── Spinner pinned near bottom ── */}
+        <Animated.View style={[styles.spinnerWrap, { opacity: fadeAnim, bottom: Math.max(insets.bottom + 48, 64) }]}>
+          <ActivityIndicator size="small" color={RED} />
         </Animated.View>
       </View>
     );
@@ -94,40 +72,70 @@ export default function Index() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: BG,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  content: {
+  middle: {
     alignItems: 'center',
   },
 
-  logo: {
+  /* ── Glow ── */
+  glowWrap: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    /* push it to sit behind the logo — centred on the logo */
+    top: -30,
+  },
+  glowOuter: {
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(180,20,30,0.10)',
+  },
+  glowMid: {
+    position: 'absolute',
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    backgroundColor: 'rgba(198,40,57,0.18)',
+  },
+  glowCore: {
+    position: 'absolute',
     width: 130,
     height: 130,
-    marginBottom: 32,
+    borderRadius: 65,
+    backgroundColor: 'rgba(198,40,57,0.22)',
   },
 
+  /* ── Logo ── */
+  logo: {
+    width: 180,
+    height: 180,
+    marginBottom: 36,
+  },
+
+  /* ── Text ── */
   title: {
-    fontSize: 34,
+    fontSize: 26,
     fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
-    letterSpacing: -0.3,
-    marginBottom: 12,
+    letterSpacing: 0.2,
+    marginBottom: 10,
   },
-
   subtitle: {
-    fontSize: 15,
+    fontSize: 13,
     color: '#8A8F98',
     letterSpacing: 3,
     textAlign: 'center',
   },
 
+  /* ── Spinner ── */
   spinnerWrap: {
     position: 'absolute',
-    bottom: 72,
     alignSelf: 'center',
   },
 });
