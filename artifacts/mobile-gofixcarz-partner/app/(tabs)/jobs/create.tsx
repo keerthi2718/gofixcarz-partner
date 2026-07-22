@@ -431,11 +431,11 @@ export default function CreateJobScreen() {
     }
   }
 
+  /* Web: tab bar is CSS-fixed so it doesn't push layout up — compensate manually */
+  const webTabBarHeight = Platform.OS === 'web' ? 68 : 0;
+
   return (
-    <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: BG }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <View style={[styles.root, { backgroundColor: BG, paddingBottom: webTabBarHeight }]}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
 
       {/* ── Draft restored banner ── */}
@@ -484,9 +484,14 @@ export default function CreateJobScreen() {
         ))}
       </View>
 
+      {/* KAV only wraps the scroll area so footer stays fixed in the flex column */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 120 }]}
+        contentContainerStyle={[styles.body, { paddingBottom: 20 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -1222,15 +1227,10 @@ export default function CreateJobScreen() {
         )}
 
       </ScrollView>
+      </KeyboardAvoidingView>
 
-      {/* ── Sticky Footer ── */}
-      <View style={[
-        styles.footer,
-        {
-          bottom: Platform.OS === 'web' ? 67 : 0,
-          paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 10 : 16),
-        },
-      ]}>
+      {/* ── Sticky Footer — in normal flex flow, always above the tab bar ── */}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <TouchableOpacity
           style={[styles.footerBack, step === 0 && styles.footerBackDisabled]}
           onPress={handleBack}
@@ -1262,7 +1262,7 @@ export default function CreateJobScreen() {
           }
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -1653,8 +1653,6 @@ const styles = StyleSheet.create({
 
   /* Footer */
   footer: {
-    position: 'absolute',
-    left: 0, right: 0,
     flexDirection: 'row', gap: 10,
     paddingHorizontal: 20, paddingTop: 14,
     backgroundColor: CARD,
