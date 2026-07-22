@@ -11,14 +11,17 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@/src/context/AuthContext';
 import { useAuthStore } from '@/src/store/auth.store';
 import PrimaryButton from '@/src/components/ui/PrimaryButton';
 
-const PRIMARY = '#C62839';
-const BG = '#FFFFFF';
+const PRIMARY   = '#2563EB';
+const INDIGO    = '#6366F1';
+const BG        = '#EEEEF6';
 const OTP_LENGTH = 6;
 
 export default function OtpScreen() {
@@ -30,7 +33,6 @@ export default function OtpScreen() {
   const [countdown, setCountdown] = useState(30);
   const inputs = useRef<Array<TextInput | null>>([]);
 
-  // Countdown timer
   useEffect(() => {
     if (countdown <= 0) return;
     const t = setInterval(() => setCountdown(c => c - 1), 1000);
@@ -43,21 +45,16 @@ export default function OtpScreen() {
     const next = [...otp];
     next[idx] = digit;
     setOtp(next);
-    // Auto-advance
-    if (digit && idx < OTP_LENGTH - 1) {
-      inputs.current[idx + 1]?.focus();
-    }
+    if (digit && idx < OTP_LENGTH - 1) inputs.current[idx + 1]?.focus();
   }
 
   function handleKeyPress(e: any, idx: number) {
     if (e.nativeEvent.key === 'Backspace') {
       if (otp[idx]) {
-        // Clear current cell
         const next = [...otp];
         next[idx] = '';
         setOtp(next);
       } else if (idx > 0) {
-        // Move back and clear previous
         const next = [...otp];
         next[idx - 1] = '';
         setOtp(next);
@@ -80,10 +77,7 @@ export default function OtpScreen() {
   }
 
   const otpFilled = otp.every(d => d !== '');
-
-  const maskedNumber = pendingMobile
-    ? `+91 ${pendingMobile}`
-    : '—';
+  const maskedNumber = pendingMobile ? `+91 ${pendingMobile}` : '—';
 
   return (
     <KeyboardAvoidingView
@@ -91,50 +85,54 @@ export default function OtpScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
     >
-      <StatusBar barStyle="dark-content" backgroundColor={BG} />
+      <StatusBar barStyle="light-content" backgroundColor={PRIMARY} />
+
+      <LinearGradient
+        colors={['#4F46E5', '#2563EB']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.topBand, { paddingTop: insets.top + 28 }]}
+      >
+        {/* Decorative circle */}
+        <View style={styles.bandCircle} />
+
+        {/* Back button */}
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Feather name="arrow-left" size={18} color="#fff" />
+        </TouchableOpacity>
+
+        {/* OTP illustration icon */}
+        <View style={styles.shieldWrap}>
+          <View style={styles.shieldInner}>
+            <Feather name="shield" size={32} color={PRIMARY} />
+          </View>
+        </View>
+
+        <Text style={styles.bandTitle}>Verify Your Number</Text>
+        <Text style={styles.bandSub}>
+          OTP sent to{' '}
+          <Text style={{ fontWeight: '700', color: '#fff' }}>{maskedNumber}</Text>
+        </Text>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginTop: 6 }}>
+          <Text style={styles.changeLink}>Change number</Text>
+        </TouchableOpacity>
+      </LinearGradient>
 
       <ScrollView
-        contentContainerStyle={[
-          styles.scroll,
-          { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 48 },
-        ]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 48 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Logo ── */}
-        <View style={styles.logoWrap}>
-          <Image
-            source={require('../../assets/images/logo.jpg')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
-
-        {/* ── Headings ── */}
-        <Text style={styles.heading}>Welcome Back</Text>
-        <Text style={styles.subheading}>Sign in to your garage account</Text>
-
-        {/* ── Sent-to info ── */}
-        <Text style={styles.sentTo}>
-          OTP sent to{' '}
-          <Text style={styles.sentToNumber}>{maskedNumber}</Text>
-        </Text>
-
-        {/* Change number */}
-        <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={{ marginBottom: 32 }}
-        >
-          <Text style={styles.changeLink}>Change number</Text>
-        </TouchableOpacity>
-
-        {/* ── Error ── */}
+        {/* Error */}
         {error ? (
-          <Text style={styles.errorText}>{error}</Text>
+          <View style={styles.errorBanner}>
+            <Feather name="alert-circle" size={14} color="#EF4444" />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
         ) : null}
 
-        {/* ── 4 OTP boxes ── */}
+        {/* OTP boxes */}
+        <Text style={styles.boxHint}>Enter the 6-digit code</Text>
         <View style={styles.otpRow}>
           {otp.map((digit, idx) => (
             <TextInput
@@ -142,16 +140,8 @@ export default function OtpScreen() {
               ref={r => { inputs.current[idx] = r; }}
               style={[
                 styles.otpBox,
-                {
-                  borderColor: digit
-                    ? PRIMARY
-                    : error
-                    ? '#EF4444'
-                    : '#D1D5DB',
-                  backgroundColor: digit ? '#FFF0F1' : '#FFFFFF',
-                  borderWidth: digit ? 1.5 : 1,
-                  color: PRIMARY,
-                },
+                digit ? styles.otpBoxFilled : null,
+                error ? styles.otpBoxError : null,
               ]}
               value={digit}
               onChangeText={v => handleChange(v, idx)}
@@ -166,16 +156,17 @@ export default function OtpScreen() {
           ))}
         </View>
 
-        {/* ── Verify button ── */}
-        <PrimaryButton
-          label="Verify & Sign In"
-          onPress={handleVerify}
-          loading={isLoading}
-          disabled={!otpFilled}
-          style={styles.button}
-        />
+        {/* Verify button */}
+        <View style={{ borderRadius: 16, overflow: 'hidden', marginBottom: 20 }}>
+          <PrimaryButton
+            label="Verify & Sign In"
+            onPress={handleVerify}
+            loading={isLoading}
+            disabled={!otpFilled}
+          />
+        </View>
 
-        {/* ── Resend ── */}
+        {/* Resend */}
         <TouchableOpacity
           style={styles.resendRow}
           onPress={handleResend}
@@ -185,11 +176,9 @@ export default function OtpScreen() {
           <Text style={styles.resendText}>
             Didn't receive OTP?{' '}
             {countdown > 0 ? (
-              <Text style={styles.resendCountdown}>
-                Resend in {countdown}s
-              </Text>
+              <Text style={styles.resendCountdown}>Resend in {countdown}s</Text>
             ) : (
-              <Text style={styles.resendLink}>Resend</Text>
+              <Text style={styles.resendLink}>Resend OTP</Text>
             )}
           </Text>
         </TouchableOpacity>
@@ -201,86 +190,106 @@ export default function OtpScreen() {
 const styles = StyleSheet.create({
   kav: { flex: 1 },
 
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: 32,
+  /* Top gradient band */
+  topBand: {
     alignItems: 'center',
-  },
-
-  /* Logo */
-  logoWrap: {
-    width: 180,
-    height: 120,
-    marginBottom: 24,
-    borderRadius: 8,
+    paddingHorizontal: 24,
+    paddingBottom: 36,
     overflow: 'hidden',
-    backgroundColor: '#111',
   },
-  logo: { width: '100%', height: '100%' },
-
-  /* Headings */
-  heading: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
-    textAlign: 'center',
-    marginBottom: 6,
+  bandCircle: {
+    position: 'absolute',
+    top: -60, right: -60,
+    width: 200, height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.07)',
   },
-  subheading: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
+  backBtn: {
+    position: 'absolute',
+    top: 52, left: 20,
+    width: 38, height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  shieldWrap: {
+    width: 72, height: 72,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center', justifyContent: 'center',
     marginBottom: 20,
   },
+  shieldInner: {
+    width: 56, height: 56,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  bandTitle: {
+    fontSize: 24, fontWeight: '800', color: '#fff',
+    letterSpacing: -0.5, marginBottom: 8,
+  },
+  bandSub: { fontSize: 14, color: 'rgba(255,255,255,0.8)', textAlign: 'center' },
+  changeLink: { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '600', textDecorationLine: 'underline' },
 
-  /* Sent-to */
-  sentTo: {
-    fontSize: 14,
-    color: '#374151',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  sentToNumber: {
-    fontWeight: '700',
-    color: '#111827',
-  },
-  changeLink: {
-    fontSize: 14,
-    color: PRIMARY,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-
-  errorText: {
-    fontSize: 13,
-    color: '#EF4444',
-    textAlign: 'center',
-    marginBottom: 12,
+  /* Scroll content */
+  scroll: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 32,
   },
 
-  /* OTP boxes — 6 × 50px + 5 × 7px gap = 335px < 338px usable width */
+  /* Error */
+  errorBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12, borderWidth: 1, borderColor: '#FECACA',
+    padding: 12, marginBottom: 20,
+  },
+  errorText: { fontSize: 13, color: '#EF4444', flex: 1 },
+
+  /* OTP boxes */
+  boxHint: {
+    fontSize: 14, color: '#64748B',
+    textAlign: 'center', marginBottom: 20,
+  },
   otpRow: {
     flexDirection: 'row',
-    gap: 7,
+    gap: 8,
     marginBottom: 32,
     justifyContent: 'center',
     width: '100%',
   },
   otpBox: {
-    flex: 1,          // distribute evenly so they always fill available space
+    flex: 1,
     maxWidth: 52,
-    height: 56,
-    borderRadius: 10,
+    height: 58,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
     fontSize: 22,
     fontWeight: '700',
+    color: '#1E293B',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
+      android: { elevation: 1 },
+      default: {},
+    }),
   },
-
-  /* Button */
-  button: { width: '100%', marginBottom: 20 },
+  otpBoxFilled: {
+    borderColor: PRIMARY,
+    backgroundColor: '#EEF2FF',
+    color: PRIMARY,
+  },
+  otpBoxError: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+  },
 
   /* Resend */
   resendRow: { alignItems: 'center' },
-  resendText: { fontSize: 14, color: '#6B7280' },
-  resendCountdown: { color: '#9CA3AF', fontWeight: '500' },
+  resendText: { fontSize: 14, color: '#64748B' },
+  resendCountdown: { color: '#94A3B8', fontWeight: '500' },
   resendLink: { color: PRIMARY, fontWeight: '700' },
 });
