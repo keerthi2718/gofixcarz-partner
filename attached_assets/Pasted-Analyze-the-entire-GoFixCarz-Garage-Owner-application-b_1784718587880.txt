@@ -1,0 +1,153 @@
+Analyze the entire GoFixCarz Garage Owner application before making any changes.
+
+Do NOT create a new application.
+
+Do NOT change the existing navigation, screen flow, backend APIs, business logic, database schema, authentication flow, routes, or existing functionality.
+
+The goal is to improve the application so it is production-ready while preserving the current user experience.
+
+Review every screen and identify opportunities to improve:
+
+• UI consistency
+• UX
+• Information hierarchy
+• Component consistency
+• Layout
+• Typography
+• Spacing
+• Forms
+• Navigation
+• Performance
+• Accessibility
+• Error handling
+• Loading states
+• Empty states
+• API integration
+• Mobile responsiveness
+
+Improve all existing screens including:
+
+- Splash
+- Login
+- OTP Verification
+- Dashboard
+- Bookings
+- Booking Details
+- Job Card
+- Services
+- Customers
+- Technician Assignment
+- Notifications
+- Analytics
+- Profile
+- Settings
+
+For every screen:
+
+- Improve spacing and alignment.
+- Improve typography hierarchy.
+- Improve visual consistency.
+- Make buttons and actions more intuitive.
+- Improve forms and field layouts.
+- Add proper loading indicators.
+- Add skeleton loaders where appropriate.
+- Add empty states.
+- Add retry options for failed API calls.
+- Add success and error feedback.
+- Improve accessibility with proper touch targets and readable layouts.
+- Optimize for Android and iOS.
+
+Job Card Improvements
+
+Keep the existing Job Card flow exactly the same.
+
+Do not change the workflow.
+
+Only enhance it by adding:
+
+- Sticky Back button.
+- Sticky Continue button.
+- Finish button on the last step.
+- Progress indicator with step number and progress bar.
+- Auto-save after each step.
+- Preserve entered data while navigating.
+- Resume incomplete Job Cards.
+- Inline field validation.
+- Camera support.
+- Gallery image upload.
+- Document upload.
+- Phone contact picker.
+- Vehicle status updates with timeline.
+- Activity history.
+- Download Job Card as PDF.
+- Share PDF.
+- Print PDF.
+
+Authentication
+
+Keep the current mobile number and OTP flow.
+
+Enhance it by adding:
+
+- Automatic OTP SMS detection.
+- Auto-fill OTP fields.
+- Auto verification when OTP is received (where supported).
+- Manual OTP entry fallback.
+- Countdown timer.
+- Resend OTP.
+- Loading indicator.
+- Clear validation messages.
+- Secure implementation using recommended React Native + Expo practices.
+
+Performance
+
+Optimize:
+
+- Image loading.
+- API requests.
+- List rendering.
+- Component rendering.
+- State management.
+- Memory usage.
+- Lazy loading.
+- Offline handling.
+- Retry mechanisms.
+
+Validation
+
+Add proper validation throughout the application:
+
+- Required fields.
+- Mobile number.
+- Email.
+- Numeric fields.
+- Date validation.
+- Vehicle registration.
+- Odometer.
+- Inspection forms.
+- Service selection.
+- Technician assignment.
+
+Do not allow invalid data to be submitted.
+
+Code Quality
+
+Refactor duplicated code into reusable components.
+
+Create reusable:
+
+- Buttons
+- Cards
+- Inputs
+- Search bars
+- Dialogs
+- Bottom sheets
+- Empty states
+- Error components
+- Loading components
+
+Follow clean architecture, maintainable code, and React Native best practices.
+
+Final Goal
+
+The final application should look and behave like a professional, enterprise-grade Garage Management platform. Preserve all existing functionality while improving usability, performance, reliability, consistency, and overall user experience. Ensure the application is production-ready and compatible with the existing FastAPI backend without breaking any current APIs or workflows.

@@ -21,6 +21,7 @@ import DashboardService from '@/src/services/dashboard.service';
 import BookingService from '@/src/services/booking.service';
 import GarageService from '@/src/services/garage.service';
 import { formatCurrency } from '@/src/utils/helpers';
+import { SkeletonList } from '@/src/components/ui/SkeletonCard';
 
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
@@ -49,11 +50,11 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
-  const { data, isLoading, isRefetching, refetch } = useQuery({
+  const { data, isLoading, isError, isRefetching, refetch } = useQuery({
     queryKey: QUERY_KEYS.DASHBOARD,
     queryFn:  DashboardService.get,
   });
-  const { data: bookingsData } = useQuery({
+  const { data: bookingsData, isLoading: bookingsLoading } = useQuery({
     queryKey: QUERY_KEYS.BOOKINGS({ page_size: 5 }),
     queryFn:  () => BookingService.list({ page_size: 5 }),
   });
@@ -107,6 +108,17 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* ── Error banner ── */}
+            {isError && (
+              <View style={styles.errorBanner}>
+                <Feather name="wifi-off" size={13} color="#92400E" />
+                <Text style={styles.errorBannerText}>Couldn't load stats.</Text>
+                <TouchableOpacity onPress={() => refetch()} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Text style={styles.errorBannerRetry}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* ── Revenue cards ── */}
             <View style={styles.revenueRow}>
               {/* Today's Revenue */}
@@ -126,7 +138,10 @@ export default function DashboardScreen() {
                     <Text style={styles.revBadgeText}>Today</Text>
                   </View>
                 </View>
-                <Text style={styles.revValue}>{formatCurrency(data?.revenue_today ?? 0)}</Text>
+                {isLoading
+                  ? <View style={styles.revSkeleton} />
+                  : <Text style={styles.revValue}>{formatCurrency(data?.revenue_today ?? 0)}</Text>
+                }
                 <Text style={styles.revLabel}>Today's Revenue</Text>
               </LinearGradient>
 
@@ -147,7 +162,10 @@ export default function DashboardScreen() {
                     <Text style={styles.revBadgeText}>Month</Text>
                   </View>
                 </View>
-                <Text style={styles.revValue}>{formatCurrency(data?.revenue_this_month ?? 0)}</Text>
+                {isLoading
+                  ? <View style={styles.revSkeleton} />
+                  : <Text style={styles.revValue}>{formatCurrency(data?.revenue_this_month ?? 0)}</Text>
+                }
                 <Text style={styles.revLabel}>This Month</Text>
               </LinearGradient>
             </View>
@@ -159,9 +177,10 @@ export default function DashboardScreen() {
                   <View style={[styles.statIcon, { backgroundColor: s.bg }]}>
                     <Feather name={s.icon} size={16} color={s.color} />
                   </View>
-                  <Text style={[styles.statValue, { color: s.color }]}>
-                    {s.value}
-                  </Text>
+                  {isLoading
+                    ? <View style={[styles.statSkeleton, { borderColor: s.bg }]} />
+                    : <Text style={[styles.statValue, { color: s.color }]}>{s.value}</Text>
+                  }
                   <Text style={styles.statLabel}>{s.label}</Text>
                 </View>
               ))}
@@ -249,7 +268,11 @@ export default function DashboardScreen() {
         }}
 
         ListEmptyComponent={
-          !isLoading ? (
+          bookingsLoading ? (
+            <View style={styles.skeletonWrap}>
+              <SkeletonList count={4} />
+            </View>
+          ) : (
             <View style={styles.emptyWrap}>
               <View style={styles.emptyIcon}>
                 <Feather name="calendar" size={28} color={PRIMARY} />
@@ -257,7 +280,7 @@ export default function DashboardScreen() {
               <Text style={styles.emptyTitle}>No bookings today</Text>
               <Text style={styles.emptySubtitle}>New bookings will appear here</Text>
             </View>
-          ) : null
+          )
         }
       />
     </View>
@@ -417,6 +440,29 @@ const styles = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
   },
   statusText: { fontSize: 11, fontWeight: '600' },
+
+  /* ── Skeleton placeholders ── */
+  revSkeleton: {
+    width: 96, height: 20, borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    marginBottom: 3,
+  },
+  statSkeleton: {
+    width: 36, height: 26, borderRadius: 8,
+    backgroundColor: '#E2E8F0',
+  },
+  skeletonWrap: { paddingHorizontal: 20, paddingTop: 8 },
+
+  /* ── Error banner ── */
+  errorBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FEF3C7',
+    marginHorizontal: 20, marginBottom: 12,
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+    borderWidth: 1, borderColor: '#FDE68A',
+  },
+  errorBannerText:  { flex: 1, fontSize: 13, color: '#92400E', fontWeight: '500' },
+  errorBannerRetry: { fontSize: 13, color: '#D97706', fontWeight: '700' },
 
   /* ── Empty state ── */
   emptyWrap: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 20 },

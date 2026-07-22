@@ -11,6 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import JobService from '@/src/services/job.service';
 import { formatCurrency } from '@/src/utils/helpers';
+import { SkeletonList } from '@/src/components/ui/SkeletonCard';
 import type { JobStatus } from '@/src/types';
 
 /* ── Design tokens ── */
@@ -56,7 +57,7 @@ export default function JobsScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
-  const { data, isLoading, isRefetching, refetch } = useQuery({
+  const { data, isLoading, isRefetching, refetch, error } = useQuery({
     queryKey: QUERY_KEYS.JOBS({ status: filter || undefined }),
     queryFn:  () => JobService.list({ status: filter || undefined, page_size: 30 }),
   });
@@ -153,6 +154,25 @@ export default function JobsScreen() {
         ))}
       </View>
 
+      {/* ── Error banner ── */}
+      {error && !isLoading && (
+        <View style={styles.errorBanner}>
+          <Feather name="wifi-off" size={13} color="#92400E" />
+          <Text style={styles.errorBannerText}>Couldn't load job cards.</Text>
+          <TouchableOpacity onPress={() => refetch()} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+            <Text style={styles.errorBannerRetry}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {isLoading ? (
+        <ScrollView
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 130 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <SkeletonList count={6} />
+        </ScrollView>
+      ) : (
       <FlatList
         data={jobs}
         keyExtractor={item => item.id}
@@ -221,21 +241,20 @@ export default function JobsScreen() {
           );
         }}
         ListEmptyComponent={
-          !isLoading ? (
-            <View style={styles.empty}>
-              <View style={styles.emptyIcon}>
-                <Feather name="briefcase" size={28} color={PRIMARY} />
-              </View>
-              <Text style={styles.emptyTitle}>No job cards</Text>
-              <Text style={styles.emptySubtitle}>Tap + New Job Card to create your first</Text>
+          <View style={styles.empty}>
+            <View style={styles.emptyIcon}>
+              <Feather name="briefcase" size={28} color={PRIMARY} />
             </View>
-          ) : null
+            <Text style={styles.emptyTitle}>No job cards</Text>
+            <Text style={styles.emptySubtitle}>Tap + New Job Card to create your first</Text>
+          </View>
         }
       />
+      )}
 
       {/* ── FAB ── */}
       <Pressable
-        style={[styles.fab, { bottom: insets.bottom + 90 }]}
+        style={[styles.fab, { bottom: Platform.OS === 'web' ? 90 + 68 : insets.bottom + 90 }]}
         onPress={() => router.push('/(tabs)/jobs/create')}
         android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: false }}
       >
@@ -341,6 +360,17 @@ const styles = StyleSheet.create({
   },
   emptyTitle:    { fontSize: 16, fontWeight: '700', color: TEXT, marginBottom: 6 },
   emptySubtitle: { fontSize: 13, color: MUTED },
+
+  /* Error banner */
+  errorBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FEF3C7',
+    marginHorizontal: 20, marginBottom: 10,
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+    borderWidth: 1, borderColor: '#FDE68A',
+  },
+  errorBannerText:  { flex: 1, fontSize: 13, color: '#92400E', fontWeight: '500' },
+  errorBannerRetry: { fontSize: 13, color: '#D97706', fontWeight: '700' },
 
   fab: {
     position: 'absolute', right: 20,
