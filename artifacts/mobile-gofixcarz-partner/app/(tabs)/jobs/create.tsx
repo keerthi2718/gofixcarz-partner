@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform,
   Pressable, ScrollView, StatusBar, StyleSheet,
   Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
@@ -9,6 +9,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import JobService from '@/src/services/job.service';
 import InputField from '@/src/components/ui/InputField';
 import { formatCurrency } from '@/src/utils/helpers';
@@ -23,6 +25,9 @@ const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
 const SUCCESS = '#10B981';
 const DANGER  = '#EF4444';
+const WARN    = '#F59E0B';
+
+const DRAFT_KEY = '@gofixcarz:job_create_draft';
 
 const STEPS = [
   { label: 'Customer' },
@@ -33,10 +38,12 @@ const STEPS = [
   { label: 'Invoice'  },
 ];
 
-const FUEL_LEVELS  = ['E', '1/4', '1/2', '3/4', 'F'];
-const FUEL_TYPES   = ['Petrol', 'Diesel', 'CNG', 'Electric', 'Hybrid'];
+const FUEL_LEVELS = ['E', '1/4', '1/2', '3/4', 'F'];
+const FUEL_TYPES  = ['Petrol', 'Diesel', 'CNG', 'Electric', 'Hybrid'];
 
 type ServiceItem = { name: string; price: number; qty: number };
+type PhotoItem   = { uri: string; name?: string };
+type DocItem     = { uri: string; name: string; mimeType?: string };
 
 /* ── Reusable step section card ── */
 function StepCard({ icon, title, children, iconBg = '#EEF2FF', iconFg = PRIMARY }: {
@@ -79,7 +86,7 @@ const cardStyles = StyleSheet.create({
   body:  { padding: 18 },
 });
 
-/* ── Inline label (replaces raw fieldLabel pattern) ── */
+/* ── Inline label ── */
 function FieldLabel({ text }: { text: string }) {
   const hasAsterisk = text.endsWith(' *');
   const base = hasAsterisk ? text.slice(0, -2) : text;
@@ -91,26 +98,43 @@ function FieldLabel({ text }: { text: string }) {
   );
 }
 
+/* ── Inline error message ── */
+function FieldError({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return (
+    <View style={styles.fieldError}>
+      <Feather name="alert-circle" size={12} color={DANGER} />
+      <Text style={styles.fieldErrorText}>{msg}</Text>
+    </View>
+  );
+}
+
 /* ── Main screen ── */
 export default function CreateJobScreen() {
   const insets = useSafeAreaInsets();
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
-  const [step, setStep] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+
+  const [step,       setStep]       = useState(0);
+  const [errors,     setErrors]     = useState<Record<string, string>>({});
+  const [draftBanner, setDraftBanner] = useState(false);
 
   /* Step 0 — Customer & Vehicle */
   const [customerSearch, setCustomerSearch] = useState('');
-  const [customerName,  setCustomerName]  = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [regNumber,     setRegNumber]     = useState('');
-  const [brand,         setBrand]         = useState('');
-  const [model,         setModel]         = useState('');
-  const [fuelType,      setFuelType]      = useState('Petrol');
-  const [odometer,      setOdometer]      = useState('');
+  const [customerName,   setCustomerName]   = useState('');
+  const [customerPhone,  setCustomerPhone]  = useState('');
+  const [regNumber,      setRegNumber]      = useState('');
+  const [brand,          setBrand]          = useState('');
+  const [model,          setModel]          = useState('');
+  const [fuelType,       setFuelType]       = useState('Petrol');
+  const [odometer,       setOdometer]       = useState('');
 
   /* Step 1 — Inspection */
   const [fuelLevel,       setFuelLevel]       = useState('1/2');
   const [complaint,       setComplaint]       = useState('');
   const [inspectionNotes, setInspectionNotes] = useState('');
+  const [beforePhotos,    setBeforePhotos]    = useState<PhotoItem[]>([]);
+  const [documents,       setDocuments]       = useState<DocItem[]>([]);
 
   /* Step 2 — Services */
   const [serviceSearch, setServiceSearch] = useState('');
@@ -120,10 +144,10 @@ export default function CreateJobScreen() {
   const [selectedTechId,   setSelectedTechId]   = useState<string | null>(null);
   const [selectedTechName, setSelectedTechName] = useState('');
   const [estHours,         setEstHours]         = useState('');
-  const [labourCharge,     setLabourCharge]     = useState('');
-  const [deliveryDate,     setDeliveryDate]     = useState('');
-  const [deliveryTime,     setDeliveryTime]     = useState('');
-  const [additionalNotes,  setAdditionalNotes]  = useState('');
+  const [labourCharge,     setLabourCharge]      = useState('');
+  const [deliveryDate,     setDeliveryDate]      = useState('');
+  const [deliveryTime,     setDeliveryTime]      = useState('');
+  const [additionalNotes,  setAdditionalNotes]   = useState('');
 
   /* Step 4/5 — created job */
   const [createdJobId, setCreatedJobId] = useState<string | null>(null);
@@ -147,6 +171,94 @@ export default function CreateJobScreen() {
   const gst           = subtotal * 0.18;
   const grandTotal    = subtotal + gst;
 
+  /* ── Draft helpers ── */
+  const draftData = useCallback(() => ({
+    step, customerName, customerPhone, regNumber, brand, model,
+    fuelType, odometer, fuelLevel, complaint, inspectionNotes,
+    services, selectedTechId, selectedTechName, estHours,
+    labourCharge, deliveryDate, deliveryTime, additionalNotes,
+  }), [step, customerName, customerPhone, regNumber, brand, model,
+    fuelType, odometer, fuelLevel, complaint, inspectionNotes,
+    services, selectedTechId, selectedTechName, estHours,
+    labourCharge, deliveryDate, deliveryTime, additionalNotes]);
+
+  /* Load draft on mount */
+  useEffect(() => {
+    AsyncStorage.getItem(DRAFT_KEY).then(raw => {
+      if (!raw) return;
+      try {
+        const d = JSON.parse(raw);
+        if (d.customerName || d.regNumber) {
+          setCustomerName(d.customerName ?? '');
+          setCustomerPhone(d.customerPhone ?? '');
+          setRegNumber(d.regNumber ?? '');
+          setBrand(d.brand ?? '');
+          setModel(d.model ?? '');
+          setFuelType(d.fuelType ?? 'Petrol');
+          setOdometer(d.odometer ?? '');
+          setFuelLevel(d.fuelLevel ?? '1/2');
+          setComplaint(d.complaint ?? '');
+          setInspectionNotes(d.inspectionNotes ?? '');
+          setServices(d.services ?? []);
+          setSelectedTechId(d.selectedTechId ?? null);
+          setSelectedTechName(d.selectedTechName ?? '');
+          setEstHours(d.estHours ?? '');
+          setLabourCharge(d.labourCharge ?? '');
+          setDeliveryDate(d.deliveryDate ?? '');
+          setDeliveryTime(d.deliveryTime ?? '');
+          setAdditionalNotes(d.additionalNotes ?? '');
+          setStep(d.step ?? 0);
+          setDraftBanner(true);
+          setTimeout(() => setDraftBanner(false), 3500);
+        }
+      } catch { /* ignore parse errors */ }
+    });
+  }, []);
+
+  /* Save draft whenever key data changes (debounced) */
+  useEffect(() => {
+    const t = setTimeout(() => {
+      AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draftData())).catch(() => {});
+    }, 800);
+    return () => clearTimeout(t);
+  }, [draftData]);
+
+  /* Clear draft after job created */
+  function clearDraft() {
+    AsyncStorage.removeItem(DRAFT_KEY).catch(() => {});
+  }
+
+  /* ── Validation ── */
+  function validateStep(): Record<string, string> {
+    const errs: Record<string, string> = {};
+    if (step === 0) {
+      if (!customerName.trim())  errs.customerName  = 'Customer name is required.';
+      if (!regNumber.trim())     errs.regNumber     = 'Registration number is required.';
+      if (!brand.trim())         errs.brand         = 'Vehicle brand is required.';
+      if (!model.trim())         errs.model         = 'Vehicle model is required.';
+      if (customerPhone) {
+        const digits = customerPhone.replace(/\D/g, '');
+        if (digits.length !== 10) errs.customerPhone = 'Mobile number must be exactly 10 digits.';
+      }
+      if (odometer && parseFloat(odometer) < 0) errs.odometer = 'Odometer must be a positive number.';
+    }
+    if (step === 1) {
+      if (!complaint.trim()) errs.complaint = 'Customer complaint is required.';
+    }
+    if (step === 2) {
+      if (services.length === 0) errs.services = 'Please add at least one service.';
+    }
+    if (step === 3) {
+      if (!selectedTechId) errs.technician = 'Please assign a technician.';
+    }
+    return errs;
+  }
+
+  function clearFieldError(key: string) {
+    if (errors[key]) setErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
+  }
+
+  /* ── Navigation ── */
   const { mutate: createJob, isPending } = useMutation({
     mutationFn: () => JobService.create({
       customer_name:       customerName  || null,
@@ -164,15 +276,41 @@ export default function CreateJobScreen() {
       estimated_amount: grandTotal || null,
     }),
     onSuccess: (job) => {
+      clearDraft();
       setCreatedJobId(job?.id ?? null);
       setStep(4);
     },
   });
 
+  function handleNext() {
+    const errs = validateStep();
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      return;
+    }
+    setErrors({});
+    if (step === 3) { createJob(); return; }
+    if (step < 5) { setStep(s => s + 1); scrollRef.current?.scrollTo({ y: 0, animated: true }); }
+  }
+
+  function handleBack() {
+    setErrors({});
+    if (step === 0) { router.back(); return; }
+    setStep(s => s - 1);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }
+
+  const nextLabel =
+    step === 3 ? 'Create Job Card' :
+    step === 5 ? 'Done ✓' : 'Continue';
+
+  /* ── Service helpers ── */
   function addService() {
     if (!serviceSearch.trim()) return;
     setServices(s => [...s, { name: serviceSearch.trim(), price: 0, qty: 1 }]);
     setServiceSearch('');
+    clearFieldError('services');
   }
   function updateServicePrice(i: number, price: string) {
     setServices(s => s.map((item, idx) => idx === i ? { ...item, price: parseFloat(price) || 0 } : item));
@@ -184,26 +322,114 @@ export default function CreateJobScreen() {
     setServices(s => s.filter((_, idx) => idx !== i));
   }
 
-  function canProceed() {
-    if (step === 0) return !!(customerName.trim() && regNumber.trim() && brand.trim() && model.trim());
-    if (step === 1) return !!complaint.trim();
-    if (step === 2) return services.length > 0;
-    if (step === 3) return !!selectedTechId;
-    return true;
+  /* ── Camera / Gallery ── */
+  async function pickFromCamera() {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Camera access is needed to take photos.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: 'images',
+      quality: 0.7,
+      allowsEditing: false,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      const asset = result.assets[0];
+      setBeforePhotos(prev => [...prev, { uri: asset.uri, name: `photo_${Date.now()}.jpg` }]);
+    }
   }
 
-  function handleNext() {
-    if (step === 3) { createJob(); return; }
-    if (step < 5)   setStep(s => s + 1);
-  }
-  function handleBack() {
-    if (step === 0) { router.back(); return; }
-    setStep(s => s - 1);
+  async function pickFromGallery() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Photo library access is needed to select images.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      quality: 0.7,
+      allowsMultipleSelection: true,
+      selectionLimit: 10,
+    });
+    if (!result.canceled) {
+      const newPhotos = result.assets.map(a => ({ uri: a.uri, name: a.fileName ?? `photo_${Date.now()}.jpg` }));
+      setBeforePhotos(prev => [...prev, ...newPhotos]);
+    }
   }
 
-  const nextLabel =
-    step === 3 ? 'Create Job Card' :
-    step === 5 ? 'Done ✓'         : 'Continue';
+  function removePhoto(idx: number) {
+    setBeforePhotos(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  /* ── Document upload (via image picker) ── */
+  async function pickDocument() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Photo library access is needed to attach documents.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      quality: 0.8,
+      allowsMultipleSelection: true,
+      selectionLimit: 5,
+    });
+    if (!result.canceled) {
+      const newDocs = result.assets.map(a => ({
+        uri:      a.uri,
+        name:     a.fileName ?? `doc_${Date.now()}.jpg`,
+        mimeType: a.mimeType,
+      }));
+      setDocuments(prev => [...prev, ...newDocs]);
+    }
+  }
+
+  function removeDocument(idx: number) {
+    setDocuments(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  /* ── Contact import (native only) ── */
+  async function importContact() {
+    if (Platform.OS === 'web') {
+      Alert.alert('Not Available', 'Contact import is available on the mobile app only.');
+      return;
+    }
+    try {
+      const Contacts = await import('expo-contacts');
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Contacts access is needed to import customer details.');
+        return;
+      }
+      const { data } = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
+      });
+      if (data.length === 0) {
+        Alert.alert('No Contacts', 'No contacts found on this device.');
+        return;
+      }
+      Alert.alert(
+        'Select Contact',
+        'Choose a contact to import:',
+        [
+          ...data.slice(0, 5).map(c => ({
+            text: `${c.name ?? '?'} — ${c.phoneNumbers?.[0]?.number ?? 'no number'}`,
+            onPress: () => {
+              setCustomerName(c.name ?? '');
+              const phone = c.phoneNumbers?.[0]?.number?.replace(/\D/g, '').slice(-10) ?? '';
+              setCustomerPhone(phone);
+              clearFieldError('customerName');
+              clearFieldError('customerPhone');
+            },
+          })),
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+    } catch {
+      Alert.alert('Error', 'Could not load contacts. Please enter customer details manually.');
+    }
+  }
 
   return (
     <KeyboardAvoidingView
@@ -211,6 +437,14 @@ export default function CreateJobScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
+
+      {/* ── Draft restored banner ── */}
+      {draftBanner && (
+        <View style={styles.draftBanner}>
+          <Feather name="save" size={13} color="#047857" />
+          <Text style={styles.draftBannerText}>Draft restored — continue where you left off</Text>
+        </View>
+      )}
 
       {/* ── Header ── */}
       <View style={[styles.topBar, { paddingTop: topPad + 12 }]}>
@@ -221,13 +455,13 @@ export default function CreateJobScreen() {
           <Text style={styles.stepMeta}>Step {step + 1} of {STEPS.length}</Text>
           <Text style={styles.stepHeading}>{STEPS[step].label}</Text>
         </View>
-        {/* Step progress pill */}
+        {/* Progress bar */}
         <View style={styles.progressPill}>
           <View style={[styles.progressFill, { width: `${((step + 1) / STEPS.length) * 100}%` }]} />
         </View>
       </View>
 
-      {/* ── Stepper ── */}
+      {/* ── Numbered stepper ── */}
       <View style={styles.stepper}>
         {STEPS.map((s, i) => (
           <React.Fragment key={s.label}>
@@ -251,22 +485,33 @@ export default function CreateJobScreen() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 120 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* ══════════════════════════════════════════ */}
-        {/* STEP 0 — Customer & Vehicle               */}
-        {/* ══════════════════════════════════════════ */}
+
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/* STEP 0 — Customer & Vehicle                            */}
+        {/* ═══════════════════════════════════════════════════════ */}
         {step === 0 && (
           <>
-            {/* Customer picker */}
+            {/* Customer picker card */}
             <View style={cardStyles.card}>
               <View style={cardStyles.header}>
                 <View style={[cardStyles.iconWrap, { backgroundColor: '#EEF2FF' }]}>
                   <Feather name="user" size={16} color={PRIMARY} />
                 </View>
                 <Text style={cardStyles.title}>Customer</Text>
+                {/* Import from Contacts */}
+                <TouchableOpacity
+                  style={styles.contactsBtn}
+                  onPress={importContact}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="book" size={13} color={PRIMARY} />
+                  <Text style={styles.contactsBtnText}>Contacts</Text>
+                </TouchableOpacity>
               </View>
               <View style={cardStyles.body}>
                 {/* Search */}
@@ -285,7 +530,8 @@ export default function CreateJobScreen() {
                     </TouchableOpacity>
                   )}
                 </View>
-                {/* Customer list */}
+
+                {/* Quick-select customer list */}
                 {mockCustomers
                   .filter(c =>
                     !customerSearch ||
@@ -298,7 +544,12 @@ export default function CreateJobScreen() {
                       <TouchableOpacity
                         key={c.id}
                         style={[styles.custRow, selected && styles.custRowActive]}
-                        onPress={() => { setCustomerName(c.name); setCustomerPhone(c.phone.replace(/\D/g, '').slice(-10)); }}
+                        onPress={() => {
+                          setCustomerName(c.name);
+                          setCustomerPhone(c.phone.replace(/\D/g, '').slice(-10));
+                          clearFieldError('customerName');
+                          clearFieldError('customerPhone');
+                        }}
                         activeOpacity={0.8}
                       >
                         <View style={[styles.custAvatar, selected && { backgroundColor: PRIMARY }]}>
@@ -315,71 +566,94 @@ export default function CreateJobScreen() {
                     );
                   })
                 }
-                {/* Add new */}
+
+                {/* Add new customer */}
                 <TouchableOpacity
                   style={styles.addCustBtn}
-                  onPress={() => {
-                    setCustomerName('');
-                    setCustomerPhone('');
-                    setCustomerSearch('');
-                  }}
+                  onPress={() => { setCustomerName(''); setCustomerPhone(''); setCustomerSearch(''); }}
                   activeOpacity={0.8}
                 >
                   <Feather name="plus-circle" size={15} color={PRIMARY} />
                   <Text style={styles.addCustText}>Add New Customer</Text>
                 </TouchableOpacity>
-                {/* Manual entry if adding new */}
+
+                {/* Manual entry */}
                 {customerName === '' && customerSearch === '' && (
                   <>
-                    <InputField
-                      label="Customer Name *"
-                      value={customerName}
-                      onChangeText={setCustomerName}
-                      placeholder="Full name"
-                      autoCapitalize="words"
-                      leadingIcon="user"
-                    />
-                    <InputField
-                      label="Phone Number"
-                      value={customerPhone}
-                      onChangeText={v => setCustomerPhone(v.replace(/\D/g, '').slice(0, 10))}
-                      placeholder="10-digit mobile"
-                      keyboardType="phone-pad"
-                      leadingIcon="phone"
-                      prefix="+91"
-                      maxLength={10}
-                    />
+                    <View>
+                      <InputField
+                        label="Customer Name *"
+                        value={customerName}
+                        onChangeText={v => { setCustomerName(v); clearFieldError('customerName'); }}
+                        placeholder="Full name"
+                        autoCapitalize="words"
+                        leadingIcon="user"
+                        error={errors.customerName}
+                      />
+                      <FieldError msg={errors.customerName} />
+                    </View>
+                    <View>
+                      <InputField
+                        label="Phone Number"
+                        value={customerPhone}
+                        onChangeText={v => {
+                          setCustomerPhone(v.replace(/\D/g, '').slice(0, 10));
+                          clearFieldError('customerPhone');
+                        }}
+                        placeholder="10-digit mobile"
+                        keyboardType="phone-pad"
+                        leadingIcon="phone"
+                        prefix="+91"
+                        maxLength={10}
+                        error={errors.customerPhone}
+                      />
+                      <FieldError msg={errors.customerPhone} />
+                    </View>
                   </>
+                )}
+
+                {/* Show selected name error even when customer is selected */}
+                {customerName !== '' && errors.customerName && (
+                  <FieldError msg={errors.customerName} />
                 )}
               </View>
             </View>
 
+            {/* Vehicle Details */}
             <StepCard icon="truck" title="Vehicle Details" iconBg="#FFF7ED" iconFg="#F97316">
-              <InputField
-                label="Registration Number *"
-                value={regNumber}
-                onChangeText={setRegNumber}
-                placeholder="KA-01-AB-1234"
-                autoCapitalize="characters"
-                leadingIcon="hash"
-              />
+              <View>
+                <InputField
+                  label="Registration Number *"
+                  value={regNumber}
+                  onChangeText={v => { setRegNumber(v); clearFieldError('regNumber'); }}
+                  placeholder="KA-01-AB-1234"
+                  autoCapitalize="characters"
+                  leadingIcon="hash"
+                  error={errors.regNumber}
+                />
+                <FieldError msg={errors.regNumber} />
+              </View>
               <View style={styles.row}>
                 <View style={{ flex: 1 }}>
                   <InputField
                     label="Brand *"
                     value={brand}
-                    onChangeText={setBrand}
+                    onChangeText={v => { setBrand(v); clearFieldError('brand'); }}
                     placeholder="Honda"
                     autoCapitalize="words"
+                    error={errors.brand}
                   />
+                  <FieldError msg={errors.brand} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <InputField
                     label="Model *"
                     value={model}
-                    onChangeText={setModel}
+                    onChangeText={v => { setModel(v); clearFieldError('model'); }}
                     placeholder="City"
+                    error={errors.model}
                   />
+                  <FieldError msg={errors.model} />
                 </View>
               </View>
               <View style={styles.row}>
@@ -404,23 +678,28 @@ export default function CreateJobScreen() {
                   </ScrollView>
                 </View>
               </View>
-              <InputField
-                label="Odometer (km)"
-                value={odometer}
-                onChangeText={setOdometer}
-                placeholder="45230"
-                keyboardType="number-pad"
-                leadingIcon="navigation"
-              />
+              <View>
+                <InputField
+                  label="Odometer (km)"
+                  value={odometer}
+                  onChangeText={v => { setOdometer(v); clearFieldError('odometer'); }}
+                  placeholder="45230"
+                  keyboardType="number-pad"
+                  leadingIcon="navigation"
+                  error={errors.odometer}
+                />
+                <FieldError msg={errors.odometer} />
+              </View>
             </StepCard>
           </>
         )}
 
-        {/* ══════════════════════════════════════════ */}
-        {/* STEP 1 — Vehicle Inspection               */}
-        {/* ══════════════════════════════════════════ */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/* STEP 1 — Vehicle Inspection                            */}
+        {/* ═══════════════════════════════════════════════════════ */}
         {step === 1 && (
           <>
+            {/* Fuel Level */}
             <StepCard icon="droplet" title="Fuel Level" iconBg="#FFF7ED" iconFg="#F97316">
               <View style={styles.fuelRow}>
                 {FUEL_LEVELS.map(l => (
@@ -434,25 +713,25 @@ export default function CreateJobScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-              {/* Visual fuel gauge */}
               <View style={styles.gaugeTrack}>
                 <View style={[
                   styles.gaugeFill,
                   {
                     width: `${(['E','1/4','1/2','3/4','F'].indexOf(fuelLevel) + 1) / 5 * 100}%`,
-                    backgroundColor: fuelLevel === 'E' ? DANGER : fuelLevel === '1/4' ? '#F59E0B' : SUCCESS,
+                    backgroundColor: fuelLevel === 'E' ? DANGER : fuelLevel === '1/4' ? WARN : SUCCESS,
                   },
                 ]} />
               </View>
             </StepCard>
 
+            {/* Inspection Details */}
             <StepCard icon="clipboard" title="Inspection Details">
               <FieldLabel text="Customer Complaint *" />
-              <View style={styles.textAreaWrap}>
+              <View style={[styles.textAreaWrap, errors.complaint && styles.textAreaError]}>
                 <TextInput
                   style={styles.textArea}
                   value={complaint}
-                  onChangeText={setComplaint}
+                  onChangeText={v => { setComplaint(v); clearFieldError('complaint'); }}
                   placeholder="Describe the issue reported by the customer…"
                   placeholderTextColor="#94A3B8"
                   multiline
@@ -460,6 +739,8 @@ export default function CreateJobScreen() {
                   textAlignVertical="top"
                 />
               </View>
+              <FieldError msg={errors.complaint} />
+
               <FieldLabel text="Inspection Notes" />
               <View style={[styles.textAreaWrap, { marginBottom: 0 }]}>
                 <TextInput
@@ -475,32 +756,95 @@ export default function CreateJobScreen() {
               </View>
             </StepCard>
 
+            {/* Before Service Photos — live camera + gallery */}
             <StepCard icon="camera" title="Before Service Photos" iconBg="#F0FDF4" iconFg={SUCCESS}>
-              <View style={styles.photoRow}>
-                {['Front', 'Rear', 'Side'].map(p => (
-                  <View key={p} style={styles.photoBox}>
-                    <View style={styles.photoIconWrap}>
-                      <Feather name="camera" size={18} color={MUTED} />
-                    </View>
-                    <Text style={styles.photoLabel}>{p}</Text>
-                  </View>
-                ))}
-                <TouchableOpacity style={[styles.photoBox, styles.photoBoxAdd]} activeOpacity={0.8}>
-                  <View style={styles.photoAddWrap}>
-                    <Feather name="plus" size={18} color={PRIMARY} />
-                  </View>
-                  <Text style={[styles.photoLabel, { color: PRIMARY }]}>Add</Text>
+              {/* Action buttons */}
+              <View style={styles.photoActionsRow}>
+                <TouchableOpacity style={styles.photoActionBtn} onPress={pickFromCamera} activeOpacity={0.85}>
+                  <Feather name="camera" size={15} color={PRIMARY} />
+                  <Text style={styles.photoActionText}>Take Photo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.photoActionBtn} onPress={pickFromGallery} activeOpacity={0.85}>
+                  <Feather name="image" size={15} color={PRIMARY} />
+                  <Text style={styles.photoActionText}>Choose from Gallery</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Photo thumbnails */}
+              {beforePhotos.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.thumbRow}
+                >
+                  {beforePhotos.map((p, i) => (
+                    <View key={i} style={styles.thumbWrap}>
+                      <Image source={{ uri: p.uri }} style={styles.thumb} />
+                      <TouchableOpacity
+                        style={styles.thumbDelete}
+                        onPress={() => removePhoto(i)}
+                        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                      >
+                        <Feather name="x" size={11} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : (
+                <View style={styles.photoEmptyHint}>
+                  <Feather name="image" size={22} color="#CBD5E1" />
+                  <Text style={styles.photoEmptyText}>No photos added yet</Text>
+                </View>
+              )}
+              {beforePhotos.length > 0 && (
+                <Text style={styles.photoCount}>{beforePhotos.length} photo{beforePhotos.length > 1 ? 's' : ''} added</Text>
+              )}
+            </StepCard>
+
+            {/* Documents */}
+            <StepCard icon="file-text" title="Attach Documents" iconBg="#FFF7ED" iconFg={WARN}>
+              <Text style={styles.docHint}>RC Book, Insurance, Previous Service Records, etc.</Text>
+              <TouchableOpacity style={styles.docPickBtn} onPress={pickDocument} activeOpacity={0.85}>
+                <Feather name="upload" size={15} color={PRIMARY} />
+                <Text style={styles.docPickText}>Select from Gallery</Text>
+              </TouchableOpacity>
+
+              {documents.length > 0 && (
+                <View style={styles.docList}>
+                  {documents.map((d, i) => (
+                    <View key={i} style={styles.docItem}>
+                      <View style={styles.docIcon}>
+                        <Feather name="file" size={14} color={PRIMARY} />
+                      </View>
+                      <Text style={styles.docName} numberOfLines={1}>{d.name}</Text>
+                      <TouchableOpacity
+                        onPress={() => removeDocument(i)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Feather name="x-circle" size={16} color={DANGER + 'AA'} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+              {documents.length === 0 && (
+                <Text style={styles.docEmpty}>No documents attached</Text>
+              )}
             </StepCard>
           </>
         )}
 
-        {/* ══════════════════════════════════════════ */}
-        {/* STEP 2 — Services                         */}
-        {/* ══════════════════════════════════════════ */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/* STEP 2 — Services                                      */}
+        {/* ═══════════════════════════════════════════════════════ */}
         {step === 2 && (
           <>
+            {errors.services && (
+              <View style={styles.stepErrorBanner}>
+                <Feather name="alert-circle" size={14} color={DANGER} />
+                <Text style={styles.stepErrorText}>{errors.services}</Text>
+              </View>
+            )}
             <StepCard icon="tool" title="Add Services">
               <View style={styles.serviceSearchRow}>
                 <View style={styles.serviceSearchInput}>
@@ -520,7 +864,6 @@ export default function CreateJobScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Quick service suggestions */}
               <Text style={styles.suggestLabel}>Quick add</Text>
               <ScrollView
                 horizontal
@@ -533,6 +876,7 @@ export default function CreateJobScreen() {
                     style={styles.suggestChip}
                     onPress={() => {
                       setServices(prev => [...prev, { name: s, price: 0, qty: 1 }]);
+                      clearFieldError('services');
                     }}
                     activeOpacity={0.8}
                   >
@@ -547,7 +891,6 @@ export default function CreateJobScreen() {
               <StepCard icon="list" title={`Services Added (${services.length})`} iconBg="#F0FDF4" iconFg={SUCCESS}>
                 {services.map((svc, i) => (
                   <View key={i} style={[styles.serviceItem, i < services.length - 1 && { marginBottom: 12 }]}>
-                    {/* Service name + price input */}
                     <View style={styles.serviceTop}>
                       <View style={styles.serviceIconDot}>
                         <Feather name="tool" size={12} color={PRIMARY} />
@@ -557,9 +900,7 @@ export default function CreateJobScreen() {
                         <Feather name="trash-2" size={14} color={DANGER + 'AA'} />
                       </TouchableOpacity>
                     </View>
-
                     <View style={styles.serviceBottom}>
-                      {/* Price input */}
                       <View style={styles.priceInputWrap}>
                         <Text style={styles.priceRupee}>₹</Text>
                         <TextInput
@@ -571,8 +912,6 @@ export default function CreateJobScreen() {
                           keyboardType="number-pad"
                         />
                       </View>
-
-                      {/* Qty stepper */}
                       <View style={styles.qtyRow}>
                         <TouchableOpacity style={styles.qtyBtn} onPress={() => updateQty(i, -1)} activeOpacity={0.8}>
                           <Feather name="minus" size={12} color={TEXT} />
@@ -582,16 +921,11 @@ export default function CreateJobScreen() {
                           <Feather name="plus" size={12} color={TEXT} />
                         </TouchableOpacity>
                       </View>
-
-                      {/* Row total */}
                       <Text style={styles.serviceRowTotal}>{formatCurrency(svc.price * svc.qty)}</Text>
                     </View>
-
                     {i < services.length - 1 && <View style={styles.serviceDivider} />}
                   </View>
                 ))}
-
-                {/* Services subtotal */}
                 <View style={styles.servicesSummary}>
                   <Text style={styles.servicesSummaryLabel}>Services Total</Text>
                   <Text style={styles.servicesSummaryValue}>{formatCurrency(servicesTotal)}</Text>
@@ -601,39 +935,48 @@ export default function CreateJobScreen() {
           </>
         )}
 
-        {/* ══════════════════════════════════════════ */}
-        {/* STEP 3 — Labour & Technician              */}
-        {/* ══════════════════════════════════════════ */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/* STEP 3 — Labour & Technician                           */}
+        {/* ═══════════════════════════════════════════════════════ */}
         {step === 3 && (
           <>
+            {errors.technician && (
+              <View style={styles.stepErrorBanner}>
+                <Feather name="alert-circle" size={14} color={DANGER} />
+                <Text style={styles.stepErrorText}>{errors.technician}</Text>
+              </View>
+            )}
             <StepCard icon="users" title="Assign Technician" iconBg="#F5F3FF" iconFg="#2563EB">
               {mockTechs.map(t => (
                 <TouchableOpacity
                   key={t.id}
-                  style={[styles.techCard, selectedTechId === t.id && styles.techCardActive]}
-                  onPress={() => { setSelectedTechId(t.id); setSelectedTechName(t.name); }}
+                  style={[
+                    styles.techCard,
+                    selectedTechId === t.id && styles.techCardActive,
+                    errors.technician && !selectedTechId && styles.techCardError,
+                  ]}
+                  onPress={() => {
+                    setSelectedTechId(t.id);
+                    setSelectedTechName(t.name);
+                    clearFieldError('technician');
+                  }}
                   activeOpacity={0.85}
                 >
-                  {/* Avatar */}
                   <View style={[styles.techAvatar, selectedTechId === t.id && { backgroundColor: PRIMARY }]}>
                     <Text style={[styles.techAvatarText, selectedTechId === t.id && { color: '#fff' }]}>
                       {t.name.charAt(0)}
                     </Text>
                   </View>
-
                   <View style={{ flex: 1 }}>
                     <Text style={styles.techName}>{t.name}</Text>
                     <Text style={styles.techRole}>{t.role}</Text>
                   </View>
-
-                  {/* Available badge */}
                   <View style={[styles.availBadge, { backgroundColor: t.available ? '#ECFDF5' : '#FEF2F2' }]}>
                     <View style={[styles.availDot, { backgroundColor: t.available ? SUCCESS : DANGER }]} />
                     <Text style={[styles.availText, { color: t.available ? SUCCESS : DANGER }]}>
                       {t.available ? 'Free' : 'Busy'}
                     </Text>
                   </View>
-
                   {selectedTechId === t.id && (
                     <View style={styles.techCheckWrap}>
                       <Feather name="check-circle" size={18} color={PRIMARY} />
@@ -705,9 +1048,9 @@ export default function CreateJobScreen() {
           </>
         )}
 
-        {/* ══════════════════════════════════════════ */}
-        {/* STEP 4 — Job Progress                     */}
-        {/* ══════════════════════════════════════════ */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/* STEP 4 — Job Progress                                  */}
+        {/* ═══════════════════════════════════════════════════════ */}
         {step === 4 && (
           <>
             <StepCard icon="activity" title="Job Timeline" iconBg="#F0FDF4" iconFg={SUCCESS}>
@@ -721,7 +1064,6 @@ export default function CreateJobScreen() {
                 { label: 'Completed',            desc: '',                              done: false },
               ].map((item, i, arr) => (
                 <View key={i} style={styles.timelineRow}>
-                  {/* Left column */}
                   <View style={styles.timelineLeft}>
                     <View style={[
                       styles.timelineCircle,
@@ -739,8 +1081,6 @@ export default function CreateJobScreen() {
                       <View style={[styles.timelineLine, (item as any).done && styles.timelineLineDone]} />
                     )}
                   </View>
-
-                  {/* Content */}
                   <View style={styles.timelineContent}>
                     <Text style={[
                       styles.timelineLabel,
@@ -763,9 +1103,9 @@ export default function CreateJobScreen() {
             <StepCard icon="zap" title="Advance Status" iconBg="#EEF2FF" iconFg={INDIGO}>
               <View style={styles.stageGrid}>
                 {[
-                  { label: 'Waiting for Parts', color: '#F59E0B', bg: '#FFFBEB' },
-                  { label: 'Quality Check',     color: INDIGO,    bg: '#EEF2FF' },
-                  { label: 'Ready',             color: SUCCESS,   bg: '#ECFDF5' },
+                  { label: 'Waiting for Parts', color: WARN,    bg: '#FFFBEB' },
+                  { label: 'Quality Check',     color: INDIGO,  bg: '#EEF2FF' },
+                  { label: 'Ready',             color: SUCCESS, bg: '#ECFDF5' },
                   { label: 'Completed',         color: '#059669', bg: '#D1FAE5' },
                 ].map(s => (
                   <TouchableOpacity
@@ -781,12 +1121,11 @@ export default function CreateJobScreen() {
           </>
         )}
 
-        {/* ══════════════════════════════════════════ */}
-        {/* STEP 5 — Final Invoice                    */}
-        {/* ══════════════════════════════════════════ */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/* STEP 5 — Final Invoice                                 */}
+        {/* ═══════════════════════════════════════════════════════ */}
         {step === 5 && (
           <>
-            {/* Invoice header card */}
             <LinearGradient
               colors={['#1D4ED8', '#2563EB', '#06B6D4']}
               start={{ x: 0, y: 0 }}
@@ -822,7 +1161,6 @@ export default function CreateJobScreen() {
               </View>
             </LinearGradient>
 
-            {/* Services line items */}
             {services.length > 0 && (
               <StepCard icon="tool" title="Services">
                 {services.map((s, i) => (
@@ -834,7 +1172,6 @@ export default function CreateJobScreen() {
               </StepCard>
             )}
 
-            {/* Labour */}
             {labourTotal > 0 && (
               <StepCard icon="users" title="Labour" iconBg="#F5F3FF" iconFg="#2563EB">
                 <View style={styles.lineItem}>
@@ -844,7 +1181,6 @@ export default function CreateJobScreen() {
               </StepCard>
             )}
 
-            {/* Totals */}
             <View style={styles.totalsCard}>
               <View style={styles.totalRow}>
                 <Text style={styles.totalRowLabel}>Services</Text>
@@ -868,7 +1204,6 @@ export default function CreateJobScreen() {
               </View>
             </View>
 
-            {/* Actions */}
             <View style={styles.invoiceActions}>
               <TouchableOpacity style={styles.invoiceActionBtn} activeOpacity={0.8}>
                 <View style={[styles.invoiceActionIcon, { backgroundColor: '#EEF2FF' }]}>
@@ -885,25 +1220,28 @@ export default function CreateJobScreen() {
             </View>
           </>
         )}
+
       </ScrollView>
 
-      {/* ── Footer ── */}
+      {/* ── Sticky Footer ── */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}>
-        {step > 0 && (
-          <TouchableOpacity style={styles.footerBack} onPress={handleBack} activeOpacity={0.8}>
-            <Feather name="arrow-left" size={16} color={TEXT} />
-            <Text style={styles.footerBackText}>Back</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[styles.footerBack, step === 0 && styles.footerBackDisabled]}
+          onPress={handleBack}
+          activeOpacity={0.8}
+        >
+          <Feather name="arrow-left" size={16} color={step === 0 ? '#CBD5E1' : TEXT} />
+          <Text style={[styles.footerBackText, step === 0 && { color: '#CBD5E1' }]}>Back</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[
             styles.footerNext,
-            (!canProceed() || isPending) && { opacity: 0.55 },
+            isPending && { opacity: 0.65 },
             step === 5 && { backgroundColor: SUCCESS },
           ]}
           onPress={step === 5 ? () => router.replace('/(tabs)/jobs') : handleNext}
-          disabled={(!canProceed() || isPending) && step < 5}
+          disabled={isPending}
           activeOpacity={0.85}
         >
           {isPending
@@ -925,7 +1263,15 @@ export default function CreateJobScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
 
-  /* ── Header ── */
+  /* Draft banner */
+  draftBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#ECFDF5', borderBottomWidth: 1, borderBottomColor: '#A7F3D0',
+    paddingHorizontal: 16, paddingVertical: 10,
+  },
+  draftBannerText: { fontSize: 13, color: '#047857', fontWeight: '500', flex: 1 },
+
+  /* Header */
   topBar: {
     paddingHorizontal: 20, paddingBottom: 12,
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -948,7 +1294,7 @@ const styles = StyleSheet.create({
   },
   progressFill: { height: '100%', backgroundColor: PRIMARY, borderRadius: 2 },
 
-  /* ── Stepper ── */
+  /* Stepper */
   stepper: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 20, paddingVertical: 14,
@@ -968,19 +1314,34 @@ const styles = StyleSheet.create({
   stepCircleActive: { backgroundColor: PRIMARY, borderColor: PRIMARY },
   stepNum: { fontSize: 11, fontWeight: '700', color: MUTED },
 
-  /* ── Body ── */
+  /* Body */
   body: { padding: 20 },
 
-  /* ── Field label ── */
-  fieldLabel: {
-    fontSize: 15, fontWeight: '600', color: '#475569',
-    marginBottom: 8,
-  },
+  /* Field label / error */
+  fieldLabel: { fontSize: 15, fontWeight: '600', color: '#475569', marginBottom: 8 },
+  fieldError: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: -6, marginBottom: 10 },
+  fieldErrorText: { fontSize: 12, color: DANGER, flex: 1 },
 
-  /* ── Layout helpers ── */
+  /* Step-level error banner */
+  stepErrorBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FEF2F2', borderRadius: 12,
+    borderWidth: 1, borderColor: '#FECACA',
+    padding: 12, marginBottom: 14,
+  },
+  stepErrorText: { fontSize: 13, color: DANGER, fontWeight: '500', flex: 1 },
+
+  /* Row */
   row: { flexDirection: 'row', gap: 10 },
 
-  /* ── Customer picker ── */
+  /* Customer picker */
+  contactsBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    marginLeft: 'auto', paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 10, backgroundColor: '#EEF2FF',
+    borderWidth: 1, borderColor: PRIMARY + '30',
+  },
+  contactsBtnText: { fontSize: 12, fontWeight: '600', color: PRIMARY },
   custSearch: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: '#F8FAFC', borderRadius: 12,
@@ -1008,7 +1369,7 @@ const styles = StyleSheet.create({
   },
   addCustText: { fontSize: 14, fontWeight: '600', color: PRIMARY },
 
-  /* ── Chips ── */
+  /* Chips */
   chipRow: { gap: 8 },
   chip: {
     paddingHorizontal: 14, paddingVertical: 7,
@@ -1019,19 +1380,20 @@ const styles = StyleSheet.create({
   chipText:       { fontSize: 12, fontWeight: '600', color: MUTED },
   chipTextActive: { color: '#fff' },
 
-  /* ── Textarea ── */
+  /* Textarea */
   textAreaWrap: {
     backgroundColor: '#F8FAFC',
     borderRadius: 14, borderWidth: 1.5, borderColor: BORDER,
     marginBottom: 14, overflow: 'hidden',
   },
+  textAreaError: { borderColor: DANGER },
   textArea: {
     padding: 14, fontSize: 15, color: TEXT,
     minHeight: 100, textAlignVertical: 'top',
   },
 
-  /* ── Fuel level ── */
-  fuelRow:    { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  /* Fuel level */
+  fuelRow:   { flexDirection: 'row', gap: 8, marginBottom: 12 },
   fuelBtn: {
     flex: 1, paddingVertical: 11, borderRadius: 12,
     borderWidth: 1.5, borderColor: BORDER,
@@ -1046,27 +1408,55 @@ const styles = StyleSheet.create({
   },
   gaugeFill: { height: '100%', borderRadius: 4 },
 
-  /* ── Photo placeholders ── */
-  photoRow: { flexDirection: 'row', gap: 10 },
-  photoBox: {
-    flex: 1, alignItems: 'center', gap: 6, paddingVertical: 16,
-    borderRadius: 14, borderWidth: 1.5, borderColor: BORDER,
-    backgroundColor: '#F8FAFC',
-  },
-  photoIconWrap: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  photoBoxAdd:  { borderStyle: 'dashed', borderColor: PRIMARY + '80' },
-  photoAddWrap: {
-    width: 36, height: 36, borderRadius: 10,
+  /* Photo picker */
+  photoActionsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  photoActionBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 12, borderRadius: 12,
+    borderWidth: 1.5, borderColor: PRIMARY + '40',
     backgroundColor: '#EEF2FF',
+  },
+  photoActionText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
+  thumbRow: { gap: 10, paddingBottom: 4 },
+  thumbWrap: { position: 'relative' },
+  thumb: { width: 90, height: 90, borderRadius: 12 },
+  thumbDelete: {
+    position: 'absolute', top: 4, right: 4,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: DANGER,
     alignItems: 'center', justifyContent: 'center',
   },
-  photoLabel: { fontSize: 10, color: MUTED, fontWeight: '500' },
+  photoEmptyHint: {
+    alignItems: 'center', paddingVertical: 20, gap: 8,
+    borderRadius: 12, borderWidth: 1.5, borderColor: '#E2E8F0',
+    borderStyle: 'dashed', backgroundColor: '#F8FAFC',
+  },
+  photoEmptyText: { fontSize: 13, color: MUTED },
+  photoCount: { fontSize: 12, color: MUTED, marginTop: 8, textAlign: 'center' },
 
-  /* ── Service search ── */
+  /* Documents */
+  docHint: { fontSize: 12, color: MUTED, marginBottom: 12 },
+  docPickBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 12, borderRadius: 12,
+    borderWidth: 1.5, borderColor: PRIMARY + '40',
+    backgroundColor: '#EEF2FF', marginBottom: 12,
+  },
+  docPickText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
+  docList: { gap: 8 },
+  docItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 10, borderRadius: 10,
+    backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: BORDER,
+  },
+  docIcon: {
+    width: 32, height: 32, borderRadius: 9,
+    backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center',
+  },
+  docName:  { flex: 1, fontSize: 13, color: TEXT, fontWeight: '500' },
+  docEmpty: { fontSize: 12, color: MUTED, textAlign: 'center', paddingVertical: 8 },
+
+  /* Service search */
   serviceSearchRow: { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 14 },
   serviceSearchInput: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -1094,21 +1484,15 @@ const styles = StyleSheet.create({
   },
   suggestChipText: { fontSize: 12, fontWeight: '600', color: PRIMARY },
 
-  /* ── Service items ── */
+  /* Service items */
   serviceItem: { marginBottom: 0 },
-  serviceTop: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8,
-  },
+  serviceTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
   serviceIconDot: {
     width: 26, height: 26, borderRadius: 8,
-    backgroundColor: '#EEF2FF',
-    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center',
   },
   serviceItemName: { flex: 1, fontSize: 14, fontWeight: '600', color: TEXT },
-  serviceBottom: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingLeft: 36,
-  },
+  serviceBottom: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 36 },
   priceInputWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     borderWidth: 1, borderColor: BORDER, borderRadius: 10,
@@ -1121,8 +1505,7 @@ const styles = StyleSheet.create({
   qtyBtn: {
     width: 28, height: 28, borderRadius: 9,
     borderWidth: 1, borderColor: BORDER,
-    backgroundColor: CARD,
-    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: CARD, alignItems: 'center', justifyContent: 'center',
   },
   qtyValue: { fontSize: 14, fontWeight: '700', color: TEXT, minWidth: 22, textAlign: 'center' },
   serviceRowTotal: { fontSize: 14, fontWeight: '700', color: PRIMARY, minWidth: 64, textAlign: 'right' },
@@ -1135,21 +1518,18 @@ const styles = StyleSheet.create({
   servicesSummaryLabel: { fontSize: 13, fontWeight: '700', color: TEXT },
   servicesSummaryValue: { fontSize: 16, fontWeight: '800', color: PRIMARY },
 
-  /* ── Technician cards ── */
+  /* Technician cards */
   techCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     padding: 14, borderRadius: 14,
     borderWidth: 1.5, borderColor: BORDER,
     backgroundColor: '#F8FAFC', marginBottom: 10,
   },
-  techCardActive: {
-    borderColor: PRIMARY,
-    backgroundColor: '#EEF2FF',
-  },
+  techCardActive: { borderColor: PRIMARY, backgroundColor: '#EEF2FF' },
+  techCardError:  { borderColor: DANGER + '80' },
   techAvatar: {
     width: 44, height: 44, borderRadius: 14,
-    backgroundColor: '#E2E8F0',
-    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center',
   },
   techAvatarText: { fontSize: 18, fontWeight: '700', color: TEXT },
   techName:  { fontSize: 14, fontWeight: '600', color: TEXT, marginBottom: 2 },
@@ -1162,20 +1542,17 @@ const styles = StyleSheet.create({
   availText: { fontSize: 11, fontWeight: '600' },
   techCheckWrap: { marginLeft: 4 },
 
-  /* ── Timeline ── */
+  /* Timeline */
   timelineRow: { flexDirection: 'row', gap: 14, marginBottom: 0 },
   timelineLeft: { alignItems: 'center', width: 30 },
   timelineCircle: {
     width: 30, height: 30, borderRadius: 15,
     borderWidth: 1.5, borderColor: '#CBD5E1',
-    backgroundColor: CARD, alignItems: 'center', justifyContent: 'center',
-    zIndex: 1,
+    backgroundColor: CARD, alignItems: 'center', justifyContent: 'center', zIndex: 1,
   },
   timelineCircleDone:    { backgroundColor: SUCCESS, borderColor: SUCCESS },
   timelineCircleCurrent: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  timelinePulse: {
-    width: 10, height: 10, borderRadius: 5, backgroundColor: '#fff',
-  },
+  timelinePulse: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#fff' },
   timelineLine:     { width: 1.5, flex: 1, backgroundColor: '#E2E8F0', minHeight: 24 },
   timelineLineDone: { backgroundColor: SUCCESS },
   timelineNum:      { fontSize: 10, fontWeight: '700', color: MUTED },
@@ -1184,15 +1561,14 @@ const styles = StyleSheet.create({
   timelineDesc:     { fontSize: 12, color: MUTED, marginTop: 2 },
   currentBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    marginTop: 5,
-    alignSelf: 'flex-start',
+    marginTop: 5, alignSelf: 'flex-start',
     backgroundColor: '#EEF2FF',
     borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
   },
   currentDot:       { width: 6, height: 6, borderRadius: 3, backgroundColor: PRIMARY },
   currentBadgeText: { fontSize: 11, fontWeight: '700', color: PRIMARY },
 
-  /* ── Stage grid ── */
+  /* Stage grid */
   stageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   stageBtn: {
     paddingHorizontal: 14, paddingVertical: 9,
@@ -1200,7 +1576,7 @@ const styles = StyleSheet.create({
   },
   stageBtnText: { fontSize: 12, fontWeight: '700' },
 
-  /* ── Invoice ── */
+  /* Invoice */
   invoiceHero: {
     borderRadius: 22, padding: 22, marginBottom: 14, overflow: 'hidden',
     ...Platform.select({
@@ -1218,24 +1594,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'flex-start', marginBottom: 20,
   },
-  invoiceBrand:   { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
-  invoiceTagline: { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
-  invoiceNumWrap: { alignItems: 'flex-end' },
-  invoiceNumLabel:{ fontSize: 10, color: 'rgba(255,255,255,0.65)', letterSpacing: 1.5 },
-  invoiceNum:     { fontSize: 15, fontWeight: '700', color: '#fff', marginTop: 2 },
-  invoiceMeta:    { gap: 5 },
-  invoiceMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  invoiceMetaText:{ fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
+  invoiceBrand:    { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
+  invoiceTagline:  { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  invoiceNumWrap:  { alignItems: 'flex-end' },
+  invoiceNumLabel: { fontSize: 10, color: 'rgba(255,255,255,0.65)', letterSpacing: 1.5 },
+  invoiceNum:      { fontSize: 15, fontWeight: '700', color: '#fff', marginTop: 2 },
+  invoiceMeta:     { gap: 5 },
+  invoiceMetaRow:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  invoiceMetaText: { fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
 
-  /* ── Line items ── */
-  lineItem: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  /* Line items */
+  lineItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   lineItemName: { fontSize: 13, color: TEXT, flex: 1 },
   lineItemAmt:  { fontSize: 13, fontWeight: '600', color: PRIMARY },
 
-  /* ── Totals card ── */
+  /* Totals */
   totalsCard: {
     backgroundColor: CARD, borderRadius: 20,
     borderWidth: 1, borderColor: BORDER,
@@ -1246,7 +1619,7 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  totalRow:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   totalRowLabel: { fontSize: 13, color: MUTED },
   totalRowValue: { fontSize: 13, fontWeight: '600', color: TEXT },
   grandTotalRow: {
@@ -1256,7 +1629,7 @@ const styles = StyleSheet.create({
   grandTotalLabel: { fontSize: 16, fontWeight: '800', color: TEXT },
   grandTotalValue: { fontSize: 22, fontWeight: '800', color: PRIMARY },
 
-  /* ── Invoice actions ── */
+  /* Invoice actions */
   invoiceActions: { flexDirection: 'row', gap: 12, marginBottom: 6 },
   invoiceActionBtn: {
     flex: 1, backgroundColor: CARD,
@@ -1272,7 +1645,7 @@ const styles = StyleSheet.create({
   invoiceActionIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   invoiceActionText: { fontSize: 12, fontWeight: '600', color: TEXT },
 
-  /* ── Footer ── */
+  /* Footer */
   footer: {
     flexDirection: 'row', gap: 10,
     paddingHorizontal: 20, paddingTop: 14,
@@ -1290,6 +1663,7 @@ const styles = StyleSheet.create({
     borderRadius: 16, borderWidth: 1.5, borderColor: BORDER,
     backgroundColor: BG,
   },
+  footerBackDisabled: { opacity: 0.4 },
   footerBackText: { fontSize: 14, fontWeight: '600', color: TEXT },
   footerNext: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

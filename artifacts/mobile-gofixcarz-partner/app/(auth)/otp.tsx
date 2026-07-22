@@ -63,6 +63,14 @@ export default function OtpScreen() {
     }
   }
 
+  /* Auto-submit when all 6 digits are filled */
+  useEffect(() => {
+    if (otp.every(d => d !== '') && pendingMobile && !isLoading) {
+      verifyOtp(pendingMobile, otp.join(''));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otp]);
+
   async function handleVerify() {
     if (!pendingMobile) return;
     await verifyOtp(pendingMobile, otp.join(''));

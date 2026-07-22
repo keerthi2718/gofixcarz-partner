@@ -1,0 +1,243 @@
+IMPORTANT: Do NOT change the existing application flow, navigation, screen sequence, backend APIs, business logic, database structure, routes, or existing functionality. Preserve everything exactly as it is. Only enhance the existing implementation by adding the following features and improving the user experience.
+
+## 1. Job Card Navigation
+
+Keep the current Job Card flow exactly the same.
+
+Enhance it by adding:
+
+- Sticky "Back" button at the bottom of every step (disabled on the first step).
+- Sticky "Continue" button at the bottom of every step.
+- Show "Finish" instead of "Continue" on the last step.
+- Display a progress indicator at the top showing:
+  - Step Number (Example: Step 3 of 8)
+  - Progress Bar
+  - Current Step Name
+- Preserve all entered data while moving between steps.
+- Auto-save the current step whenever the user taps Continue.
+- Allow users to leave the Job Card and resume later without losing data.
+- Do not allow users to continue until the current step is valid.
+
+## 2. Input Validation
+
+Add proper validations without changing the existing forms.
+
+Examples:
+
+Customer
+- Customer Name is required.
+- Mobile Number must contain exactly 10 digits.
+- Email must be a valid email.
+- Address is required.
+
+Vehicle
+- Registration Number is required.
+- Vehicle Brand is required.
+- Vehicle Model is required.
+- Fuel Type is required.
+- Odometer must accept only positive numbers.
+- Manufacturing Year cannot be greater than the current year.
+
+Inspection
+- Mandatory checklist items must be completed.
+- Failed inspection items must require remarks.
+- Require at least one image when damage is marked.
+
+Services
+- At least one service must be selected.
+- Estimated amount cannot be negative.
+
+Technician
+- Technician assignment is mandatory.
+
+Review
+- Prevent submission until all required sections are completed.
+
+Display inline validation messages.
+
+Highlight invalid fields.
+
+Automatically focus on the first invalid field.
+
+## 3. Camera Integration
+
+Allow users to:
+
+- Capture Before Service photos.
+- Capture During Service photos.
+- Capture After Service photos.
+
+Support multiple photos.
+
+Allow preview.
+
+Allow delete.
+
+Allow replace.
+
+Compress images before upload.
+
+## 4. Gallery Integration
+
+Allow users to select multiple images from the phone gallery.
+
+Support:
+
+- JPG
+- PNG
+- HEIC
+
+Show previews before upload.
+
+## 5. Document Upload
+
+Allow uploading documents from the phone.
+
+Supported:
+
+- PDF
+- JPG
+- PNG
+- DOCX
+
+Examples:
+
+- RC Book
+- Insurance
+- Warranty
+- Previous Service Record
+- Other Attachments
+
+## 6. Phone Contacts
+
+Allow selecting customer information directly from the device contacts.
+
+Automatically populate:
+
+- Customer Name
+- Mobile Number
+- Email (if available)
+
+Allow editing after importing.
+
+## 7. Vehicle Status
+
+Within the existing Job Card, allow updating the vehicle status.
+
+Suggested statuses:
+
+- Vehicle Received
+- Inspection Started
+- Inspection Completed
+- Awaiting Customer Approval
+- Approved
+- Service Started
+- Washing
+- Quality Check
+- Ready for Delivery
+- Delivered
+- Cancelled
+
+Display the current status as a progress timeline.
+
+Every status update should record:
+
+- Date
+- Time
+- Updated By
+- Remarks (optional)
+
+Maintain complete status history.
+
+## 8. Activity Timeline
+
+Maintain an activity log showing:
+
+- Status changes
+- Technician assignments
+- Photos uploaded
+- Documents uploaded
+- Services added
+- Customer approvals
+- Job completion
+
+Display:
+
+- Date
+- Time
+- User
+- Action
+- Remarks
+
+## 9. Download Job Card as PDF
+
+Add a "Download PDF" option without changing the current Job Card layout.
+
+Include:
+
+- Garage Information
+- Garage Logo
+- Job Card Number
+- Customer Details
+- Vehicle Details
+- Vehicle Status Timeline
+- Inspection Checklist
+- Customer Complaints
+- Services
+- Technician Details
+- Before & After Photos
+- Customer Notes
+- Technician Notes
+- Estimate
+- Invoice Summary
+- Customer Signature
+- Technician Signature
+- QR Code (if available)
+- Generated Date & Time
+
+Provide actions to:
+
+- Download PDF
+- Print PDF
+- Share PDF
+- Send via WhatsApp
+- Send via Email
+
+## 10. OTP Auto Read
+
+Keep the existing Login and OTP flow exactly the same.
+
+Enhance it by adding:
+
+- Automatically detect OTP received through SMS.
+- Automatically fill the OTP input boxes.
+- Automatically verify the OTP after all digits are received (when supported).
+- If auto-read is unavailable, allow manual OTP entry.
+- Keep the existing Resend OTP functionality.
+- Show a countdown timer before allowing resend.
+- Show loading while verifying OTP.
+- Display clear messages for invalid or expired OTP.
+- Allow users to change their mobile number and request a new OTP.
+- Use the recommended native implementation for React Native + Expo on Android and iOS.
+- Do not change authentication APIs or backend logic.
+
+## 11. Performance
+
+- Do not modify any backend APIs.
+- Do not modify business logic.
+- Do not modify database schema.
+- Do not rename routes or components.
+- Preserve all existing functionality.
+- Preserve all existing navigation.
+- Handle API failures gracefully.
+- Retry failed uploads.
+- Show loading indicators.
+- Show skeleton loaders.
+- Support offline draft saving.
+- Prevent duplicate submissions.
+- Optimize image uploads.
+- Keep the UI responsive on Android and iOS.
+
+## Final Objective
+
+Preserve the existing GoFixCarz application exactly as it works today. Do not redesign the flow or change any functionality. Only enhance the existing Job Card and Login experience by adding Back/Continue navigation, strong field validations, camera/gallery/document/contact integration, vehicle status tracking, activity history, PDF generation, and OTP auto-read, ensuring the app remains production-ready, stable, scalable, and fully compatible with the current FastAPI backend.
