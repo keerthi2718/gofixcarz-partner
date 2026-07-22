@@ -77,11 +77,13 @@ export default function LoginScreen() {
           <View style={styles.circle1} />
           <View style={styles.circle2} />
 
-          <Image
-            source={require('../../assets/images/logo_clean.png')}
-            style={styles.logoImg}
-            resizeMode="contain"
-          />
+          <View style={styles.logoCircle}>
+            <Image
+              source={require('../../assets/images/logo_clean.png')}
+              style={styles.logoImg}
+              resizeMode="cover"
+            />
+          </View>
 
           <Text style={styles.heroTitle}>Welcome Back</Text>
           <Text style={styles.heroSub}>Sign in to your garage portal</Text>
@@ -217,8 +219,14 @@ const styles = StyleSheet.create({
     width: 80, height: 80, borderRadius: 40,
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
+  logoCircle: {
+    width: 100, height: 100, borderRadius: 50,
+    overflow: 'hidden',
+    borderWidth: 3, borderColor: 'rgba(255,255,255,0.25)',
+    marginBottom: 20,
+  },
   logoImg: {
-    width: 180, height: 110, marginBottom: 20,
+    width: '100%', height: '100%',
   },
   heroTitle: {
     fontSize: 28, fontWeight: '800', color: '#fff',
