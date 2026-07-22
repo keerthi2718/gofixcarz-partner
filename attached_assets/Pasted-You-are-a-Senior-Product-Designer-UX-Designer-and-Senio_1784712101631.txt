@@ -1,0 +1,133 @@
+You are a Senior Product Designer, UX Designer, and Senior React Native (Expo) Engineer.
+
+I already have a working GoFixCarz Garage Owner mobile application in this project.
+
+Do NOT create a new application.
+
+Do NOT change any existing business logic or backend API integrations.
+
+Your task is to analyze the entire project and transform it into a premium, production-ready mobile application while preserving all existing functionality.
+
+Before making any changes:
+
+• Analyze the complete codebase.
+• Understand the navigation flow.
+• Understand every screen.
+• Review all reusable components.
+• Review API integration.
+• Identify inconsistent UI.
+• Identify poor UX.
+• Identify unnecessary code duplication.
+• Identify performance bottlenecks.
+
+After analysis, progressively improve the application.
+
+Focus on creating a world-class user experience similar in quality to the best modern mobile applications.
+
+Improve the entire application by focusing on:
+
+• Professional layouts
+• Better spacing
+• Better typography
+• Better visual hierarchy
+• Consistent component design
+• Responsive layouts
+• Accessibility
+• Smooth animations
+• Premium micro-interactions
+• Better loading states
+• Better empty states
+• Better error states
+• Better success states
+• Skeleton loading
+• Pull-to-refresh
+• Better navigation experience
+• Better form validation
+• Better search experience
+• Better filtering
+• Better user feedback
+• Better onboarding experience
+• Better dashboard presentation
+
+Refactor all repeated UI into reusable components, including:
+
+• Buttons
+• Cards
+• Input fields
+• Search bars
+• Dropdowns
+• Bottom sheets
+• Dialogs
+• Modals
+• Chips
+• Badges
+• Timeline components
+• Statistic cards
+• Progress indicators
+• Empty state components
+• Loading skeletons
+• Error components
+
+Enhance every screen, including:
+
+• Splash
+• Login
+• OTP Verification
+• Dashboard
+• Booking List
+• Booking Details
+• Job Card
+• Services
+• Customers
+• Technicians
+• Revenue & Analytics
+• Notifications
+• Profile
+• Settings
+
+For every screen:
+
+• Improve information hierarchy.
+• Reduce visual clutter.
+• Make actions obvious.
+• Improve readability.
+• Improve touch ergonomics.
+• Improve consistency.
+• Optimize for one-handed use where possible.
+
+Maintain a single design language throughout the application.
+
+Use proper spacing, typography, elevation, icons, and component consistency rather than relying on decorative effects.
+
+Support:
+
+• Light mode
+• Dark mode
+• Tablets
+• Different screen sizes
+• Accessibility standards
+• Smooth animations
+• Offline handling
+• Loading indicators
+• Error recovery
+• API retry mechanisms
+
+Optimize performance by:
+
+• Reducing unnecessary re-renders
+• Optimizing lists
+• Lazy loading where appropriate
+• Optimizing images
+• Improving state management
+• Removing duplicate code
+• Creating reusable hooks
+• Creating reusable UI components
+• Following clean architecture principles
+
+Do not modify backend APIs.
+
+Keep all existing FastAPI integrations working.
+
+Do not remove existing features.
+
+The final application should look and behave like a premium, enterprise-grade garage management platform that is ready for production deployment on both Android and iOS, with a strong focus on usability, maintainability, scalability, and a polished user experience.

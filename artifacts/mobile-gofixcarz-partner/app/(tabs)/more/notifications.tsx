@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useColors } from '@/hooks/useColors';
 import { QUERY_KEYS } from '@/src/constants/api';
 import NotificationService from '@/src/services/notification.service';
 import NotificationItem from '@/src/components/notifications/NotificationItem';
@@ -15,48 +14,78 @@ import { SkeletonList } from '@/src/components/ui/SkeletonCard';
 import EmptyState from '@/src/components/ui/EmptyState';
 import ErrorState from '@/src/components/ui/ErrorState';
 
+/* ── Design tokens ── */
+const BG      = '#EEEEF6';
+const CARD    = '#FFFFFF';
+const PRIMARY = '#2563EB';
+const TEXT    = '#1E293B';
+const MUTED   = '#64748B';
+const BORDER  = 'rgba(226,232,240,0.7)';
+
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
-  const colors = useColors();
-  const qc = useQueryClient();
+  const qc     = useQueryClient();
   const [unreadOnly, setUnreadOnly] = useState(false);
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
   const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: QUERY_KEYS.NOTIFICATIONS(unreadOnly),
-    queryFn: () => NotificationService.list({ unread_only: unreadOnly, page_size: 30 }),
+    queryFn:  () => NotificationService.list({ unread_only: unreadOnly, page_size: 30 }),
   });
 
   const markReadMut = useMutation({
     mutationFn: (id: string) => NotificationService.markRead(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.NOTIFICATIONS() }),
+    onSuccess:  () => qc.invalidateQueries({ queryKey: QUERY_KEYS.NOTIFICATIONS() }),
   });
 
+  const items      = data?.items ?? [];
+  const unreadCount = items.filter(n => !n.is_read).length;
+
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="dark-content" />
-      <View style={[styles.header, { paddingTop: topPad + 8, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-          <Feather name="arrow-left" size={22} color={colors.foreground} />
+    <View style={[styles.root, { backgroundColor: BG }]}>
+      <StatusBar barStyle="dark-content" backgroundColor={BG} />
+
+      {/* ── Header ── */}
+      <View style={[styles.topBar, { paddingTop: topPad + 16 }]}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Feather name="arrow-left" size={18} color={TEXT} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>Notifications</Text>
-        <TouchableOpacity
-          style={[styles.filterBtn, { backgroundColor: unreadOnly ? colors.primary : colors.secondary }]}
-          onPress={() => setUnreadOnly(v => !v)} activeOpacity={0.8}
-        >
-          <Text style={[styles.filterText, { color: unreadOnly ? '#fff' : colors.mutedForeground }]}>
-            {unreadOnly ? 'Unread' : 'All'}
-          </Text>
-        </TouchableOpacity>
+
+        <View style={styles.titleWrap}>
+          <Text style={styles.pageTitle}>Notifications</Text>
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* All / Unread toggle */}
+        <View style={styles.toggle}>
+          <TouchableOpacity
+            style={[styles.toggleBtn, !unreadOnly && styles.toggleBtnActive]}
+            onPress={() => setUnreadOnly(false)}
+          >
+            <Text style={[styles.toggleText, !unreadOnly && styles.toggleTextActive]}>All</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.toggleBtn, unreadOnly && styles.toggleBtnActive]}
+            onPress={() => setUnreadOnly(true)}
+          >
+            <Text style={[styles.toggleText, unreadOnly && styles.toggleTextActive]}>Unread</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {isLoading ? (
-        <ScrollView contentContainerStyle={styles.list}><SkeletonList count={5} /></ScrollView>
+        <ScrollView contentContainerStyle={styles.list}>
+          <SkeletonList count={6} />
+        </ScrollView>
       ) : error ? (
         <ErrorState onRetry={refetch} />
       ) : (
         <FlatList
-          data={data?.items ?? []}
+          data={items}
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
             <NotificationItem
@@ -65,10 +94,16 @@ export default function NotificationsScreen() {
             />
           )}
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 40 }]}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+          refreshControl={
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={PRIMARY} />
+          }
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <EmptyState icon="bell" title="No Notifications" description={unreadOnly ? 'All caught up!' : 'Notifications will appear here.'} />
+            <EmptyState
+              icon="bell"
+              title={unreadOnly ? 'All Caught Up' : 'No Notifications'}
+              description={unreadOnly ? 'You have no unread notifications.' : 'Notifications will appear here.'}
+            />
           }
         />
       )}
@@ -78,10 +113,42 @@ export default function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1 },
-  back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700' },
-  filterBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },
-  filterText: { fontSize: 13, fontWeight: '600' },
-  list: { padding: 16 },
+
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 20, paddingBottom: 14,
+  },
+  backBtn: {
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: CARD, borderWidth: 1, borderColor: BORDER,
+    alignItems: 'center', justifyContent: 'center',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
+      android: { elevation: 2 },
+      default: {},
+    }),
+  },
+
+  titleWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pageTitle: { fontSize: 20, fontWeight: '800', color: TEXT, letterSpacing: -0.4 },
+  badge: {
+    paddingHorizontal: 8, paddingVertical: 3,
+    backgroundColor: PRIMARY, borderRadius: 10,
+  },
+  badgeText: { fontSize: 11, fontWeight: '800', color: '#fff' },
+
+  toggle: {
+    flexDirection: 'row',
+    backgroundColor: CARD, borderRadius: 10,
+    borderWidth: 1, borderColor: BORDER, padding: 3,
+  },
+  toggleBtn: {
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 8,
+  },
+  toggleBtnActive: { backgroundColor: PRIMARY },
+  toggleText:      { fontSize: 12, fontWeight: '600', color: MUTED },
+  toggleTextActive: { color: '#fff' },
+
+  list: { paddingHorizontal: 20 },
 });

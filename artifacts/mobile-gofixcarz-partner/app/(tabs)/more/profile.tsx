@@ -1,31 +1,82 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform,
-  ScrollView, StatusBar, StyleSheet, Text, TextInput,
+  ScrollView, StatusBar, StyleSheet, Text,
   TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Controller, useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useColors } from '@/hooks/useColors';
 import { QUERY_KEYS } from '@/src/constants/api';
 import ProfileService from '@/src/services/profile.service';
+import InputField from '@/src/components/ui/InputField';
 import LoadingState from '@/src/components/ui/LoadingState';
 import ErrorState from '@/src/components/ui/ErrorState';
 import type { ProfileUpdate } from '@/src/types';
 
+/* ── Design tokens ── */
+const BG      = '#EEEEF6';
+const CARD    = '#FFFFFF';
+const PRIMARY = '#2563EB';
+const INDIGO  = '#4F46E5';
+const TEXT    = '#1E293B';
+const MUTED   = '#64748B';
+const BORDER  = 'rgba(226,232,240,0.7)';
+
 type FormData = { name: string; email: string; mobile: string };
+
+function SectionCard({ icon, title, iconBg = '#EEF2FF', iconFg = PRIMARY, children }: {
+  icon: React.ComponentProps<typeof Feather>['name'];
+  title: string;
+  iconBg?: string;
+  iconFg?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={cardSt.card}>
+      <View style={cardSt.header}>
+        <View style={[cardSt.iconWrap, { backgroundColor: iconBg }]}>
+          <Feather name={icon} size={15} color={iconFg} />
+        </View>
+        <Text style={cardSt.title}>{title}</Text>
+      </View>
+      <View style={cardSt.body}>{children}</View>
+    </View>
+  );
+}
+const cardSt = StyleSheet.create({
+  card: {
+    backgroundColor: CARD, borderRadius: 20,
+    borderWidth: 1, borderColor: BORDER, overflow: 'hidden', marginBottom: 14,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
+      android: { elevation: 2 },
+      default: {},
+    }),
+  },
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 18, paddingTop: 16, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+  },
+  iconWrap: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  title:    { fontSize: 14, fontWeight: '700', color: TEXT },
+  body:     { padding: 18 },
+});
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const colors = useColors();
-  const qc = useQueryClient();
-  const [editMode, setEditMode] = React.useState(false);
+  const qc     = useQueryClient();
+  const [editMode, setEditMode] = useState(false);
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
-  const { data, isLoading, error } = useQuery({ queryKey: QUERY_KEYS.PROFILE, queryFn: ProfileService.get });
+  const { data, isLoading, error } = useQuery({
+    queryKey: QUERY_KEYS.PROFILE,
+    queryFn:  ProfileService.get,
+  });
 
   const { control, handleSubmit, reset } = useForm<FormData>({
     defaultValues: { name: '', email: '', mobile: '' },
@@ -37,81 +88,151 @@ export default function ProfileScreen() {
 
   const { mutate, isPending } = useMutation({
     mutationFn: (p: ProfileUpdate) => ProfileService.update(p),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: QUERY_KEYS.PROFILE }); setEditMode(false); },
+    onSuccess:  () => { qc.invalidateQueries({ queryKey: QUERY_KEYS.PROFILE }); setEditMode(false); },
   });
 
   function onSubmit(d: FormData) {
     mutate({ name: d.name || null, email: d.email || null, mobile: d.mobile || null });
   }
 
-  const inputStyle = [styles.input, { backgroundColor: editMode ? colors.inputBackground : colors.secondary, borderColor: colors.border, color: colors.foreground }];
-  const labelStyle = [styles.label, { color: colors.mutedForeground }];
+  const initials = (data?.name ?? data?.mobile ?? 'U').charAt(0).toUpperCase();
+  const memberSince = data?.created_at
+    ? new Date(data.created_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+    : null;
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <StatusBar barStyle="dark-content" />
-      <View style={[styles.header, { paddingTop: topPad + 8, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-          <Feather name="arrow-left" size={22} color={colors.foreground} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>My Profile</Text>
-        <TouchableOpacity style={styles.editBtn} onPress={() => setEditMode(v => !v)}>
-          <Feather name={editMode ? 'x' : 'edit-2'} size={18} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
+    <KeyboardAvoidingView
+      style={[styles.root, { backgroundColor: BG }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <StatusBar barStyle="light-content" backgroundColor={INDIGO} />
+
+      {/* ── Gradient hero header ── */}
+      <LinearGradient
+        colors={[INDIGO, PRIMARY, '#06B6D4']}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={[styles.hero, { paddingTop: topPad + 16 }]}
+      >
+        {/* Back + Edit buttons */}
+        <View style={styles.heroNav}>
+          <TouchableOpacity style={styles.heroBtn} onPress={() => router.back()}>
+            <Feather name="arrow-left" size={18} color="#fff" />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity
+            style={[styles.heroBtn, editMode && styles.heroBtnCancel]}
+            onPress={() => { setEditMode(v => !v); if (editMode && data) reset(); }}
+          >
+            <Feather name={editMode ? 'x' : 'edit-2'} size={16} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Avatar */}
+        <View style={styles.avatarRing}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials}</Text>
+          </View>
+        </View>
+
+        {!isLoading && !error && (
+          <>
+            <Text style={styles.heroName}>{data?.name ?? 'Garage Owner'}</Text>
+            <Text style={styles.heroMobile}>{data?.mobile ?? '—'}</Text>
+
+            {memberSince && (
+              <View style={styles.memberChip}>
+                <Feather name="calendar" size={11} color="rgba(255,255,255,0.7)" />
+                <Text style={styles.memberChipText}>Member since {memberSince}</Text>
+              </View>
+            )}
+          </>
+        )}
+      </LinearGradient>
 
       {isLoading ? <LoadingState /> : error ? <ErrorState /> : (
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} keyboardShouldPersistTaps="handled">
-          {/* Avatar */}
-          <View style={[styles.avatarSection, { backgroundColor: colors.primary }]}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{(data?.name ?? data?.mobile ?? 'U').charAt(0).toUpperCase()}</Text>
+        <ScrollView
+          contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 130 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ── Personal Info ── */}
+          <SectionCard icon="user" title="Personal Information">
+            <Controller
+              control={control} name="name"
+              render={({ field: { value, onChange } }) => (
+                <InputField
+                  label="Full Name"
+                  value={value}
+                  onChangeText={onChange}
+                  editable={editMode}
+                  placeholder="Your full name"
+                  leadingIcon="user"
+                />
+              )}
+            />
+            <Controller
+              control={control} name="email"
+              render={({ field: { value, onChange } }) => (
+                <InputField
+                  label="Email Address"
+                  value={value}
+                  onChangeText={onChange}
+                  editable={editMode}
+                  placeholder="your@email.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  leadingIcon="mail"
+                />
+              )}
+            />
+            <Controller
+              control={control} name="mobile"
+              render={({ field: { value, onChange } }) => (
+                <InputField
+                  label="Mobile Number"
+                  value={value}
+                  onChangeText={onChange}
+                  editable={editMode}
+                  placeholder="10-digit mobile"
+                  keyboardType="phone-pad"
+                  leadingIcon="phone"
+                />
+              )}
+            />
+          </SectionCard>
+
+          {/* ── Account info ── */}
+          {!editMode && (
+            <View style={styles.infoChip}>
+              <Feather name="info" size={13} color={PRIMARY} />
+              <Text style={styles.infoChipText}>
+                Tap the edit icon in the header to update your profile details.
+              </Text>
             </View>
-            <Text style={styles.avatarName}>{data?.name ?? 'Garage Owner'}</Text>
-            <Text style={styles.avatarMobile}>{data?.mobile}</Text>
-          </View>
-
-          <Controller control={control} name="name"
-            render={({ field: { value, onChange } }) => (
-              <View style={styles.field}>
-                <Text style={labelStyle}>Full Name</Text>
-                <TextInput style={inputStyle} value={value} onChangeText={onChange} editable={editMode} placeholder="Your name" placeholderTextColor={colors.mutedForeground} />
-              </View>
-            )}
-          />
-          <Controller control={control} name="email"
-            render={({ field: { value, onChange } }) => (
-              <View style={styles.field}>
-                <Text style={labelStyle}>Email Address</Text>
-                <TextInput style={inputStyle} value={value} onChangeText={onChange} editable={editMode} keyboardType="email-address" autoCapitalize="none" placeholder="your@email.com" placeholderTextColor={colors.mutedForeground} />
-              </View>
-            )}
-          />
-          <Controller control={control} name="mobile"
-            render={({ field: { value, onChange } }) => (
-              <View style={styles.field}>
-                <Text style={labelStyle}>Mobile Number</Text>
-                <TextInput style={inputStyle} value={value} onChangeText={onChange} editable={editMode} keyboardType="phone-pad" placeholder="10-digit mobile" placeholderTextColor={colors.mutedForeground} />
-              </View>
-            )}
-          />
-
-          <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
-            <Feather name="info" size={14} color={colors.mutedForeground} />
-            <Text style={[styles.infoText, { color: colors.mutedForeground }]}>
-              Member since {data?.created_at ? new Date(data.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : '—'}
-            </Text>
-          </View>
+          )}
         </ScrollView>
       )}
 
+      {/* ── Footer (edit mode only) ── */}
       {editMode && (
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: colors.card, borderTopColor: colors.border }]}>
-          <TouchableOpacity style={[styles.cancelBtn, { borderColor: colors.border }]} onPress={() => { setEditMode(false); if (data) reset(); }}>
-            <Text style={{ color: colors.foreground, fontWeight: '600' }}>Cancel</Text>
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}>
+          <TouchableOpacity
+            style={styles.footerCancel}
+            onPress={() => { setEditMode(false); if (data) reset(); }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.footerCancelText}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: isPending ? 0.7 : 1 }]} onPress={handleSubmit(onSubmit)} disabled={isPending}>
-            {isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>Save Changes</Text>}
+          <TouchableOpacity
+            style={[styles.footerSave, isPending && { opacity: 0.6 }]}
+            onPress={handleSubmit(onSubmit)}
+            disabled={isPending}
+            activeOpacity={0.85}
+          >
+            {isPending
+              ? <ActivityIndicator color="#fff" />
+              : <><Feather name="check" size={16} color="#fff" /><Text style={styles.footerSaveText}>Save Changes</Text></>
+            }
           </TouchableOpacity>
         </View>
       )}
@@ -120,23 +241,80 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 1 },
-  back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700' },
-  editBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  content: { padding: 16, gap: 4 },
-  avatarSection: { borderRadius: 18, padding: 24, alignItems: 'center', marginBottom: 20, gap: 6 },
-  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,107,43,0.3)', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  avatarText: { fontSize: 30, fontWeight: '800', color: '#fff' },
-  avatarName: { fontSize: 18, fontWeight: '700', color: '#fff' },
-  avatarMobile: { fontSize: 13, color: 'rgba(255,255,255,0.75)' },
-  field: { marginBottom: 14, gap: 6 },
-  label: { fontSize: 12, fontWeight: '600' },
-  input: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, borderWidth: 1 },
-  infoCard: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 10, padding: 12, marginTop: 8 },
-  infoText: { fontSize: 12 },
-  footer: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1 },
-  cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1 },
-  saveBtn: { flex: 2, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  saveText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  root: { flex: 1 },
+
+  /* Hero */
+  hero: {
+    paddingHorizontal: 20, paddingBottom: 30,
+    alignItems: 'center',
+  },
+  heroNav: {
+    flexDirection: 'row', alignItems: 'center',
+    width: '100%', marginBottom: 20,
+  },
+  heroBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  heroBtnCancel: { backgroundColor: 'rgba(239,68,68,0.3)' },
+
+  avatarRing: {
+    width: 84, height: 84, borderRadius: 42,
+    borderWidth: 3, borderColor: 'rgba(255,255,255,0.4)',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 12,
+  },
+  avatar: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarText:   { fontSize: 30, fontWeight: '800', color: '#fff' },
+  heroName:     { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.3, marginBottom: 4 },
+  heroMobile:   { fontSize: 14, color: 'rgba(255,255,255,0.75)', marginBottom: 10 },
+  memberChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20,
+  },
+  memberChipText: { fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
+
+  body: { paddingHorizontal: 20, paddingTop: 20 },
+
+  infoChip: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: '#EEF2FF', borderRadius: 14,
+    borderWidth: 1, borderColor: 'rgba(37,99,235,0.2)',
+    padding: 14, marginBottom: 14,
+  },
+  infoChipText: { flex: 1, fontSize: 13, color: PRIMARY, lineHeight: 18 },
+
+  footer: {
+    flexDirection: 'row', gap: 10,
+    paddingHorizontal: 20, paddingTop: 14,
+    backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: BORDER,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.06, shadowRadius: 12 },
+      android: { elevation: 8 },
+      default: {},
+    }),
+  },
+  footerCancel: {
+    paddingVertical: 14, paddingHorizontal: 20,
+    borderRadius: 16, borderWidth: 1.5, borderColor: BORDER,
+    backgroundColor: BG, alignItems: 'center',
+  },
+  footerCancelText: { fontSize: 14, fontWeight: '600', color: TEXT },
+  footerSave: {
+    flex: 1, flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', gap: 7,
+    backgroundColor: PRIMARY, borderRadius: 16, paddingVertical: 14,
+    ...Platform.select({
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10 },
+      android: { elevation: 6 },
+      default: {},
+    }),
+  },
+  footerSaveText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });
