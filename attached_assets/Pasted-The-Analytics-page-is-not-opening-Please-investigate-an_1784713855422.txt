@@ -1,0 +1,53 @@
+The Analytics page is not opening. Please investigate and fix the issue without changing any existing business logic or backend APIs.
+
+Tasks:
+
+1. Analyze why the Analytics screen is failing to open.
+   - Check navigation configuration.
+   - Check route registration.
+   - Check Expo Router/React Navigation setup.
+   - Check imports and exports.
+   - Check for runtime JavaScript errors.
+   - Check TypeScript errors.
+   - Check missing components.
+   - Check undefined variables.
+   - Check API calls that may be blocking the screen.
+   - Check authentication or permission guards.
+   - Check layout wrappers.
+
+2. Fix the root cause instead of applying temporary workarounds.
+
+3. Ensure the Analytics page loads correctly even if the backend returns empty data or an API request fails.
+   - Show loading skeleton while fetching.
+   - Show an empty state if there is no data.
+   - Show an error state with a Retry button if the API fails.
+   - Prevent the application from crashing.
+
+4. Verify that:
+   - The Analytics tab is clickable.
+   - Navigation works from every entry point.
+   - No console errors remain.
+   - No red screen errors occur.
+   - The screen renders successfully.
+
+5. If any analytics API is unavailable, create mock/fallback data so the UI can still render while keeping the API integration intact for future use.
+
+6. Review the entire Analytics module for:
+   - Broken imports
+   - Missing dependencies
+   - Incorrect route names
+   - Infinite rendering loops
+   - State management issues
+   - React Query errors
+   - Async function errors
+   - Null/undefined data handling
+
+7. After fixing, verify the Analytics page displays:
+   - Revenue Summary
+   - Booking Statistics
+   - Service Performance
+   - Technician Performance
+   - Customer Insights
+   - Charts and graphs (or placeholder cards if data is unavailable)
+
+Do not modify backend APIs. Preserve all existing functionality. Fix the underlying issue and ensure the Analytics page is stable, responsive, and production-ready.
