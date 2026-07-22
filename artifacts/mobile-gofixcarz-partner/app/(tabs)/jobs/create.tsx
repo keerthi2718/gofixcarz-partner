@@ -1224,7 +1224,13 @@ export default function CreateJobScreen() {
       </ScrollView>
 
       {/* ── Sticky Footer ── */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}>
+      <View style={[
+        styles.footer,
+        {
+          bottom: Platform.OS === 'web' ? 67 : 0,
+          paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 10 : 16),
+        },
+      ]}>
         <TouchableOpacity
           style={[styles.footerBack, step === 0 && styles.footerBackDisabled]}
           onPress={handleBack}
@@ -1647,6 +1653,8 @@ const styles = StyleSheet.create({
 
   /* Footer */
   footer: {
+    position: 'absolute',
+    left: 0, right: 0,
     flexDirection: 'row', gap: 10,
     paddingHorizontal: 20, paddingTop: 14,
     backgroundColor: CARD,
@@ -1654,7 +1662,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.06, shadowRadius: 12 },
       android: { elevation: 8 },
-      default: {},
+      default: { boxShadow: '0 -4px 12px rgba(0,0,0,0.06)' },
     }),
   },
   footerBack: {
