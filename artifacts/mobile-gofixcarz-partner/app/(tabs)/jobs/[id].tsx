@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  ActivityIndicator, Platform, ScrollView, StatusBar,
+  ActivityIndicator, Platform, Pressable, ScrollView, StatusBar,
   StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,48 +24,68 @@ const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
 const SUCCESS = '#10B981';
+const DANGER  = '#EF4444';
+
+/* ── Status pipeline ── */
+const PIPELINE: { status: JobStatus; label: string; icon: React.ComponentProps<typeof Feather>['name'] }[] = [
+  { status: 'OPEN',              label: 'Open',     icon: 'file-plus'   },
+  { status: 'IN_PROGRESS',       label: 'Working',  icon: 'tool'        },
+  { status: 'WAITING_FOR_PARTS', label: 'Parts',    icon: 'package'     },
+  { status: 'QUALITY_CHECK',     label: 'QC',       icon: 'check-square'},
+  { status: 'READY',             label: 'Ready',    icon: 'truck'       },
+  { status: 'COMPLETED',         label: 'Done',     icon: 'check-circle'},
+];
+
+const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
+  OPEN:              { label: 'Open',        color: '#3B82F6', bg: '#EFF6FF' },
+  IN_PROGRESS:       { label: 'In Progress', color: '#8B5CF6', bg: '#F5F3FF' },
+  WAITING_FOR_PARTS: { label: 'Waiting',     color: '#F59E0B', bg: '#FFFBEB' },
+  QUALITY_CHECK:     { label: 'QC Check',    color: '#6366F1', bg: '#EEF2FF' },
+  READY:             { label: 'Ready',       color: '#10B981', bg: '#ECFDF5' },
+  COMPLETED:         { label: 'Completed',   color: '#059669', bg: '#D1FAE5' },
+  CANCELLED:         { label: 'Cancelled',   color: DANGER,    bg: '#FEF2F2' },
+};
 
 const STATUS_FLOW: JobStatus[] = [
   'OPEN','IN_PROGRESS','WAITING_FOR_PARTS','QUALITY_CHECK','READY','COMPLETED','CANCELLED',
 ];
 
-/* ── Shared section card ── */
-function SectionCard({ icon, title, children }: {
+/* ── Sub-components ── */
+function SectionCard({ icon, title, iconBg = '#EEF2FF', iconFg = PRIMARY, children }: {
   icon: React.ComponentProps<typeof Feather>['name'];
-  title: string;
+  title: string; iconBg?: string; iconFg?: string;
   children: React.ReactNode;
 }) {
   return (
-    <View style={styles.sectionCard}>
-      <View style={styles.sectionHeader}>
-        <View style={styles.sectionIconWrap}>
-          <Feather name={icon} size={15} color={PRIMARY} />
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <View style={[styles.cardIconWrap, { backgroundColor: iconBg }]}>
+          <Feather name={icon} size={15} color={iconFg} />
         </View>
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text style={styles.cardTitle}>{title}</Text>
       </View>
-      <View style={styles.sectionBody}>{children}</View>
+      <View style={styles.cardBody}>{children}</View>
     </View>
   );
 }
 
-/* ── Info pair row ── */
-function InfoPair({ label, value }: { label: string; value?: string | number | null }) {
-  if (!value && value !== 0) return null;
+function InfoRow({ label, value, valueColor }: { label: string; value?: string | null; valueColor?: string }) {
+  if (!value) return null;
   return (
-    <View style={styles.infoPair}>
+    <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{String(value)}</Text>
+      <Text style={[styles.infoValue, valueColor ? { color: valueColor } : {}]}>{value}</Text>
     </View>
   );
 }
 
 export default function JobDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const insets = useSafeAreaInsets();
-  const qc = useQueryClient();
+  const insets  = useSafeAreaInsets();
+  const qc      = useQueryClient();
   const [showStatusPicker, setShowStatusPicker] = useState(false);
-  const [showComplete, setShowComplete] = useState(false);
-  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const [showComplete, setShowComplete]         = useState(false);
+  const topPad  = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: QUERY_KEYS.JOB(id),
@@ -87,6 +107,13 @@ export default function JobDetailScreen() {
     onSuccess:  () => { invalidate(); setShowComplete(false); },
   });
 
+  /* Pipeline position */
+  const pipelineIndex = PIPELINE.findIndex(p => p.status === data?.status);
+  const isCancelled   = data?.status === 'CANCELLED';
+  const isCompleted   = data?.status === 'COMPLETED';
+  const canComplete   = data?.status === 'QUALITY_CHECK' || data?.status === 'READY';
+  const st            = data ? (STATUS_META[data.status] ?? { label: data.status, color: MUTED, bg: '#F1F5F9' }) : null;
+
   return (
     <View style={[styles.root, { backgroundColor: BG }]}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
@@ -97,7 +124,7 @@ export default function JobDetailScreen() {
           <Feather name="arrow-left" size={18} color={TEXT} />
         </TouchableOpacity>
         <Text style={styles.pageTitle}>
-          {data ? `Job #${data.job_number}` : 'Job Detail'}
+          {data?.job_number ? `Job #${data.job_number}` : 'Job Details'}
         </Text>
         <View style={{ width: 42 }} />
       </View>
@@ -107,62 +134,105 @@ export default function JobDetailScreen() {
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Status hero */}
-          <View style={styles.statusHero}>
-            <View style={styles.statusHeroRow}>
-              <StatusBadge status={data.status} />
-              {data.status !== 'COMPLETED' && data.status !== 'CANCELLED' && (
-                <TouchableOpacity
-                  style={styles.changeStatusBtn}
-                  onPress={() => setShowStatusPicker(true)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.changeStatusText}>Change</Text>
-                  <Feather name="chevron-down" size={13} color={PRIMARY} />
-                </TouchableOpacity>
-              )}
+          {/* ── Status pipeline ── */}
+          {!isCancelled && (
+            <View style={styles.pipelineCard}>
+              <View style={styles.pipelineRow}>
+                {PIPELINE.map((p, i) => {
+                  const done    = i < pipelineIndex;
+                  const current = i === pipelineIndex;
+                  const future  = i > pipelineIndex;
+                  return (
+                    <React.Fragment key={p.status}>
+                      {i > 0 && (
+                        <View style={[styles.pipelineLine, done && styles.pipelineLineDone]} />
+                      )}
+                      <View style={styles.pipelineNodeWrap}>
+                        <View style={[
+                          styles.pipelineNode,
+                          done    && styles.pipelineNodeDone,
+                          current && styles.pipelineNodeCurrent,
+                        ]}>
+                          {done
+                            ? <Feather name="check" size={11} color="#fff" />
+                            : <Feather name={p.icon} size={11} color={current ? '#fff' : '#CBD5E1'} />
+                          }
+                        </View>
+                        <Text style={[
+                          styles.pipelineLabel,
+                          current && styles.pipelineLabelCurrent,
+                          done    && styles.pipelineLabelDone,
+                        ]} numberOfLines={1}>
+                          {p.label}
+                        </Text>
+                      </View>
+                    </React.Fragment>
+                  );
+                })}
+              </View>
             </View>
-            <Text style={styles.statusDate}>Created {formatDateTime(data.created_at)}</Text>
+          )}
+
+          {/* ── Status hero ── */}
+          <View style={styles.statusHero}>
+            <View style={styles.statusHeroLeft}>
+              <View style={[styles.statusPill, { backgroundColor: st?.bg }]}>
+                <View style={[styles.statusDot, { backgroundColor: st?.color }]} />
+                <Text style={[styles.statusPillText, { color: st?.color }]}>{st?.label}</Text>
+              </View>
+              <Text style={styles.statusDate}>Created {formatDateTime(data.created_at)}</Text>
+            </View>
+            {!isCompleted && !isCancelled && (
+              <TouchableOpacity
+                style={styles.changeStatusBtn}
+                onPress={() => setShowStatusPicker(true)}
+                activeOpacity={0.8}
+              >
+                <Feather name="refresh-cw" size={13} color={PRIMARY} />
+                <Text style={styles.changeStatusText}>Update Status</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
-          {/* Customer & Vehicle */}
+          {/* ── Customer & Vehicle ── */}
           <SectionCard icon="user" title="Customer & Vehicle">
-            <InfoPair label="Customer"     value={data.customer_name} />
-            <InfoPair label="Mobile"       value={data.customer_mobile} />
-            <InfoPair label="Registration" value={data.registration_number} />
-            <InfoPair label="Vehicle"      value={[data.brand, data.vehicle_model].filter(Boolean).join(' ')} />
-            <InfoPair label="Fuel Type"    value={data.fuel_type} />
-            <InfoPair label="Odometer"     value={data.odometer_km ? `${data.odometer_km} km` : null} />
+            <InfoRow label="Customer"     value={data.customer_name} />
+            <InfoRow label="Mobile"       value={data.customer_mobile} />
+            <InfoRow label="Registration" value={data.registration_number} valueColor={PRIMARY} />
+            <InfoRow label="Vehicle"      value={[data.brand, data.vehicle_model].filter(Boolean).join(' ')} />
+            <InfoRow label="Fuel Type"    value={data.fuel_type} />
+            <InfoRow label="Odometer"     value={data.odometer_km ? `${data.odometer_km} km` : null} />
           </SectionCard>
 
-          {/* Description */}
+          {/* ── Description ── */}
           {data.description ? (
-            <SectionCard icon="file-text" title="Description">
+            <SectionCard icon="message-circle" title="Complaint & Notes" iconBg="#FEF2F2" iconFg={DANGER}>
               <Text style={styles.descText}>{data.description}</Text>
             </SectionCard>
           ) : null}
 
-          {/* Services */}
+          {/* ── Services ── */}
           {data.services?.length ? (
-            <SectionCard icon="tool" title="Services">
+            <SectionCard icon="tool" title="Services" iconBg="#F0FDF4" iconFg={SUCCESS}>
               {data.services.map((s, i) => (
-                <View key={i} style={styles.serviceRow}>
-                  <Text style={styles.serviceName}>
-                    {s.name}{s.qty && s.qty > 1 ? ` ×${s.qty}` : ''}
-                  </Text>
-                  <Text style={styles.servicePrice}>{formatCurrency(s.price)}</Text>
+                <View key={i} style={[styles.infoRow, i === data.services!.length - 1 && { borderBottomWidth: 0 }]}>
+                  <View style={styles.svcNameRow}>
+                    <View style={styles.svcDot}><Feather name="tool" size={11} color={PRIMARY} /></View>
+                    <Text style={styles.svcName}>{s.name}{s.qty && s.qty > 1 ? ` ×${s.qty}` : ''}</Text>
+                  </View>
+                  <Text style={styles.svcPrice}>{formatCurrency(s.price)}</Text>
                 </View>
               ))}
             </SectionCard>
           ) : null}
 
-          {/* Billing */}
+          {/* ── Billing ── */}
           {data.billing ? (
-            <SectionCard icon="credit-card" title="Billing Summary">
-              <InfoPair label="Services" value={formatCurrency(data.billing.services_total)} />
-              <InfoPair label="Labour"   value={formatCurrency(data.billing.labour_total)} />
-              <InfoPair label="Subtotal" value={formatCurrency(data.billing.subtotal)} />
-              <InfoPair label="GST"      value={formatCurrency(data.billing.gst_amount)} />
+            <SectionCard icon="credit-card" title="Billing Summary" iconBg="#FFFBEB" iconFg="#F59E0B">
+              <InfoRow label="Services" value={formatCurrency(data.billing.services_total)} />
+              <InfoRow label="Labour"   value={formatCurrency(data.billing.labour_total)} />
+              <InfoRow label="Subtotal" value={formatCurrency(data.billing.subtotal)} />
+              <InfoRow label="GST"      value={formatCurrency(data.billing.gst_amount)} />
               <View style={styles.grandTotalRow}>
                 <Text style={styles.grandTotalLabel}>Grand Total</Text>
                 <Text style={styles.grandTotalValue}>{formatCurrency(data.billing.grand_total)}</Text>
@@ -177,13 +247,19 @@ export default function JobDetailScreen() {
             </SectionCard>
           ) : null}
 
-          {/* Timeline */}
+          {/* ── Timeline ── */}
           {data.timelines?.length ? (
-            <SectionCard icon="clock" title="Timeline">
+            <SectionCard icon="clock" title="Activity Timeline" iconBg="#F5F3FF" iconFg="#7C3AED">
               {[...data.timelines].reverse().map((t, i) => (
-                <View key={t.id} style={styles.timelineItem}>
-                  <View style={[styles.timelineDot, i === 0 ? { backgroundColor: PRIMARY } : { backgroundColor: '#CBD5E1' }]} />
-                  <View style={{ flex: 1, gap: 4 }}>
+                <View key={t.id} style={[styles.timelineRow, i === data.timelines!.length - 1 && { marginBottom: 0 }]}>
+                  <View style={styles.timelineLeft}>
+                    <View style={[
+                      styles.timelineDot,
+                      { backgroundColor: i === 0 ? PRIMARY : '#CBD5E1' },
+                    ]} />
+                    {i < data.timelines!.length - 1 && <View style={styles.timelineConnector} />}
+                  </View>
+                  <View style={styles.timelineBody}>
                     <StatusBadge status={t.status} size="sm" />
                     {t.notes ? <Text style={styles.timelineNote}>{t.notes}</Text> : null}
                     <Text style={styles.timelineDate}>{formatDateTime(t.created_at)}</Text>
@@ -193,8 +269,8 @@ export default function JobDetailScreen() {
             </SectionCard>
           ) : null}
 
-          {/* Complete button */}
-          {(data.status === 'QUALITY_CHECK' || data.status === 'READY') && (
+          {/* ── Complete button ── */}
+          {canComplete && (
             <TouchableOpacity
               style={styles.completeBtn}
               onPress={() => setShowComplete(true)}
@@ -202,9 +278,26 @@ export default function JobDetailScreen() {
             >
               {completeMut.isPending
                 ? <ActivityIndicator color="#fff" />
-                : <><Feather name="check-circle" size={18} color="#fff" /><Text style={styles.completeBtnText}>Mark as Completed</Text></>
+                : <>
+                    <View style={styles.completeBtnIcon}>
+                      <Feather name="check-circle" size={20} color={SUCCESS} />
+                    </View>
+                    <View>
+                      <Text style={styles.completeBtnTitle}>Mark as Completed</Text>
+                      <Text style={styles.completeBtnSub}>Finalise billing & close job</Text>
+                    </View>
+                    <Feather name="arrow-right" size={16} color="#fff" style={{ marginLeft: 'auto' }} />
+                  </>
               }
             </TouchableOpacity>
+          )}
+
+          {/* Cancelled state */}
+          {isCancelled && (
+            <View style={styles.cancelledBanner}>
+              <Feather name="x-circle" size={16} color={DANGER} />
+              <Text style={styles.cancelledText}>This job has been cancelled.</Text>
+            </View>
           )}
         </ScrollView>
       )}
@@ -212,25 +305,37 @@ export default function JobDetailScreen() {
       {/* ── Status picker sheet ── */}
       {showStatusPicker && (
         <View style={styles.sheetOverlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setShowStatusPicker(false)} />
-          <View style={styles.sheet}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowStatusPicker(false)} />
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 8 }]}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Change Status</Text>
-            {STATUS_FLOW.filter(s => s !== data?.status && s !== 'COMPLETED').map(s => (
-              <TouchableOpacity
-                key={s}
-                style={styles.sheetOption}
-                onPress={() => statusMut.mutate(s)}
-                disabled={statusMut.isPending}
-                activeOpacity={0.8}
-              >
-                {statusMut.isPending && statusMut.variables === s
-                  ? <ActivityIndicator size="small" color={PRIMARY} />
-                  : <StatusBadge status={s} />
-                }
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={styles.sheetCancel} onPress={() => setShowStatusPicker(false)}>
+            <Text style={styles.sheetTitle}>Update Job Status</Text>
+            <Text style={styles.sheetSub}>Select the new status for this job card</Text>
+
+            <View style={styles.sheetOptions}>
+              {STATUS_FLOW.filter(s => s !== data?.status && s !== 'COMPLETED').map(s => {
+                const meta    = STATUS_META[s] ?? { label: s, color: MUTED, bg: '#F1F5F9' };
+                const loading = statusMut.isPending && statusMut.variables === s;
+                return (
+                  <TouchableOpacity
+                    key={s}
+                    style={[styles.sheetOption, { borderColor: meta.color + '30', backgroundColor: meta.bg }]}
+                    onPress={() => statusMut.mutate(s)}
+                    disabled={statusMut.isPending}
+                    activeOpacity={0.8}
+                  >
+                    {loading ? (
+                      <ActivityIndicator size="small" color={meta.color} />
+                    ) : (
+                      <View style={[styles.sheetOptionDot, { backgroundColor: meta.color }]} />
+                    )}
+                    <Text style={[styles.sheetOptionText, { color: meta.color }]}>{meta.label}</Text>
+                    <Feather name="chevron-right" size={14} color={meta.color + '80'} style={{ marginLeft: 'auto' }} />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <TouchableOpacity style={styles.sheetCancel} onPress={() => setShowStatusPicker(false)} activeOpacity={0.8}>
               <Text style={styles.sheetCancelText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -240,7 +345,7 @@ export default function JobDetailScreen() {
       <ConfirmDialog
         visible={showComplete}
         title="Complete Job"
-        message="Mark this job as completed? This will finalize the billing."
+        message="Mark this job as completed? This will finalise the billing and close the job card."
         confirmLabel="Complete"
         onConfirm={() => completeMut.mutate()}
         onCancel={() => setShowComplete(false)}
@@ -262,125 +367,178 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
-      android: { elevation: 2 },
-      default: {},
+      android: { elevation: 2 }, default: {},
     }),
   },
-  pageTitle: {
-    flex: 1, textAlign: 'center',
-    fontSize: 18, fontWeight: '700', color: TEXT,
-  },
+  pageTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '700', color: TEXT },
 
-  content: { paddingHorizontal: 20, gap: 14 },
+  content: { paddingHorizontal: 16, gap: 12 },
+
+  /* Pipeline */
+  pipelineCard: {
+    backgroundColor: CARD, borderRadius: 20,
+    borderWidth: 1, borderColor: BORDER,
+    padding: 16,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
+      android: { elevation: 2 }, default: {},
+    }),
+  },
+  pipelineRow:         { flexDirection: 'row', alignItems: 'flex-start' },
+  pipelineLine:        { flex: 1, height: 2, backgroundColor: '#E2E8F0', marginTop: 14 },
+  pipelineLineDone:    { backgroundColor: SUCCESS },
+  pipelineNodeWrap:    { alignItems: 'center', gap: 5 },
+  pipelineNode: {
+    width: 28, height: 28, borderRadius: 14,
+    borderWidth: 2, borderColor: '#CBD5E1',
+    backgroundColor: CARD,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  pipelineNodeDone:    { backgroundColor: SUCCESS, borderColor: SUCCESS },
+  pipelineNodeCurrent: { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  pipelineLabel:       { fontSize: 9, color: '#94A3B8', fontWeight: '600', textAlign: 'center', maxWidth: 42 },
+  pipelineLabelCurrent:{ color: PRIMARY, fontWeight: '800' },
+  pipelineLabelDone:   { color: SUCCESS },
 
   /* Status hero */
   statusHero: {
     backgroundColor: CARD, borderRadius: 18,
     borderWidth: 1, borderColor: BORDER,
-    padding: 18, gap: 8,
+    padding: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
-      android: { elevation: 2 },
-      default: {},
+      android: { elevation: 2 }, default: {},
     }),
   },
-  statusHeroRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  statusHeroLeft: { gap: 6 },
+  statusPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, alignSelf: 'flex-start',
+  },
+  statusDot:     { width: 7, height: 7, borderRadius: 4 },
+  statusPillText:{ fontSize: 13, fontWeight: '700' },
+  statusDate:    { fontSize: 11, color: MUTED },
+
   changeStatusBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 10, borderWidth: 1.5, borderColor: PRIMARY + '40',
-    backgroundColor: '#EEF2FF',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 9,
+    borderRadius: 12, backgroundColor: '#EEF2FF',
+    borderWidth: 1.5, borderColor: 'rgba(37,99,235,0.3)',
   },
   changeStatusText: { fontSize: 12, fontWeight: '700', color: PRIMARY },
-  statusDate:       { fontSize: 11, color: MUTED },
 
   /* Section card */
-  sectionCard: {
+  card: {
     backgroundColor: CARD, borderRadius: 18,
     borderWidth: 1, borderColor: BORDER, overflow: 'hidden',
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
-      android: { elevation: 2 },
-      default: {},
+      android: { elevation: 2 }, default: {},
     }),
   },
-  sectionHeader: {
+  cardHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: 18, paddingTop: 14, paddingBottom: 12,
     borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
   },
-  sectionIconWrap: {
-    width: 30, height: 30, borderRadius: 9,
-    backgroundColor: '#EEF2FF',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: TEXT },
-  sectionBody:  { padding: 18 },
+  cardIconWrap: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  cardTitle: { fontSize: 14, fontWeight: '700', color: TEXT },
+  cardBody:  { padding: 18 },
 
-  /* Info pair */
-  infoPair: {
-    flexDirection: 'row', justifyContent: 'space-between',
+  /* Info row */
+  infoRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
   },
   infoLabel: { fontSize: 13, color: MUTED, flex: 1 },
   infoValue: { fontSize: 13, color: TEXT, fontWeight: '600', flex: 1.5, textAlign: 'right' },
 
   /* Description */
-  descText: { fontSize: 14, color: MUTED, lineHeight: 22 },
+  descText: { fontSize: 13, color: MUTED, lineHeight: 21 },
 
   /* Services */
-  serviceRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+  svcNameRow: { flexDirection: 'row', alignItems: 'center', gap: 7, flex: 1 },
+  svcDot: {
+    width: 22, height: 22, borderRadius: 7,
+    backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center',
   },
-  serviceName:  { fontSize: 13, color: TEXT, flex: 1 },
-  servicePrice: { fontSize: 13, color: PRIMARY, fontWeight: '700' },
+  svcName:  { flex: 1, fontSize: 13, color: TEXT, fontWeight: '500' },
+  svcPrice: { fontSize: 13, color: PRIMARY, fontWeight: '700' },
 
   /* Billing */
   grandTotalRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', paddingTop: 12, marginTop: 4,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingTop: 12, marginTop: 4, borderTopWidth: 1, borderTopColor: '#E2E8F0',
   },
-  grandTotalLabel: { fontSize: 15, fontWeight: '800', color: TEXT },
+  grandTotalLabel: { fontSize: 14, fontWeight: '800', color: TEXT },
   grandTotalValue: { fontSize: 20, fontWeight: '800', color: PRIMARY },
 
   /* Timeline */
-  timelineItem: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginBottom: 14 },
-  timelineDot:  { width: 10, height: 10, borderRadius: 5, marginTop: 5, flexShrink: 0 },
-  timelineNote: { fontSize: 12, color: MUTED },
-  timelineDate: { fontSize: 11, color: MUTED },
+  timelineRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  timelineLeft: { alignItems: 'center', width: 22 },
+  timelineDot:  { width: 12, height: 12, borderRadius: 6, marginTop: 4 },
+  timelineConnector: { flex: 1, width: 2, backgroundColor: '#E2E8F0', marginVertical: 4 },
+  timelineBody: { flex: 1, gap: 4, paddingBottom: 4 },
+  timelineNote: { fontSize: 12, color: MUTED, lineHeight: 17 },
+  timelineDate: { fontSize: 11, color: '#94A3B8' },
 
   /* Complete */
   completeBtn: {
-    backgroundColor: SUCCESS, borderRadius: 16,
-    paddingVertical: 16,
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: PRIMARY, borderRadius: 18,
+    padding: 18,
     ...Platform.select({
-      ios: { shadowColor: SUCCESS, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
-      android: { elevation: 6 },
-      default: {},
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 12 },
+      android: { elevation: 8 }, default: {},
     }),
   },
-  completeBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  completeBtnIcon: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  completeBtnTitle: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  completeBtnSub:   { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+
+  /* Cancelled */
+  cancelledBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#FEF2F2', borderRadius: 14,
+    borderWidth: 1, borderColor: '#FECACA', padding: 16,
+  },
+  cancelledText: { fontSize: 13, color: DANGER, fontWeight: '600' },
 
   /* Status sheet */
-  sheetOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  sheetOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
   sheet: {
     backgroundColor: CARD,
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    padding: 20, paddingBottom: 32, gap: 2,
+    padding: 20,
   },
   sheetHandle: {
     alignSelf: 'center', width: 40, height: 4,
-    borderRadius: 2, backgroundColor: '#E2E8F0', marginBottom: 16,
+    borderRadius: 2, backgroundColor: '#E2E8F0', marginBottom: 18,
   },
-  sheetTitle:      { fontSize: 17, fontWeight: '700', color: TEXT, marginBottom: 10 },
-  sheetOption:     { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  sheetTitle: { fontSize: 18, fontWeight: '800', color: TEXT, marginBottom: 4 },
+  sheetSub:   { fontSize: 13, color: MUTED, marginBottom: 18 },
+
+  sheetOptions: { gap: 8, marginBottom: 12 },
+  sheetOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 14, borderRadius: 14, borderWidth: 1.5,
+  },
+  sheetOptionDot:  { width: 10, height: 10, borderRadius: 5 },
+  sheetOptionText: { fontSize: 14, fontWeight: '700' },
+
   sheetCancel: {
-    marginTop: 10, paddingVertical: 14,
-    borderRadius: 14, alignItems: 'center',
-    backgroundColor: BG, borderWidth: 1, borderColor: BORDER,
+    paddingVertical: 14, borderRadius: 14,
+    alignItems: 'center', backgroundColor: BG,
+    borderWidth: 1.5, borderColor: BORDER,
   },
   sheetCancelText: { fontSize: 15, fontWeight: '600', color: TEXT },
 });
