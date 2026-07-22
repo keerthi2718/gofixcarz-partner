@@ -431,11 +431,21 @@ export default function CreateJobScreen() {
     }
   }
 
-  /* Web: tab bar is CSS-fixed so it doesn't push layout up — compensate manually */
-  const webTabBarHeight = Platform.OS === 'web' ? 68 : 0;
+  /*
+   * The custom tab bar is position:absolute (floating pill). It does NOT push
+   * layout — the screen content fills the entire window height on every platform.
+   * We must add bottom padding equal to the tab bar's visual footprint so the
+   * footer (Back / Continue) sits above it.
+   *
+   *  Native pill height  = bottom:16 + inner-paddingTop:10 + content:~49 + insets.bottom
+   *  Web (CSS-fixed)     = fixed 68px bar
+   */
+  const tabBarOffset = Platform.OS === 'web'
+    ? 68
+    : 16 + 10 + 49 + Math.max(insets.bottom, 10); // ≈ 85–109 px depending on device
 
   return (
-    <View style={[styles.root, { backgroundColor: BG, paddingBottom: webTabBarHeight }]}>
+    <View style={[styles.root, { backgroundColor: BG, paddingBottom: tabBarOffset }]}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
 
       {/* ── Draft restored banner ── */}
