@@ -21,7 +21,7 @@ import PrimaryButton from '@/src/components/ui/PrimaryButton';
 
 /* ── Design tokens ── */
 const PRIMARY   = '#2563EB';
-const INDIGO    = '#4F46E5';
+const INDIGO    = '#1D4ED8';
 const BG        = '#EEEEF6';
 const CARD      = '#FFFFFF';
 const TEXT      = '#1E293B';

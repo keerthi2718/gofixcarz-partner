@@ -79,11 +79,11 @@ export default function ProfileScreen() {
       style={[styles.root, { backgroundColor: BG }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#4F46E5" />
+      <StatusBar barStyle="light-content" backgroundColor="#1D4ED8" />
 
       {/* ── Profile hero ── */}
       <LinearGradient
-        colors={['#4F46E5', '#2563EB']}
+        colors={['#1D4ED8', '#2563EB']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.hero, { paddingTop: topPad + 20 }]}

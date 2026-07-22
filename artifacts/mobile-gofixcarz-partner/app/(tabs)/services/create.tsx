@@ -251,7 +251,7 @@ export default function CreateServiceScreen() {
         </SectionCard>
 
         {/* ── Status ── */}
-        <SectionCard icon="toggle-right" title="Visibility" iconBg="#F5F3FF" iconFg="#7C3AED">
+        <SectionCard icon="toggle-right" title="Visibility" iconBg="#F5F3FF" iconFg="#2563EB">
           <TouchableOpacity
             style={[styles.statusToggle, { backgroundColor: isActive ? '#ECFDF5' : '#F1F5F9', borderColor: isActive ? SUCCESS : BORDER }]}
             onPress={() => setValue('is_active', !isActive)}

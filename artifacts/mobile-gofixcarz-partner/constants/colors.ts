@@ -1,6 +1,6 @@
 /**
  * GoFixAuto Partner — Design Tokens
- * Premium blue-based palette. Red (#C62839) → Blue (#2563EB).
+ * Brand palette: Red (#2563EB) primary — matches Figma design.
  */
 
 const colors = {

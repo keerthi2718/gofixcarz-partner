@@ -17,7 +17,7 @@ const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
 const PRIMARY = '#2563EB';
 const INDIGO  = '#6366F1';
-const PURPLE  = '#7C3AED';
+const PURPLE  = '#2563EB';
 const SUCCESS = '#10B981';
 const WARNING = '#F59E0B';
 const TEXT    = '#1E293B';
@@ -185,7 +185,7 @@ export default function AnalyticsScreen() {
         {/* ── Revenue summary ── */}
         <View style={styles.heroRow}>
           <LinearGradient
-            colors={['#4F46E5', '#2563EB']}
+            colors={['#1D4ED8', '#2563EB']}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={styles.heroCard}
           >
@@ -201,7 +201,7 @@ export default function AnalyticsScreen() {
           </LinearGradient>
 
           <LinearGradient
-            colors={['#7C3AED', '#6366F1']}
+            colors={['#2563EB', '#6366F1']}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={styles.heroCard}
           >

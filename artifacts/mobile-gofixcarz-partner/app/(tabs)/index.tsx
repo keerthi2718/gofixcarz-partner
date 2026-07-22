@@ -19,47 +19,36 @@ import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import DashboardService from '@/src/services/dashboard.service';
 import BookingService from '@/src/services/booking.service';
+import GarageService from '@/src/services/garage.service';
 import { formatCurrency } from '@/src/utils/helpers';
-import { useAuthStore } from '@/src/store/auth.store';
 import Avatar from '@/src/components/ui/Avatar';
-import { radius, spacing, typography } from '@/constants/theme';
 
-/* ── Design tokens ─────────────────────────────────────────── */
-const BG        = '#EEEEF6';   // soft lavender-white (reference bg)
-const CARD      = '#FFFFFF';
-const PRIMARY   = '#2563EB';
-const INDIGO    = '#6366F1';
-const PURPLE    = '#7C3AED';
-const TEXT      = '#1E293B';
-const MUTED     = '#64748B';
-const BORDER    = 'rgba(226,232,240,0.7)';
+/* ── Design tokens ── */
+const BG      = '#EEEEF6';
+const CARD    = '#FFFFFF';
+const PRIMARY = '#2563EB';
+const INDIGO  = '#6366F1';
+const TEXT    = '#1E293B';
+const MUTED   = '#64748B';
+const BORDER  = 'rgba(226,232,240,0.7)';
 
 const BOOKING_STATUS: Record<string, { label: string; color: string; bg: string }> = {
-  PENDING:   { label: 'Pending',   color: '#F59E0B', bg: '#FFFBEB' },
+  PENDING:   { label: 'Waiting',   color: '#F59E0B', bg: '#FFFBEB' },
   ACCEPTED:  { label: 'Confirmed', color: '#10B981', bg: '#ECFDF5' },
   REJECTED:  { label: 'Rejected',  color: '#EF4444', bg: '#FEF2F2' },
   CONVERTED: { label: 'Converted', color: '#8B5CF6', bg: '#F5F3FF' },
 };
 
 const QUICK_ACTIONS = [
-  { label: 'New Job',   icon: 'plus'        as const, bg: '#EEF2FF', fg: INDIGO,   route: '/(tabs)/jobs/create' },
-  { label: 'Bookings',  icon: 'calendar'    as const, bg: '#FFF7ED', fg: '#F97316', route: '/(tabs)/bookings' },
-  { label: 'Services',  icon: 'settings'    as const, bg: '#F0FDF4', fg: '#10B981', route: '/(tabs)/services' },
-  { label: 'Analytics', icon: 'bar-chart-2' as const, bg: '#FDF4FF', fg: PURPLE,    route: '/(tabs)/analytics' },
+  { label: 'New\nBooking',  icon: 'calendar'    as const, bg: '#EEF2FF', fg: PRIMARY,    route: '/(tabs)/bookings'      },
+  { label: 'Add\nService',  icon: 'tool'        as const, bg: '#FFF7ED', fg: '#F97316',   route: '/(tabs)/services'      },
+  { label: 'Analytics',     icon: 'bar-chart-2' as const, bg: '#F0FDF4', fg: '#10B981',   route: '/(tabs)/analytics'     },
+  { label: 'More',          icon: 'grid'        as const, bg: '#F5F3FF', fg: INDIGO,      route: '/(tabs)/more'          },
 ];
 
-/* ── Greeting helper ────────────────────────────────────────── */
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
-}
-
 export default function DashboardScreen() {
-  const insets  = useSafeAreaInsets();
-  const user    = useAuthStore(s => s.user);
-  const topPad  = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const insets = useSafeAreaInsets();
+  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
   const { data, isLoading, isRefetching, refetch } = useQuery({
     queryKey: QUERY_KEYS.DASHBOARD,
@@ -69,16 +58,18 @@ export default function DashboardScreen() {
     queryKey: QUERY_KEYS.BOOKINGS({ page_size: 5 }),
     queryFn:  () => BookingService.list({ page_size: 5 }),
   });
+  const { data: garage } = useQuery({
+    queryKey: QUERY_KEYS.GARAGE,
+    queryFn:  GarageService.get,
+  });
 
-  const bookings = bookingsData?.items ?? [];
+  const bookings   = bookingsData?.items ?? [];
+  const garageName = garage?.name ?? 'Your Garage';
 
-  const firstName = (user as any)?.first_name ?? (user as any)?.name?.split(' ')[0] ?? 'Partner';
-
-  const stats = [
-    { label: 'Active Jobs',  value: data?.open_jobs         ?? 0, icon: 'tool'         as const, color: PRIMARY, bg: '#EEF2FF' },
-    { label: 'Pending',      value: data?.pending_bookings  ?? 0, icon: 'clock'        as const, color: '#F97316', bg: '#FFF7ED' },
-    { label: 'Completed',    value: data?.completed_jobs    ?? 0, icon: 'check-circle' as const, color: '#10B981', bg: '#ECFDF5' },
-    { label: 'This Month',   value: data?.revenue_this_month ?? 0, icon: 'trending-up' as const, color: PURPLE,  bg: '#F5F3FF', isCurrency: true },
+  const STATS = [
+    { label: 'Active Jobs', value: data?.open_jobs        ?? 0, icon: 'briefcase'   as const, color: PRIMARY,   bg: '#EEF2FF' },
+    { label: 'Pending',     value: data?.pending_bookings ?? 0, icon: 'clock'       as const, color: '#F59E0B',  bg: '#FFF7ED' },
+    { label: 'Completed',   value: data?.completed_jobs   ?? 0, icon: 'check-circle'as const, color: '#10B981',  bg: '#ECFDF5' },
   ];
 
   return (
@@ -101,83 +92,84 @@ export default function DashboardScreen() {
 
         ListHeaderComponent={() => (
           <>
-            {/* ── Top bar ───────────────────────────────────── */}
-            <View style={[styles.topBar, { paddingTop: topPad + 16 }]}>
-              {/* Avatar + greeting */}
-              <View style={styles.greetRow}>
-                <Avatar name={firstName} size={44} />
-                <View style={{ marginLeft: 12 }}>
-                  <Text style={styles.greetLabel}>{greeting()},</Text>
-                  <Text style={styles.greetName}>{firstName} 👋</Text>
-                </View>
+            {/* ── Header ── */}
+            <View style={[styles.header, { paddingTop: topPad + 14 }]}>
+              <View>
+                <Text style={styles.headerTitle}>Dashboard</Text>
+                <Text style={styles.headerSub}>{garageName}</Text>
               </View>
-
-              {/* Bell */}
               <TouchableOpacity
                 style={styles.bellBtn}
                 onPress={() => router.push('/(tabs)/more/notifications')}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Feather name="bell" size={20} color={TEXT} />
-                {/* Unread dot */}
                 <View style={styles.bellDot} />
               </TouchableOpacity>
             </View>
 
-            {/* ── Hero revenue card ─────────────────────────── */}
-            <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
+            {/* ── Revenue cards ── */}
+            <View style={styles.revenueRow}>
+              {/* Today's Revenue */}
               <LinearGradient
-                colors={['#4F46E5', '#2563EB', '#06B6D4']}
+                colors={['#1D4ED8', '#2563EB']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.heroCard}
+                style={styles.revenueCard}
               >
-                {/* Decorative circles */}
-                <View style={styles.heroCircle1} />
-                <View style={styles.heroCircle2} />
-
-                <View style={{ zIndex: 1 }}>
-                  <Text style={styles.heroLabel}>Today's Revenue</Text>
-                  <Text style={styles.heroValue}>
-                    {formatCurrency(data?.revenue_today ?? 0)}
-                  </Text>
-
-                  <View style={styles.heroFooter}>
-                    <View style={styles.heroChip}>
-                      <Feather name="trending-up" size={11} color="#fff" />
-                      <Text style={styles.heroChipText}>This month: {formatCurrency(data?.revenue_this_month ?? 0)}</Text>
-                    </View>
-                    <View style={[styles.heroChip, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
-                      <Feather name="briefcase" size={11} color="#fff" />
-                      <Text style={styles.heroChipText}>{data?.completed_jobs ?? 0} jobs done</Text>
-                    </View>
+                <View style={styles.revBubble} />
+                <View style={styles.revTopRow}>
+                  <View style={styles.revIconWrap}>
+                    <Feather name="dollar-sign" size={14} color="#fff" />
+                  </View>
+                  <View style={styles.revBadge}>
+                    <Feather name="trending-up" size={10} color="#4ADE80" />
+                    <Text style={styles.revBadgeText}>Today</Text>
                   </View>
                 </View>
+                <Text style={styles.revValue}>{formatCurrency(data?.revenue_today ?? 0)}</Text>
+                <Text style={styles.revLabel}>Today's Revenue</Text>
+              </LinearGradient>
+
+              {/* This Month */}
+              <LinearGradient
+                colors={['#2563EB', '#06B6D4']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.revenueCard}
+              >
+                <View style={styles.revBubble} />
+                <View style={styles.revTopRow}>
+                  <View style={styles.revIconWrap}>
+                    <Feather name="trending-up" size={14} color="#fff" />
+                  </View>
+                  <View style={styles.revBadge}>
+                    <Feather name="calendar" size={10} color="#FDE68A" />
+                    <Text style={styles.revBadgeText}>Month</Text>
+                  </View>
+                </View>
+                <Text style={styles.revValue}>{formatCurrency(data?.revenue_this_month ?? 0)}</Text>
+                <Text style={styles.revLabel}>This Month</Text>
               </LinearGradient>
             </View>
 
-            {/* ── Stat chips (horizontal scroll) ───────────── */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.statsScroll}
-              style={{ marginTop: 20 }}
-            >
-              {stats.map(s => (
-                <View key={s.label} style={styles.statChip}>
-                  <View style={[styles.statChipIcon, { backgroundColor: s.bg }]}>
+            {/* ── Stats row ── */}
+            <View style={styles.statsRow}>
+              {STATS.map(s => (
+                <View key={s.label} style={styles.statCard}>
+                  <View style={[styles.statIcon, { backgroundColor: s.bg }]}>
                     <Feather name={s.icon} size={16} color={s.color} />
                   </View>
-                  <Text style={styles.statChipValue}>
-                    {s.isCurrency ? formatCurrency(s.value) : s.value}
+                  <Text style={[styles.statValue, { color: s.color }]}>
+                    {s.value}
                   </Text>
-                  <Text style={styles.statChipLabel}>{s.label}</Text>
+                  <Text style={styles.statLabel}>{s.label}</Text>
                 </View>
               ))}
-            </ScrollView>
+            </View>
 
-            {/* ── Quick actions ─────────────────────────────── */}
-            <View style={{ paddingHorizontal: 20, marginTop: 28 }}>
+            {/* ── Quick Actions ── */}
+            <View style={styles.section}>
               <Text style={styles.sectionTitle}>Quick Actions</Text>
               <View style={styles.actionsRow}>
                 {QUICK_ACTIONS.map(a => (
@@ -190,17 +182,17 @@ export default function DashboardScreen() {
                     <View style={[styles.actionCircle, { backgroundColor: a.bg }]}>
                       <Feather name={a.icon} size={22} color={a.fg} />
                     </View>
-                    <Text style={[styles.actionLabel, { color: a.fg }]}>{a.label}</Text>
+                    <Text style={[styles.actionLabel, { color: TEXT }]}>{a.label}</Text>
                   </Pressable>
                 ))}
               </View>
             </View>
 
-            {/* ── Bookings section title ────────────────────── */}
+            {/* ── Today's Bookings header ── */}
             <View style={styles.sectionRow}>
               <Text style={styles.sectionTitle}>Today's Bookings</Text>
               <TouchableOpacity onPress={() => router.push('/(tabs)/bookings')} activeOpacity={0.7}>
-                <Text style={styles.sectionLink}>See all →</Text>
+                <Text style={styles.sectionLink}>View All →</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -208,14 +200,21 @@ export default function DashboardScreen() {
 
         renderItem={({ item }) => {
           const st = BOOKING_STATUS[item.status] ?? { label: item.status, color: MUTED, bg: '#F3F4F6' };
+          const timeStr = item.booking_date
+            ? new Date(item.booking_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+            : null;
+          const dateStr = item.booking_date
+            ? new Date(item.booking_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+            : null;
+
           return (
             <TouchableOpacity
-              style={styles.bookingRow}
+              style={styles.bookingCard}
               onPress={() => router.push(`/(tabs)/bookings/${item.id}` as any)}
               activeOpacity={0.86}
             >
               {/* Avatar */}
-              <Avatar name={item.customer_name} size={46} />
+              <Avatar name={item.customer_name ?? '?'} size={44} />
 
               {/* Info */}
               <View style={styles.bookingInfo}>
@@ -223,20 +222,25 @@ export default function DashboardScreen() {
                   {item.customer_name ?? '—'}
                 </Text>
                 <Text style={styles.bookingService} numberOfLines={1}>
-                  {item.service_requested ?? '—'}
+                  {item.service_requested ?? 'General Service'}
                 </Text>
+                {item.customer_mobile ? (
+                  <Text style={styles.bookingMeta} numberOfLines={1}>
+                    {item.customer_mobile}
+                  </Text>
+                ) : null}
               </View>
 
-              {/* Right — status + date */}
+              {/* Right — time + status */}
               <View style={styles.bookingRight}>
+                {timeStr ? (
+                  <Text style={styles.bookingTime}>{timeStr}</Text>
+                ) : dateStr ? (
+                  <Text style={styles.bookingTime}>{dateStr}</Text>
+                ) : null}
                 <View style={[styles.statusPill, { backgroundColor: st.bg }]}>
                   <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
                 </View>
-                <Text style={styles.bookingDate}>
-                  {item.booking_date
-                    ? new Date(item.booking_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
-                    : '—'}
-                </Text>
               </View>
             </TouchableOpacity>
           );
@@ -246,7 +250,7 @@ export default function DashboardScreen() {
           !isLoading ? (
             <View style={styles.emptyWrap}>
               <View style={styles.emptyIcon}>
-                <Feather name="calendar" size={28} color={INDIGO} />
+                <Feather name="calendar" size={28} color={PRIMARY} />
               </View>
               <Text style={styles.emptyTitle}>No bookings today</Text>
               <Text style={styles.emptySubtitle}>New bookings will appear here</Text>
@@ -261,17 +265,16 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
 
-  /* ── Top bar ── */
-  topBar: {
+  /* ── Header ── */
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingBottom: 4,
+    paddingBottom: 20,
   },
-  greetRow:    { flexDirection: 'row', alignItems: 'center' },
-  greetLabel:  { fontSize: 12, color: MUTED, fontWeight: '400', letterSpacing: 0.2 },
-  greetName:   { fontSize: 18, fontWeight: '700', color: TEXT, letterSpacing: -0.3 },
+  headerTitle: { fontSize: 24, fontWeight: '800', color: TEXT, letterSpacing: -0.5 },
+  headerSub:   { fontSize: 13, color: MUTED, marginTop: 2, fontWeight: '500' },
   bellBtn: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: CARD,
@@ -290,109 +293,111 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: BG,
   },
 
-  /* ── Hero card ── */
-  heroCard: {
-    borderRadius: 24,
-    padding: 24,
+  /* ── Revenue cards ── */
+  revenueRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 12,
+    marginBottom: 16,
+  },
+  revenueCard: {
+    flex: 1,
+    borderRadius: 20,
+    padding: 16,
     overflow: 'hidden',
-    minHeight: 160,
+    minHeight: 120,
     justifyContent: 'flex-end',
     ...Platform.select({
-      ios: { shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 20 },
-      android: { elevation: 10 },
+      ios: { shadowColor: '#1D4ED8', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14 },
+      android: { elevation: 8 },
       default: {},
     }),
   },
-  heroCircle1: {
-    position: 'absolute', top: -40, right: -30,
-    width: 160, height: 160, borderRadius: 80,
+  revBubble: {
+    position: 'absolute', top: -20, right: -20,
+    width: 80, height: 80, borderRadius: 40,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  heroCircle2: {
-    position: 'absolute', top: 20, right: 60,
-    width: 90, height: 90, borderRadius: 45,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+  revTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  heroLabel: {
-    fontSize: 13, color: 'rgba(255,255,255,0.75)',
-    fontWeight: '500', letterSpacing: 0.4, marginBottom: 6,
-  },
-  heroValue: {
-    fontSize: 38, fontWeight: '800', color: '#FFFFFF',
-    letterSpacing: -1, lineHeight: 46, marginBottom: 20,
-  },
-  heroFooter: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  heroChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
+  revIconWrap: {
+    width: 30, height: 30, borderRadius: 9,
     backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
+    alignItems: 'center', justifyContent: 'center',
   },
-  heroChipText: { fontSize: 11, color: '#fff', fontWeight: '600' },
+  revBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 10, paddingHorizontal: 7, paddingVertical: 3,
+  },
+  revBadgeText: { fontSize: 9, color: '#fff', fontWeight: '600' },
+  revValue: { fontSize: 17, fontWeight: '800', color: '#fff', letterSpacing: -0.4, marginBottom: 3 },
+  revLabel: { fontSize: 11, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
 
-  /* ── Stat chips ── */
-  statsScroll: { paddingHorizontal: 20, gap: 12 },
-  statChip: {
+  /* ── Stats row ── */
+  statsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 10,
+    marginBottom: 28,
+  },
+  statCard: {
+    flex: 1,
     backgroundColor: CARD,
     borderRadius: 18,
-    paddingHorizontal: 16,
     paddingVertical: 14,
+    paddingHorizontal: 10,
     alignItems: 'center',
-    minWidth: 100,
+    gap: 6,
     borderWidth: 1,
     borderColor: BORDER,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
       android: { elevation: 2 },
       default: {},
     }),
   },
-  statChipIcon: {
-    width: 38, height: 38, borderRadius: 12,
+  statIcon: {
+    width: 36, height: 36, borderRadius: 11,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 8,
   },
-  statChipValue: {
-    fontSize: 18, fontWeight: '700', color: TEXT,
-    letterSpacing: -0.4, marginBottom: 2,
-  },
-  statChipLabel: { fontSize: 11, color: MUTED, fontWeight: '500' },
+  statValue: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
+  statLabel: { fontSize: 10, color: MUTED, fontWeight: '600', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.3 },
 
   /* ── Quick actions ── */
-  sectionTitle: {
-    fontSize: 17, fontWeight: '700', color: TEXT,
-    letterSpacing: -0.3, marginBottom: 16,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  actionItem: { alignItems: 'center', flex: 1 },
+  section: { paddingHorizontal: 20, marginBottom: 28 },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: TEXT, letterSpacing: -0.3, marginBottom: 16 },
+  actionsRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  actionItem: { alignItems: 'center', flex: 1, gap: 8 },
   actionCircle: {
-    width: 60, height: 60, borderRadius: 20,
+    width: 58, height: 58, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 8,
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 },
       android: { elevation: 2 },
       default: {},
     }),
   },
-  actionLabel: { fontSize: 11, fontWeight: '600', textAlign: 'center' },
+  actionLabel: { fontSize: 11, fontWeight: '600', textAlign: 'center', lineHeight: 15 },
 
-  /* ── Section row ── */
+  /* ── Section header row ── */
   sectionRow: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20, marginTop: 28, marginBottom: 14,
+    paddingHorizontal: 20, marginBottom: 12,
   },
   sectionLink: { fontSize: 13, color: PRIMARY, fontWeight: '600' },
 
-  /* ── Booking rows ── */
-  bookingRow: {
+  /* ── Booking cards ── */
+  bookingCard: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: CARD,
     marginHorizontal: 20, marginBottom: 10,
-    borderRadius: 18, padding: 14,
+    borderRadius: 16, padding: 14,
     borderWidth: 1, borderColor: BORDER,
     gap: 12,
     ...Platform.select({
@@ -401,18 +406,18 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
-  bookingInfo:   { flex: 1 },
-  bookingName:   { fontSize: 15, fontWeight: '600', color: TEXT, marginBottom: 3 },
-  bookingService: { fontSize: 12, color: MUTED, fontWeight: '400' },
-  bookingRight:  { alignItems: 'flex-end', gap: 5 },
+  bookingInfo:    { flex: 1, gap: 2 },
+  bookingName:    { fontSize: 14, fontWeight: '700', color: TEXT },
+  bookingService: { fontSize: 12, color: MUTED },
+  bookingMeta:    { fontSize: 11, color: '#94A3B8' },
+  bookingRight:   { alignItems: 'flex-end', gap: 6 },
+  bookingTime:    { fontSize: 12, color: MUTED, fontWeight: '500' },
   statusPill: {
-    borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 3,
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
   },
-  statusText:   { fontSize: 11, fontWeight: '600' },
-  bookingDate:  { fontSize: 11, color: MUTED },
+  statusText: { fontSize: 11, fontWeight: '600' },
 
-  /* ── Empty ── */
+  /* ── Empty state ── */
   emptyWrap: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 20 },
   emptyIcon: {
     width: 64, height: 64, borderRadius: 20,

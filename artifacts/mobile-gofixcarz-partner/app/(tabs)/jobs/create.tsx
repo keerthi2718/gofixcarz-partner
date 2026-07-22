@@ -524,7 +524,7 @@ export default function CreateJobScreen() {
         {/* ══════════════════════════════════════════ */}
         {step === 3 && (
           <>
-            <StepCard icon="users" title="Assign Technician" iconBg="#F5F3FF" iconFg="#7C3AED">
+            <StepCard icon="users" title="Assign Technician" iconBg="#F5F3FF" iconFg="#2563EB">
               {mockTechs.map(t => (
                 <TouchableOpacity
                   key={t.id}
@@ -706,7 +706,7 @@ export default function CreateJobScreen() {
           <>
             {/* Invoice header card */}
             <LinearGradient
-              colors={['#4F46E5', '#2563EB', '#06B6D4']}
+              colors={['#1D4ED8', '#2563EB', '#06B6D4']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.invoiceHero}
@@ -754,7 +754,7 @@ export default function CreateJobScreen() {
 
             {/* Labour */}
             {labourTotal > 0 && (
-              <StepCard icon="users" title="Labour" iconBg="#F5F3FF" iconFg="#7C3AED">
+              <StepCard icon="users" title="Labour" iconBg="#F5F3FF" iconFg="#2563EB">
                 <View style={styles.lineItem}>
                   <Text style={styles.lineItemName}>Labour Charge{estHours ? ` (${estHours}h)` : ''}</Text>
                   <Text style={styles.lineItemAmt}>{formatCurrency(labourTotal)}</Text>

@@ -21,7 +21,7 @@ import type { ProfileUpdate } from '@/src/types';
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
 const PRIMARY = '#2563EB';
-const INDIGO  = '#4F46E5';
+const INDIGO  = '#1D4ED8';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';

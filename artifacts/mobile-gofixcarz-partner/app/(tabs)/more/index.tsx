@@ -155,7 +155,7 @@ export default function MoreScreen() {
         <MenuGroup title="Account" items={[
           {
             label: 'My Profile', sub: 'Name, email, contact',
-            icon: 'user', iconBg: '#F5F3FF', iconFg: '#7C3AED',
+            icon: 'user', iconBg: '#F5F3FF', iconFg: '#2563EB',
             route: '/(tabs)/more/profile',
           },
           {

@@ -181,7 +181,7 @@ export default function MoreAnalyticsScreen() {
         {/* KPI Row */}
         <View style={styles.kpiRow}>
           <LinearGradient
-            colors={['#4F46E5', '#2563EB']}
+            colors={['#1D4ED8', '#2563EB']}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={[styles.kpiCard, { flex: 1.3 }]}
           >
@@ -289,7 +289,7 @@ export default function MoreAnalyticsScreen() {
         </SectionCard>
 
         {/* Jobs by Status */}
-        <SectionCard icon="pie-chart" title="Jobs by Status" iconBg="#F5F3FF" iconFg="#7C3AED">
+        <SectionCard icon="pie-chart" title="Jobs by Status" iconBg="#F5F3FF" iconFg="#2563EB">
           {isLoading ? (
             <View style={{ gap: 14 }}>
               {[1,2,3].map(i => <SkeletonBlock key={i} height={12} radius={6} />)}

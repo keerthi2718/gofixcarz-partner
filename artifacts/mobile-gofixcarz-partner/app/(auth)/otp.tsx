@@ -88,7 +88,7 @@ export default function OtpScreen() {
       <StatusBar barStyle="light-content" backgroundColor={PRIMARY} />
 
       <LinearGradient
-        colors={['#4F46E5', '#2563EB']}
+        colors={['#1D4ED8', '#2563EB']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.topBand, { paddingTop: insets.top + 28 }]}
