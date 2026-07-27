@@ -41,10 +41,9 @@ const GOOGLE_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY ?? '';
 /*  Vehicle Service Type options (maps to `wheelers`)  */
 /* ─────────────────────────────────────────────────── */
 const WHEELER_OPTIONS = [
-  { id: '2W', emoji: '🏍️', label: '2W', full: '2 Wheeler' },
-  { id: '3W', emoji: '🛺',  label: '3W', full: '3 Wheeler' },
-  { id: '4W', emoji: '🚗',  label: '4W', full: '4 Wheeler' },
-  { id: '6W', emoji: '🚚',  label: '6W', full: '6W / Heavy' },
+  { id: '2W', emoji: '🏍️', full: '2 Wheeler',  sub: 'Bikes & Scooters' },
+  { id: '3W', emoji: '🛺',  full: '3 Wheeler',  sub: 'Auto & Tuk-tuk'  },
+  { id: '4W', emoji: '🚗',  full: '4 Wheeler',  sub: 'Cars & SUVs'      },
 ];
 
 /* ─────────────────────────────────────────────────── */
@@ -215,36 +214,39 @@ function AddressAutocomplete({ value, onChangeText, onSelect, error }: AddressAu
 /*  Animated horizontal wheeler chip                   */
 /* ─────────────────────────────────────────────────── */
 function WheelerChip({
-  emoji, label, selected, onPress,
-}: { emoji: string; label: string; selected: boolean; onPress: () => void }) {
+  emoji, full, sub, selected, onPress,
+}: { emoji: string; full: string; sub: string; selected: boolean; onPress: () => void }) {
   const scale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.spring(scale, {
-      toValue: selected ? 1.06 : 1,
+      toValue: selected ? 1.04 : 1,
       useNativeDriver: true,
-      friction: 6,
-      tension: 200,
+      friction: 7,
+      tension: 180,
     }).start();
   }, [selected]);
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={{ flex: 1 }}>
       <Animated.View
         style={[
-          styles.hChip,
-          selected ? styles.hChipSelected : styles.hChipIdle,
+          styles.vChip,
+          selected ? styles.vChipSelected : styles.vChipIdle,
           { transform: [{ scale }] },
         ]}
       >
         {selected && (
-          <View style={styles.hChipCheck}>
+          <View style={styles.vChipCheck}>
             <Feather name="check" size={9} color="#fff" />
           </View>
         )}
-        <Text style={styles.hChipEmoji}>{emoji}</Text>
-        <Text style={[styles.hChipLabel, selected && styles.hChipLabelSelected]}>
-          {label}
+        <Text style={styles.vChipEmoji}>{emoji}</Text>
+        <Text style={[styles.vChipFull, selected && styles.vChipFullSelected]}>
+          {full}
+        </Text>
+        <Text style={[styles.vChipSub, selected && styles.vChipSubSelected]}>
+          {sub}
         </Text>
       </Animated.View>
     </TouchableOpacity>
@@ -580,34 +582,63 @@ export default function RegisterScreen() {
               }}
             />
 
-            <View style={[styles.row, { marginTop: 4 }]}>
-              <View style={{ flex: 1 }}>
-                <InputField
-                  label="City"
-                  value={form.city}
-                  onChangeText={v => set('city', v)}
-                  placeholder="City"
-                  leadingIcon="map"
-                />
+            {/* ── Location preview chip ── */}
+            {(form.city || form.state) ? (
+              <View style={styles.locationPreviewRow}>
+                <View style={styles.locationIconCircle}>
+                  <Feather name="map-pin" size={18} color={PRIMARY} />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.locationPreviewCaption}>Workshop Location</Text>
+                  <Text style={styles.locationPreviewFull} numberOfLines={1}>
+                    {[form.city, form.state].filter(Boolean).join(', ')}
+                    {form.zipcode ? ` – ${form.zipcode}` : ''}
+                  </Text>
+                </View>
+                <View style={styles.locationPreviewBadge}>
+                  <Feather name="map-pin" size={11} color="#fff" />
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <InputField
-                  label="State"
-                  value={form.state}
-                  onChangeText={v => set('state', v)}
-                  placeholder="State"
-                />
+            ) : (
+              <View style={styles.locationHintRow}>
+                <Feather name="navigation" size={13} color="#94A3B8" />
+                <Text style={styles.locationHintText}>
+                  Helps customers discover your workshop nearby
+                </Text>
               </View>
-            </View>
-            <View style={styles.row}>
+            )}
+
+            {/* City — full width */}
+            <InputField
+              label="City"
+              value={form.city}
+              onChangeText={v => set('city', v)}
+              placeholder="Enter your city"
+              leadingIcon="map-pin"
+              returnKeyType="next"
+            />
+
+            {/* State — full width */}
+            <InputField
+              label="State"
+              value={form.state}
+              onChangeText={v => set('state', v)}
+              placeholder="Enter your state"
+              leadingIcon="flag"
+              returnKeyType="next"
+            />
+
+            {/* Pincode + Country — side by side (short values, intentional) */}
+            <View style={styles.locationShortRow}>
               <View style={{ flex: 1 }}>
                 <InputField
                   label="Pincode"
                   value={form.zipcode}
                   onChangeText={v => set('zipcode', v)}
-                  placeholder="Pincode"
+                  placeholder="6-digit code"
                   keyboardType="number-pad"
                   leadingIcon="hash"
+                  returnKeyType="next"
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -616,6 +647,7 @@ export default function RegisterScreen() {
                   value={form.country}
                   onChangeText={v => set('country', v)}
                   placeholder="India"
+                  leadingIcon="globe"
                 />
               </View>
             </View>
@@ -658,22 +690,18 @@ export default function RegisterScreen() {
             onSectionLayout={(k, y) => { sectionY.current[k] = y; }}
           >
             <Text style={styles.wheelerHint}>Select all vehicle types your workshop services</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.hChipRow}
-              keyboardShouldPersistTaps="handled"
-            >
+            <View style={styles.vChipRow}>
               {WHEELER_OPTIONS.map(opt => (
                 <WheelerChip
                   key={opt.id}
                   emoji={opt.emoji}
-                  label={opt.label}
+                  full={opt.full}
+                  sub={opt.sub}
                   selected={form.wheelers.includes(opt.id)}
                   onPress={() => { toggleWheeler(opt.id); touch('wheelers'); }}
                 />
               ))}
-            </ScrollView>
+            </View>
             {errors.wheelers ? (
               <Text style={[styles.fieldError, { marginTop: 6 }]}>{errors.wheelers}</Text>
             ) : null}
@@ -942,38 +970,93 @@ const styles = StyleSheet.create({
   hintText:       { ...typography.caption, color: MUTED, marginBottom: spacing.sm, fontStyle: 'italic' },
   fieldError:     { ...typography.caption, color: DANGER, marginTop: 4, marginBottom: 4 },
 
-  /* ── Wheeler chips ── */
-  wheelerHint: { ...typography.caption, color: MUTED, marginBottom: spacing.sm },
-  hChipRow: { flexDirection: 'row', gap: 10, paddingBottom: 4 },
-  hChip: {
+  /* ── Wheeler chips (3-column grid) ── */
+  wheelerHint: { ...typography.caption, color: MUTED, marginBottom: 14 },
+  vChipRow: { flexDirection: 'row', gap: 10 },
+  vChip: {
+    flex: 1,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5, borderRadius: radius.lg,
-    paddingVertical: 14, paddingHorizontal: 18,
-    minWidth: 76,
+    borderWidth: 1.5, borderRadius: 20,
+    paddingVertical: 20, paddingHorizontal: 6,
     position: 'relative',
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 8 },
+      android: { elevation: 3 },
+      default: {},
+    }),
+  },
+  vChipIdle:     { backgroundColor: '#F8FAFC', borderColor: BORDER },
+  vChipSelected: { backgroundColor: PRIMARY_LIGHT, borderColor: PRIMARY },
+  vChipEmoji:    { fontSize: 30, marginBottom: 10 },
+  vChipFull: {
+    fontSize: 12, fontWeight: '700', color: LABEL,
+    textAlign: 'center', letterSpacing: 0.1, marginBottom: 3,
+  },
+  vChipFullSelected: { color: PRIMARY },
+  vChipSub: {
+    fontSize: 10, fontWeight: '500', color: MUTED,
+    textAlign: 'center', lineHeight: 13,
+  },
+  vChipSubSelected: { color: '#3B82F6' },
+  vChipCheck: {
+    position: 'absolute', top: 8, right: 8,
+    width: 18, height: 18, borderRadius: 9,
+    backgroundColor: PRIMARY,
+    alignItems: 'center', justifyContent: 'center',
+    ...Platform.select({
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 4 },
+      android: { elevation: 3 },
+      default: {},
+    }),
+  },
+
+  /* ── Location preview chip ── */
+  locationPreviewRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 18, padding: 14, marginBottom: 22,
+    borderWidth: 1, borderColor: '#BBF7D0',
+    ...Platform.select({
+      ios: { shadowColor: '#10B981', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.10, shadowRadius: 10 },
       android: { elevation: 2 },
       default: {},
     }),
   },
-  hChipIdle: {
-    backgroundColor: '#F8FAFC',
-    borderColor: BORDER,
-  },
-  hChipSelected: {
-    backgroundColor: PRIMARY_LIGHT,
-    borderColor: PRIMARY,
-  },
-  hChipEmoji:         { fontSize: 26, marginBottom: 6 },
-  hChipLabel:         { ...typography.label, color: LABEL, textAlign: 'center' },
-  hChipLabelSelected: { color: PRIMARY, fontWeight: '700' as const },
-  hChipCheck: {
-    position: 'absolute', top: 6, right: 6,
-    width: 16, height: 16, borderRadius: 8,
-    backgroundColor: PRIMARY,
+  locationIconCircle: {
+    width: 50, height: 50, borderRadius: 25,
+    backgroundColor: '#DCFCE7',
     alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#BBF7D0',
   },
+  locationPreviewCaption: {
+    fontSize: 10, fontWeight: '700', color: '#059669',
+    textTransform: 'uppercase', letterSpacing: 0.8,
+  },
+  locationPreviewFull: {
+    fontSize: 15, fontWeight: '700', color: '#1E293B', letterSpacing: -0.2,
+  },
+  locationPreviewBadge: {
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: '#10B981',
+    alignItems: 'center', justifyContent: 'center',
+    ...Platform.select({
+      ios: { shadowColor: '#10B981', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.30, shadowRadius: 4 },
+      android: { elevation: 3 },
+      default: {},
+    }),
+  },
+
+  /* ── Location hint (empty state) ── */
+  locationHintRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#F8FAFC', borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 11, marginBottom: 20,
+    borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed',
+  },
+  locationHintText: { fontSize: 12, color: '#94A3B8', flex: 1, lineHeight: 17 },
+
+  /* ── Pincode + Country short row ── */
+  locationShortRow: { flexDirection: 'row', gap: 10 },
 
   /* ── Gradient submit button ── */
   submitWrap: {
