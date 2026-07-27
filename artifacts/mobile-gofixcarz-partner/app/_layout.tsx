@@ -11,7 +11,6 @@ import {
   Inter_400Regular, Inter_500Medium,
   Inter_600SemiBold, Inter_700Bold, useFonts,
 } from '@expo-google-fonts/inter';
-import { Feather } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -34,9 +33,13 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  // Feather (and all @expo/vector-icons) are pre-loaded natively in Expo Go.
+  // For standalone builds the expo-font plugin in app.json embeds the TTF.
+  // Do NOT include Feather.font here — adding it to useFonts can silently
+  // fail in Expo Go (re-registering a pre-loaded font), which poisons the
+  // whole batch and prevents Inter from loading too, leaving blank icon boxes.
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold,
-    ...Feather.font,
   });
 
   useEffect(() => {
