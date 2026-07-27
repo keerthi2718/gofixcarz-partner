@@ -1,320 +1,381 @@
-import React, { useEffect, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
-  ActivityIndicator, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
   ScrollView, StatusBar, StyleSheet, Text,
-  TouchableOpacity, View,
+  TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Controller, useForm } from 'react-hook-form';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { QUERY_KEYS } from '@/src/constants/api';
-import ProfileService from '@/src/services/profile.service';
-import InputField from '@/src/components/ui/InputField';
-import LoadingState from '@/src/components/ui/LoadingState';
-import ErrorState from '@/src/components/ui/ErrorState';
-import type { ProfileUpdate } from '@/src/types';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 /* ── Design tokens ── */
-const BG      = '#EEEEF6';
-const CARD    = '#FFFFFF';
-const PRIMARY = '#C41E3A';
-const INDIGO  = '#921527';
-const TEXT    = '#1E293B';
-const MUTED   = '#64748B';
-const BORDER  = 'rgba(226,232,240,0.7)';
+const BG       = '#EEEEF6';
+const CARD     = '#FFFFFF';
+const PRIMARY  = '#C41E3A';
+const INDIGO   = '#921527';
+const TEXT     = '#1E293B';
+const MUTED    = '#64748B';
+const LABEL    = '#64748B';
+const BORDER   = '#E2E8F0';
+const PLACEHOLDER = '#94A3B8';
 
-type FormData = { name: string; email: string; mobile: string };
+/* ── Pre-populated mock data ── */
+const INITIAL = {
+  garageName:  'AutoCare Garage',
+  ownerName:   'Ramesh Patel',
+  email:       'ramesh@autocare.com',
+  phone:       '9876543210',
+  address:     '123 MG Road, Bangalore',
+  city:        'Bangalore',
+  pincode:     '560001',
+};
 
-function SectionCard({ icon, title, iconBg = '#FEE2E2', iconFg = PRIMARY, children }: {
-  icon: React.ComponentProps<typeof Feather>['name'];
-  title: string;
-  iconBg?: string;
-  iconFg?: string;
-  children: React.ReactNode;
-}) {
+/* ── Helper: "HH:mm" ↔ Date ── */
+function hhmm(date: Date) {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+function dateFromHHMM(s: string): Date {
+  const [h, m] = s.split(':').map(Number);
+  const d = new Date();
+  d.setHours(h ?? 9, m ?? 0, 0, 0);
+  return d;
+}
+
+/* ── Flat labeled input (no card wrapper) ── */
+interface FlatInputProps {
+  label: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  placeholder?: string;
+  keyboardType?: TextInput['props']['keyboardType'];
+  autoCapitalize?: TextInput['props']['autoCapitalize'];
+  leadingIcon?: keyof typeof Feather.glyphMap;
+  prefix?: string;
+  style?: object;
+}
+function FlatInput({
+  label, value, onChangeText, placeholder, keyboardType,
+  autoCapitalize = 'sentences', leadingIcon, prefix, style,
+}: FlatInputProps) {
+  const [focused, setFocused] = useState(false);
   return (
-    <View style={cardSt.card}>
-      <View style={cardSt.header}>
-        <View style={[cardSt.iconWrap, { backgroundColor: iconBg }]}>
-          <Feather name={icon} size={15} color={iconFg} />
-        </View>
-        <Text style={cardSt.title}>{title}</Text>
+    <View style={[fi.wrap, style]}>
+      <Text style={fi.label}>{label}</Text>
+      <View style={[fi.row, focused && fi.rowFocused]}>
+        {leadingIcon && (
+          <Feather name={leadingIcon} size={16} color={focused ? PRIMARY : PLACEHOLDER} style={fi.icon} />
+        )}
+        {prefix && <Text style={fi.prefix}>{prefix} </Text>}
+        <TextInput
+          style={fi.input}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={PLACEHOLDER}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+        />
       </View>
-      <View style={cardSt.body}>{children}</View>
     </View>
   );
 }
-const cardSt = StyleSheet.create({
-  card: {
-    backgroundColor: CARD, borderRadius: 20,
-    borderWidth: 1, borderColor: BORDER, overflow: 'hidden', marginBottom: 14,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
-      android: { elevation: 2 },
-      default: {},
-    }),
+const fi = StyleSheet.create({
+  wrap:       { marginBottom: 14 },
+  label:      { fontSize: 13, fontWeight: '600', color: LABEL, marginBottom: 6 },
+  row: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: CARD, borderRadius: 10,
+    borderWidth: 1, borderColor: BORDER,
+    paddingHorizontal: 12, height: 46,
   },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 18, paddingTop: 16, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
-  },
-  iconWrap: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  title:    { fontSize: 14, fontWeight: '700', color: TEXT },
-  body:     { padding: 18 },
+  rowFocused: { borderColor: PRIMARY, borderWidth: 1.5 },
+  icon:       { marginRight: 8 },
+  prefix:     { fontSize: 14, color: TEXT, fontWeight: '600', marginRight: 4 },
+  input:      { flex: 1, fontSize: 14, color: TEXT },
 });
 
-export default function ProfileScreen() {
-  const insets = useSafeAreaInsets();
-  const qc     = useQueryClient();
-  const [editMode, setEditMode] = useState(false);
-  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+/* ── Time picker row ── */
+function TimePicker({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: Date;
+  onChange: (d: Date) => void;
+}) {
+  const [show, setShow] = useState(false);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: QUERY_KEYS.PROFILE,
-    queryFn:  ProfileService.get,
-  });
-
-  const { control, handleSubmit, reset } = useForm<FormData>({
-    defaultValues: { name: '', email: '', mobile: '' },
-  });
-
-  useEffect(() => {
-    if (data) reset({ name: data.name ?? '', email: data.email ?? '', mobile: data.mobile ?? '' });
-  }, [data, reset]);
-
-  const { mutate, isPending } = useMutation({
-    mutationFn: (p: ProfileUpdate) => ProfileService.update(p),
-    onSuccess:  () => { qc.invalidateQueries({ queryKey: QUERY_KEYS.PROFILE }); setEditMode(false); },
-  });
-
-  function onSubmit(d: FormData) {
-    mutate({ name: d.name || null, email: d.email || null, mobile: d.mobile || null });
+  function handleChange(_: DateTimePickerEvent, selected?: Date) {
+    setShow(Platform.OS === 'ios'); // keep open on iOS until dismissed
+    if (selected) onChange(selected);
   }
 
-  const initials = (data?.name ?? data?.mobile ?? 'U').charAt(0).toUpperCase();
-  const memberSince = data?.created_at
-    ? new Date(data.created_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
-    : null;
+  return (
+    <TouchableOpacity
+      style={tp.box}
+      onPress={() => setShow(true)}
+      activeOpacity={0.75}
+    >
+      <Text style={tp.value}>{hhmm(value)}</Text>
+      <Feather name="clock" size={14} color={MUTED} style={{ marginLeft: 6 }} />
+      {show && (
+        <DateTimePicker
+          value={value}
+          mode="time"
+          is24Hour
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleChange}
+        />
+      )}
+    </TouchableOpacity>
+  );
+}
+const tp = StyleSheet.create({
+  box: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: CARD, borderRadius: 10,
+    borderWidth: 1, borderColor: BORDER,
+    paddingHorizontal: 14, height: 46, flex: 1,
+  },
+  value: { fontSize: 15, fontWeight: '700', color: TEXT },
+});
+
+/* ── Main screen ── */
+export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
+  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+
+  const [garageName, setGarageName] = useState(INITIAL.garageName);
+  const [ownerName,  setOwnerName]  = useState(INITIAL.ownerName);
+  const [email,      setEmail]      = useState(INITIAL.email);
+  const [phone,      setPhone]      = useState(INITIAL.phone);
+  const [address,   setAddress]    = useState(INITIAL.address);
+  const [city,      setCity]       = useState(INITIAL.city);
+  const [pincode,   setPincode]    = useState(INITIAL.pincode);
+  const [openTime,  setOpenTime]   = useState(dateFromHHMM('09:00'));
+  const [closeTime, setCloseTime]  = useState(dateFromHHMM('19:00'));
+  const [saving,    setSaving]     = useState(false);
+
+  function handleSave() {
+    if (!garageName.trim()) {
+      Alert.alert('Required', 'Please enter the garage name.');
+      return;
+    }
+    setSaving(true);
+    setTimeout(() => {
+      setSaving(false);
+      Alert.alert('Success', 'Profile saved successfully!');
+    }, 1200);
+  }
 
   return (
     <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: BG }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <StatusBar barStyle="light-content" backgroundColor={INDIGO} />
 
-      {/* ── Gradient hero header ── */}
+      {/* ── Header ── */}
       <LinearGradient
-        colors={[INDIGO, PRIMARY, '#E11D48']}
+        colors={[INDIGO, PRIMARY]}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={[styles.hero, { paddingTop: topPad + 16 }]}
+        style={[styles.header, { paddingTop: topPad + 12 }]}
       >
-        {/* Back + Edit buttons */}
-        <View style={styles.heroNav}>
-          <TouchableOpacity style={styles.heroBtn} onPress={() => router.back()}>
-            <Feather name="arrow-left" size={18} color="#fff" />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }} />
-          <TouchableOpacity
-            style={[styles.heroBtn, editMode && styles.heroBtnCancel]}
-            onPress={() => { setEditMode(v => !v); if (editMode && data) reset(); }}
-          >
-            <Feather name={editMode ? 'x' : 'edit-2'} size={16} color="#fff" />
-          </TouchableOpacity>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Feather name="arrow-left" size={18} color="#fff" />
+        </TouchableOpacity>
+        <View>
+          <Text style={styles.headerTitle}>Complete Profile</Text>
+          <Text style={styles.headerSub}>Set up your garage details</Text>
         </View>
-
-        {/* Avatar */}
-        <View style={styles.avatarRing}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
-        </View>
-
-        {!isLoading && !error && (
-          <>
-            <Text style={styles.heroName}>{data?.name ?? 'Garage Owner'}</Text>
-            <Text style={styles.heroMobile}>{data?.mobile ?? '—'}</Text>
-
-            {memberSince && (
-              <View style={styles.memberChip}>
-                <Feather name="calendar" size={11} color="rgba(255,255,255,0.7)" />
-                <Text style={styles.memberChipText}>Member since {memberSince}</Text>
-              </View>
-            )}
-          </>
-        )}
       </LinearGradient>
 
-      {isLoading ? <LoadingState /> : error ? <ErrorState /> : (
-        <ScrollView
-          contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 130 }]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* ── Personal Info ── */}
-          <SectionCard icon="user" title="Personal Information">
-            <Controller
-              control={control} name="name"
-              render={({ field: { value, onChange } }) => (
-                <InputField
-                  label="Full Name"
-                  value={value}
-                  onChangeText={onChange}
-                  editable={editMode}
-                  placeholder="Your full name"
-                  leadingIcon="user"
-                />
-              )}
-            />
-            <Controller
-              control={control} name="email"
-              render={({ field: { value, onChange } }) => (
-                <InputField
-                  label="Email Address"
-                  value={value}
-                  onChangeText={onChange}
-                  editable={editMode}
-                  placeholder="your@email.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  leadingIcon="mail"
-                />
-              )}
-            />
-            <Controller
-              control={control} name="mobile"
-              render={({ field: { value, onChange } }) => (
-                <InputField
-                  label="Mobile Number"
-                  value={value}
-                  onChangeText={onChange}
-                  editable={editMode}
-                  placeholder="10-digit mobile"
-                  keyboardType="phone-pad"
-                  leadingIcon="phone"
-                />
-              )}
-            />
-          </SectionCard>
+      {/* ── Scrollable form ── */}
+      <ScrollView
+        contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 110 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
 
-          {/* ── Account info ── */}
-          {!editMode && (
-            <View style={styles.infoChip}>
-              <Feather name="info" size={13} color={PRIMARY} />
-              <Text style={styles.infoChipText}>
-                Tap the edit icon in the header to update your profile details.
-              </Text>
-            </View>
-          )}
-        </ScrollView>
-      )}
-
-      {/* ── Footer (edit mode only) ── */}
-      {editMode && (
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}>
-          <TouchableOpacity
-            style={styles.footerCancel}
-            onPress={() => { setEditMode(false); if (data) reset(); }}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.footerCancelText}>Cancel</Text>
+        {/* Logo upload */}
+        <View style={styles.logoWrap}>
+          <TouchableOpacity style={styles.logoBtn} activeOpacity={0.75}>
+            <Feather name="upload" size={22} color={MUTED} />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.footerSave, isPending && { opacity: 0.6 }]}
-            onPress={handleSubmit(onSubmit)}
-            disabled={isPending}
-            activeOpacity={0.85}
-          >
-            {isPending
-              ? <ActivityIndicator color="#fff" />
-              : <><Feather name="check" size={16} color="#fff" /><Text style={styles.footerSaveText}>Save Changes</Text></>
-            }
-          </TouchableOpacity>
+          <Text style={styles.logoLabel}>Upload Logo</Text>
         </View>
-      )}
+
+        {/* Form */}
+        <View style={styles.form}>
+          <FlatInput
+            label="Garage Name"
+            value={garageName}
+            onChangeText={setGarageName}
+            placeholder="AutoCare Garage"
+            autoCapitalize="words"
+          />
+          <FlatInput
+            label="Owner Name"
+            value={ownerName}
+            onChangeText={setOwnerName}
+            placeholder="Full name"
+            autoCapitalize="words"
+          />
+          <FlatInput
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="owner@garage.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            leadingIcon="mail"
+          />
+          <FlatInput
+            label="Phone Number"
+            value={phone}
+            onChangeText={v => setPhone(v.replace(/\D/g, '').slice(0, 10))}
+            placeholder="10-digit mobile"
+            keyboardType="phone-pad"
+            leadingIcon="phone"
+            prefix="+91"
+          />
+          <FlatInput
+            label="Address"
+            value={address}
+            onChangeText={setAddress}
+            placeholder="Street, locality"
+            autoCapitalize="words"
+            leadingIcon="map-pin"
+          />
+
+          {/* City + Pincode row */}
+          <View style={styles.row}>
+            <FlatInput
+              label="City"
+              value={city}
+              onChangeText={setCity}
+              placeholder="City"
+              autoCapitalize="words"
+              style={{ flex: 1, marginRight: 10 }}
+            />
+            <FlatInput
+              label="Pincode"
+              value={pincode}
+              onChangeText={v => setPincode(v.replace(/\D/g, '').slice(0, 6))}
+              placeholder="560001"
+              keyboardType="number-pad"
+              style={{ flex: 1 }}
+            />
+          </View>
+
+          {/* Working Hours */}
+          <View style={styles.hoursWrap}>
+            <View style={styles.hoursHeader}>
+              <Feather name="clock" size={14} color={MUTED} />
+              <Text style={styles.hoursLabel}>Working Hours</Text>
+            </View>
+            <View style={styles.timesRow}>
+              <TimePicker value={openTime}  onChange={setOpenTime} label="Open" />
+              <Text style={styles.timeSep}>—</Text>
+              <TimePicker value={closeTime} onChange={setCloseTime} label="Close" />
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* ── Save button (fixed at bottom) ── */}
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+        <TouchableOpacity
+          style={[styles.saveBtn, saving && { opacity: 0.7 }]}
+          onPress={handleSave}
+          disabled={saving}
+          activeOpacity={0.85}
+        >
+          {saving
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.saveBtnText}>Save Profile</Text>
+          }
+        </TouchableOpacity>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, backgroundColor: BG },
 
-  /* Hero */
-  hero: {
-    paddingHorizontal: 20, paddingBottom: 30,
+  /* Header */
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
-  heroNav: {
-    flexDirection: 'row', alignItems: 'center',
-    width: '100%', marginBottom: 20,
-  },
-  heroBtn: {
-    width: 38, height: 38, borderRadius: 19,
+  backBtn: {
+    width: 36, height: 36, borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center', justifyContent: 'center',
   },
-  heroBtnCancel: { backgroundColor: 'rgba(239,68,68,0.3)' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
+  headerSub:   { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
 
-  avatarRing: {
-    width: 84, height: 84, borderRadius: 42,
-    borderWidth: 3, borderColor: 'rgba(255,255,255,0.4)',
+  /* Body */
+  body: { paddingHorizontal: 20, paddingTop: 24 },
+
+  /* Logo */
+  logoWrap: { alignItems: 'center', marginBottom: 24 },
+  logoBtn: {
+    width: 72, height: 72, borderRadius: 16,
+    backgroundColor: CARD, borderWidth: 1.5,
+    borderColor: BORDER, borderStyle: 'dashed',
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  avatar: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  avatarText:   { fontSize: 30, fontWeight: '800', color: '#fff' },
-  heroName:     { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.3, marginBottom: 4 },
-  heroMobile:   { fontSize: 14, color: 'rgba(255,255,255,0.75)', marginBottom: 10 },
-  memberChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20,
-  },
-  memberChipText: { fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
+  logoLabel: { fontSize: 13, color: PRIMARY, fontWeight: '600' },
 
-  body: { paddingHorizontal: 20, paddingTop: 20 },
-
-  infoChip: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: '#FEE2E2', borderRadius: 14,
-    borderWidth: 1, borderColor: 'rgba(37,99,235,0.2)',
-    padding: 14, marginBottom: 14,
-  },
-  infoChipText: { flex: 1, fontSize: 13, color: PRIMARY, lineHeight: 18 },
-
-  footer: {
-    flexDirection: 'row', gap: 10,
-    paddingHorizontal: 20, paddingTop: 14,
-    backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: BORDER,
+  /* Form */
+  form: {
+    backgroundColor: CARD, borderRadius: 16,
+    borderWidth: 1, borderColor: BORDER,
+    padding: 18,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.06, shadowRadius: 12 },
-      android: { elevation: 8 },
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
+      android: { elevation: 2 },
       default: {},
     }),
   },
-  footerCancel: {
-    paddingVertical: 14, paddingHorizontal: 20,
-    borderRadius: 16, borderWidth: 1.5, borderColor: BORDER,
-    backgroundColor: BG, alignItems: 'center',
+  row: { flexDirection: 'row', alignItems: 'flex-start' },
+
+  /* Working hours */
+  hoursWrap:   { marginTop: 2 },
+  hoursHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  hoursLabel:  { fontSize: 13, fontWeight: '600', color: LABEL },
+  timesRow:    { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  timeSep:     { fontSize: 16, color: MUTED, fontWeight: '700' },
+
+  /* Footer */
+  footer: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    backgroundColor: BG,
   },
-  footerCancelText: { fontSize: 14, fontWeight: '600', color: TEXT },
-  footerSave: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 7,
-    backgroundColor: PRIMARY, borderRadius: 16, paddingVertical: 14,
+  saveBtn: {
+    backgroundColor: PRIMARY,
+    borderRadius: 12,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
     ...Platform.select({
-      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10 },
+      ios:     { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10 },
       android: { elevation: 6 },
       default: {},
     }),
   },
-  footerSaveText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
 });
