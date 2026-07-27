@@ -16,11 +16,12 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.gofixcarz.partner",
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "package": "com.gofixcarz.partner",
-      "googleServicesFile": "./google-services.json"
+      "package": "com.gofixcarz.partner"
     },
     "web": {
       "favicon": "./assets/images/logo.jpg"
@@ -47,6 +48,11 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "33af7382-e378-4e0b-ae76-44c030a71588"
+      }
     }
   }
 }
