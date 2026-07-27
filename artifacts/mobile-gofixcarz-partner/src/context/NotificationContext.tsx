@@ -32,7 +32,7 @@ Notifications.setNotificationHandler({
 /* ── Route resolver ───────────────────────────────────────────────────────── */
 type NotifData = Record<string, string | null | undefined>;
 
-function resolveRoute(data: NotifData): string {
+export function resolveRoute(data: NotifData): string {
   const type  = (data?.type  ?? '').toUpperCase();
   const refId = data?.reference_id ?? '';
 

@@ -9,6 +9,7 @@ import { Feather } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import NotificationService from '@/src/services/notification.service';
+import { resolveRoute } from '@/src/context/NotificationContext';
 import NotificationItem from '@/src/components/notifications/NotificationItem';
 import { SkeletonList } from '@/src/components/ui/SkeletonCard';
 import EmptyState from '@/src/components/ui/EmptyState';
@@ -90,7 +91,16 @@ export default function NotificationsScreen() {
           renderItem={({ item }) => (
             <NotificationItem
               notification={item}
-              onPress={() => { if (!item.is_read) markReadMut.mutate(item.id); }}
+              onPress={() => {
+                if (!item.is_read) markReadMut.mutate(item.id);
+                const route = resolveRoute({
+                  type: item.type ?? '',
+                  reference_id: item.reference_id ?? '',
+                });
+                if (route !== '/(tabs)/more/notifications') {
+                  router.push(route as any);
+                }
+              }}
             />
           )}
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 40 }]}
