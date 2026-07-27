@@ -120,9 +120,10 @@ export default function CreateJobScreen() {
   const [draftBanner, setDraftBanner] = useState(false);
 
   /* Step 0 — Customer & Vehicle */
-  const [customerSearch, setCustomerSearch] = useState('');
-  const [customerName,   setCustomerName]   = useState('');
-  const [customerPhone,  setCustomerPhone]  = useState('');
+  const [customerSearch,  setCustomerSearch]  = useState('');
+  const [customerName,    setCustomerName]    = useState('');
+  const [customerPhone,   setCustomerPhone]   = useState('');
+  const [isManualEntry,   setIsManualEntry]   = useState(false);
   const [regNumber,      setRegNumber]      = useState('');
   const [brand,          setBrand]          = useState('');
   const [model,          setModel]          = useState('');
@@ -191,6 +192,7 @@ export default function CreateJobScreen() {
         if (d.customerName || d.regNumber) {
           setCustomerName(d.customerName ?? '');
           setCustomerPhone(d.customerPhone ?? '');
+          if (d.customerName) setIsManualEntry(true);
           setRegNumber(d.regNumber ?? '');
           setBrand(d.brand ?? '');
           setModel(d.model ?? '');
@@ -511,6 +513,7 @@ export default function CreateJobScreen() {
                         onPress={() => {
                           setCustomerName(c.name);
                           setCustomerPhone(c.phone.replace(/\D/g, '').slice(-10));
+                          setIsManualEntry(false);
                           clearFieldError('customerName');
                           clearFieldError('customerPhone');
                         }}
@@ -534,7 +537,7 @@ export default function CreateJobScreen() {
                 {/* Add new customer */}
                 <TouchableOpacity
                   style={styles.addCustBtn}
-                  onPress={() => { setCustomerName(''); setCustomerPhone(''); setCustomerSearch(''); }}
+                  onPress={() => { setCustomerName(''); setCustomerPhone(''); setCustomerSearch(''); setIsManualEntry(true); }}
                   activeOpacity={0.8}
                 >
                   <Feather name="plus-circle" size={15} color={PRIMARY} />
@@ -542,7 +545,7 @@ export default function CreateJobScreen() {
                 </TouchableOpacity>
 
                 {/* Manual entry */}
-                {customerName === '' && customerSearch === '' && (
+                {isManualEntry && (
                   <>
                     <View>
                       <InputField
