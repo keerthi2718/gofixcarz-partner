@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform,
   Pressable, ScrollView, StatusBar, StyleSheet,
@@ -11,7 +11,6 @@ import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import JobService from '@/src/services/job.service';
@@ -31,8 +30,6 @@ const BORDER  = 'rgba(226,232,240,0.7)';
 const SUCCESS = '#10B981';
 const DANGER  = '#EF4444';
 const WARN    = '#F59E0B';
-
-const DRAFT_KEY = '@gofixcarz:job_create_draft';
 
 const STEPS = [
   { label: 'Customer' },
@@ -122,7 +119,6 @@ export default function CreateJobScreen() {
 
   const [step,        setStep]       = useState(0);
   const [errors,      setErrors]     = useState<Record<string, string>>({});
-  const [draftBanner, setDraftBanner] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [pdfLoading,  setPdfLoading]  = useState<'download' | 'share' | null>(null);
 
@@ -409,69 +405,6 @@ export default function CreateJobScreen() {
     }
   }
 
-  /* ── Draft helpers ── */
-  const isDone = useRef(false); // prevents debounced save from overwriting clearDraft on success
-
-  const draftData = useCallback(() => ({
-    // NOTE: `step` is intentionally excluded — always restart at step 0
-    customerName, customerPhone, regNumber, brand, model,
-    fuelType, odometer, fuelLevel, complaint, inspectionNotes,
-    services, selectedTechId, selectedTechName, estHours,
-    labourCharge,
-    deliveryDate: deliveryDate?.toISOString() ?? null,
-    deliveryTime: deliveryTime?.toISOString() ?? null,
-    additionalNotes,
-  }), [customerName, customerPhone, regNumber, brand, model,
-    fuelType, odometer, fuelLevel, complaint, inspectionNotes,
-    services, selectedTechId, selectedTechName, estHours,
-    labourCharge, deliveryDate, deliveryTime, additionalNotes]);
-
-  /* Load draft on mount */
-  useEffect(() => {
-    AsyncStorage.getItem(DRAFT_KEY).then(raw => {
-      if (!raw) return;
-      try {
-        const d = JSON.parse(raw);
-        if (d.customerName || d.regNumber) {
-          setCustomerName(d.customerName ?? '');
-          setCustomerPhone(d.customerPhone ?? '');
-          setRegNumber(d.regNumber ?? '');
-          setBrand(d.brand ?? '');
-          setModel(d.model ?? '');
-          setFuelType(d.fuelType ?? 'Petrol');
-          setOdometer(d.odometer ?? '');
-          setFuelLevel(d.fuelLevel ?? '1/2');
-          setComplaint(d.complaint ?? '');
-          setInspectionNotes(d.inspectionNotes ?? '');
-          setServices(d.services ?? []);
-          setSelectedTechId(d.selectedTechId ?? null);
-          setSelectedTechName(d.selectedTechName ?? '');
-          setEstHours(d.estHours ?? '');
-          setLabourCharge(d.labourCharge ?? '');
-          setDeliveryDate(d.deliveryDate ? new Date(d.deliveryDate) : null);
-          setDeliveryTime(d.deliveryTime ? new Date(d.deliveryTime) : null);
-          setAdditionalNotes(d.additionalNotes ?? '');
-          setDraftBanner(true);
-          setTimeout(() => setDraftBanner(false), 3500);
-        }
-      } catch { /* ignore parse errors */ }
-    });
-  }, []);
-
-  /* Save draft whenever key data changes (debounced) */
-  useEffect(() => {
-    if (isDone.current) return; // job already created — don't overwrite the cleared draft
-    const t = setTimeout(() => {
-      AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draftData())).catch(() => {});
-    }, 800);
-    return () => clearTimeout(t);
-  }, [draftData]);
-
-  /* Clear draft after job created */
-  function clearDraft() {
-    isDone.current = true;
-    AsyncStorage.removeItem(DRAFT_KEY).catch(() => {});
-  }
 
   /* ── Validation ── */
   function validateStep(): Record<string, string> {
@@ -520,7 +453,6 @@ export default function CreateJobScreen() {
     }),
     onSuccess: (job) => {
       setCreateError(null);
-      clearDraft();
       setCreatedJobId(job?.id ?? null);
       setStep(4);
     },
@@ -660,14 +592,6 @@ export default function CreateJobScreen() {
   return (
     <View style={[styles.root, { backgroundColor: BG, paddingBottom: tabBarOffset }]}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
-
-      {/* ── Draft restored banner ── */}
-      {draftBanner && (
-        <View style={styles.draftBanner}>
-          <Feather name="save" size={13} color="#047857" />
-          <Text style={styles.draftBannerText}>Draft restored — continue where you left off</Text>
-        </View>
-      )}
 
       {/* ── Header ── */}
       <View style={[styles.topBar, { paddingTop: topPad + 12 }]}>
@@ -1498,14 +1422,6 @@ export default function CreateJobScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-
-  /* Draft banner */
-  draftBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#ECFDF5', borderBottomWidth: 1, borderBottomColor: '#A7F3D0',
-    paddingHorizontal: 16, paddingVertical: 10,
-  },
-  draftBannerText: { fontSize: 13, color: '#047857', fontWeight: '500', flex: 1 },
 
   /* Header */
   topBar: {
