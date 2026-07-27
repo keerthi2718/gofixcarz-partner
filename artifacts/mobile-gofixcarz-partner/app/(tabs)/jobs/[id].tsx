@@ -29,6 +29,135 @@ const STATUS_FLOW: JobStatus[] = [
   'OPEN','IN_PROGRESS','QUALITY_CHECK','READY','COMPLETED','CANCELLED',
 ];
 
+/* ── Job progress stepper ── */
+const STEPPER_STEPS: { status: JobStatus; label: string }[] = [
+  { status: 'OPEN',          label: 'Open'       },
+  { status: 'IN_PROGRESS',   label: 'In Progress'},
+  { status: 'QUALITY_CHECK', label: 'QC Check'   },
+  { status: 'READY',         label: 'Ready'      },
+  { status: 'COMPLETED',     label: 'Done'       },
+];
+
+function stepIndex(status: string) {
+  return STEPPER_STEPS.findIndex(s => s.status === status);
+}
+
+function JobStepper({ status }: { status: string }) {
+  const isCancelled = status === 'CANCELLED';
+  const current     = isCancelled ? -1 : stepIndex(status);
+
+  return (
+    <View style={sp.card}>
+      <View style={sp.headerRow}>
+        <View style={sp.iconBox}>
+          <Feather name="git-branch" size={14} color={PRIMARY} />
+        </View>
+        <Text style={sp.title}>Job Progress</Text>
+      </View>
+
+      {isCancelled ? (
+        <View style={sp.cancelledRow}>
+          <Feather name="x-circle" size={16} color="#EF4444" />
+          <Text style={sp.cancelledText}>This job was cancelled</Text>
+        </View>
+      ) : (
+        <View style={sp.track}>
+          {STEPPER_STEPS.map((step, i) => {
+            const done   = i < current;
+            const active = i === current;
+            const upcoming = i > current;
+            return (
+              <React.Fragment key={step.status}>
+                {/* Step node */}
+                <View style={sp.node}>
+                  <View style={[
+                    sp.circle,
+                    done   && sp.circleDone,
+                    active && sp.circleActive,
+                    upcoming && sp.circleUpcoming,
+                  ]}>
+                    {done
+                      ? <Feather name="check" size={10} color="#fff" />
+                      : active
+                        ? <View style={sp.innerDot} />
+                        : null
+                    }
+                  </View>
+                  <Text
+                    style={[sp.label, done && sp.labelDone, active && sp.labelActive, upcoming && sp.labelUpcoming]}
+                    numberOfLines={1}
+                  >
+                    {step.label}
+                  </Text>
+                </View>
+
+                {/* Connector */}
+                {i < STEPPER_STEPS.length - 1 && (
+                  <View style={[sp.line, (done || active) && i < current && sp.lineDone]} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
+const sp = StyleSheet.create({
+  card: {
+    backgroundColor: CARD, borderRadius: 18,
+    borderWidth: 1, borderColor: BORDER,
+    ...Platform.select({
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
+      android: { elevation: 2 },
+      default: {},
+    }),
+  },
+  headerRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 18, paddingTop: 14, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+  },
+  iconBox: {
+    width: 30, height: 30, borderRadius: 9,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  title: { fontSize: 14, fontWeight: '700', color: TEXT },
+
+  track: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    paddingHorizontal: 16, paddingVertical: 18,
+  },
+  node:  { alignItems: 'center', width: 52 },
+
+  circle: {
+    width: 28, height: 28, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 6,
+  },
+  circleDone:     { backgroundColor: SUCCESS },
+  circleActive:   { backgroundColor: PRIMARY, borderWidth: 2.5, borderColor: `${PRIMARY}40` },
+  circleUpcoming: { backgroundColor: '#F1F5F9', borderWidth: 1.5, borderColor: BORDER },
+
+  innerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' },
+
+  label:         { fontSize: 9, fontWeight: '500', color: '#CBD5E1', textAlign: 'center' },
+  labelDone:     { color: SUCCESS, fontWeight: '600' },
+  labelActive:   { color: PRIMARY, fontWeight: '700' },
+  labelUpcoming: { color: '#CBD5E1' },
+
+  line: { flex: 1, height: 2, backgroundColor: '#E2E8F0', marginTop: 13, borderRadius: 1 },
+  lineDone: { backgroundColor: SUCCESS },
+
+  cancelledRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 18,
+  },
+  cancelledText: { fontSize: 14, color: '#EF4444', fontWeight: '600' },
+});
+
 /* ── Shared section card ── */
 function SectionCard({ icon, title, children }: {
   icon: React.ComponentProps<typeof Feather>['name'];
@@ -177,39 +306,8 @@ export default function JobDetailScreen() {
             </SectionCard>
           ) : null}
 
-          {/* Timeline */}
-          {(() => {
-            const entries = [...(data.timelines ?? [])]
-              .filter(t => t.status !== 'WAITING_FOR_PARTS')
-              .reverse();
-            if (!entries.length) return null;
-            return (
-              <SectionCard icon="clock" title="Timeline">
-                {entries.map((t, i, arr) => {
-                  const isFirst = i === 0;
-                  const isLast  = i === arr.length - 1;
-                  return (
-                    <View key={t.id ?? i} style={styles.timelineRow}>
-                      {/* Dot + connecting line */}
-                      <View style={styles.timelineLeft}>
-                        <View style={[
-                          styles.timelineDot,
-                          isFirst ? styles.timelineDotActive : styles.timelineDotDone,
-                        ]} />
-                        {!isLast && <View style={styles.timelineLine} />}
-                      </View>
-                      {/* Content */}
-                      <View style={[styles.timelineContent, isLast && { paddingBottom: 0 }]}>
-                        <StatusBadge status={t.status} size="sm" />
-                        {t.notes ? <Text style={styles.timelineNote}>{t.notes}</Text> : null}
-                        <Text style={styles.timelineDate}>{formatDateTime(t.created_at)}</Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </SectionCard>
-            );
-          })()}
+          {/* Job progress stepper */}
+          <JobStepper status={data.status} />
 
           {/* Complete button */}
           {(data.status === 'QUALITY_CHECK' || data.status === 'READY') && (
@@ -361,17 +459,6 @@ const styles = StyleSheet.create({
   },
   grandTotalLabel: { fontSize: 15, fontWeight: '800', color: TEXT },
   grandTotalValue: { fontSize: 20, fontWeight: '800', color: PRIMARY },
-
-  /* Timeline */
-  timelineRow:  { flexDirection: 'row', gap: 12 },
-  timelineLeft: { alignItems: 'center', width: 20, paddingTop: 3 },
-  timelineDot:  { width: 12, height: 12, borderRadius: 6, flexShrink: 0 },
-  timelineDotActive: { backgroundColor: PRIMARY },
-  timelineDotDone:   { backgroundColor: '#CBD5E1' },
-  timelineLine: { width: 2, flex: 1, backgroundColor: '#E2E8F0', marginVertical: 4, borderRadius: 1 },
-  timelineContent: { flex: 1, paddingBottom: 16, gap: 4 },
-  timelineNote: { fontSize: 12, color: MUTED },
-  timelineDate: { fontSize: 11, color: MUTED },
 
   /* Complete */
   completeBtn: {

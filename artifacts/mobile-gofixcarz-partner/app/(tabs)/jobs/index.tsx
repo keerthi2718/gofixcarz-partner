@@ -300,8 +300,8 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 15, color: TEXT },
 
-  chipBar: { flexGrow: 0 },
-  chipRow: { paddingHorizontal: 20, paddingBottom: 10, gap: 8 },
+  chipBar: { flexGrow: 0, flexShrink: 0 },
+  chipRow: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12, gap: 8 },
   chip: {
     paddingHorizontal: 16, paddingVertical: 7,
     borderRadius: 20, borderWidth: 1.5, borderColor: BORDER,

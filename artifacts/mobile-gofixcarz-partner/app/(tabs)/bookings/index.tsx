@@ -232,8 +232,8 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 15, color: TEXT },
 
-  chipBar: { flexGrow: 0 },
-  chipRow: { paddingHorizontal: 20, paddingBottom: 14, gap: 8 },
+  chipBar: { flexGrow: 0, flexShrink: 0 },
+  chipRow: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 14, gap: 8 },
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 14, paddingVertical: 7,
