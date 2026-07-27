@@ -19,7 +19,7 @@ import type { JobStatus } from '@/src/types';
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#2563EB';
+const PRIMARY = '#C41E3A';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 12, paddingVertical: 6,
     borderRadius: 10, borderWidth: 1.5, borderColor: PRIMARY + '40',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#FEE2E2',
   },
   changeStatusText: { fontSize: 12, fontWeight: '700', color: PRIMARY },
   statusDate:       { fontSize: 11, color: MUTED },
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   },
   sectionIconWrap: {
     width: 30, height: 30, borderRadius: 9,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#FEE2E2',
     alignItems: 'center', justifyContent: 'center',
   },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: TEXT },

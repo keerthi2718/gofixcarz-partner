@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 3, borderColor: 'rgba(255,255,255,0.12)',
     ...Platform.select({
-      ios: { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.5, shadowRadius: 20 },
+      ios: { shadowColor: '#C41E3A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.5, shadowRadius: 20 },
       android: { elevation: 16 },
       default: {},
     }),

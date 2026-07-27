@@ -20,7 +20,7 @@ import type { ServicePackageUpdate } from '@/src/types';
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#2563EB';
+const PRIMARY = '#C41E3A';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
@@ -35,7 +35,7 @@ type FormData = {
   is_active: boolean;
 };
 
-function SectionCard({ icon, title, iconBg = '#EEF2FF', iconFg = PRIMARY, children }: {
+function SectionCard({ icon, title, iconBg = '#FEE2E2', iconFg = PRIMARY, children }: {
   icon: React.ComponentProps<typeof Feather>['name'];
   title: string;
   iconBg?: string;
@@ -256,7 +256,7 @@ export default function EditServiceScreen() {
           </SectionCard>
 
           {/* ── Status ── */}
-          <SectionCard icon="toggle-right" title="Visibility" iconBg="#F5F3FF" iconFg="#2563EB">
+          <SectionCard icon="toggle-right" title="Visibility" iconBg="#F5F3FF" iconFg="#C41E3A">
             <TouchableOpacity
               style={[
                 styles.statusToggle,

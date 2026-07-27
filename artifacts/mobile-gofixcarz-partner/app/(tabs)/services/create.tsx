@@ -17,7 +17,7 @@ import type { ServicePackageCreate } from '@/src/types';
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#2563EB';
+const PRIMARY = '#C41E3A';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
@@ -38,7 +38,7 @@ const SUGGESTIONS = [
   'Battery Check', 'Tyre Rotation', 'Full Car Wash', 'Engine Tune-up',
 ];
 
-function SectionCard({ icon, title, iconBg = '#EEF2FF', iconFg = PRIMARY, children }: {
+function SectionCard({ icon, title, iconBg = '#FEE2E2', iconFg = PRIMARY, children }: {
   icon: React.ComponentProps<typeof Feather>['name'];
   title: string;
   iconBg?: string;
@@ -251,7 +251,7 @@ export default function CreateServiceScreen() {
         </SectionCard>
 
         {/* ── Status ── */}
-        <SectionCard icon="toggle-right" title="Visibility" iconBg="#F5F3FF" iconFg="#2563EB">
+        <SectionCard icon="toggle-right" title="Visibility" iconBg="#F5F3FF" iconFg="#C41E3A">
           <TouchableOpacity
             style={[styles.statusToggle, { backgroundColor: isActive ? '#ECFDF5' : '#F1F5F9', borderColor: isActive ? SUCCESS : BORDER }]}
             onPress={() => setValue('is_active', !isActive)}
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 7,
     borderRadius: 20, borderWidth: 1.5,
     borderColor: 'rgba(37,99,235,0.3)',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#FEE2E2',
   },
   suggestChipText: { fontSize: 12, fontWeight: '600', color: PRIMARY },
 

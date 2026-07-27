@@ -15,7 +15,7 @@ import ServicePackageService from '@/src/services/service-package.service';
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#2563EB';
+const PRIMARY = '#C41E3A';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
@@ -72,11 +72,11 @@ export default function ServicesScreen() {
       style={[styles.root, { backgroundColor: BG }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#1D4ED8" />
+      <StatusBar barStyle="light-content" backgroundColor="#921527" />
 
       {/* ── Gradient header ── */}
       <LinearGradient
-        colors={['#1D4ED8', '#2563EB']}
+        colors={['#921527', '#C41E3A']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.gradHeader, { paddingTop: topPad + 16 }]}
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
   serviceActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   serviceEditBtn: {
     width: 30, height: 30, borderRadius: 9,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#FEE2E2',
     alignItems: 'center', justifyContent: 'center',
   },
   serviceDeleteBtn: {

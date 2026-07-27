@@ -15,9 +15,9 @@ import type { AnalyticsPeriod } from '@/src/types';
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#2563EB';
+const PRIMARY = '#C41E3A';
 const INDIGO  = '#6366F1';
-const PURPLE  = '#2563EB';
+const PURPLE  = '#C41E3A';
 const SUCCESS = '#10B981';
 const WARNING = '#F59E0B';
 const TEXT    = '#1E293B';
@@ -50,7 +50,7 @@ function SkeletonBlock({ height = 16, width = '100%', radius = 8, style }: {
 }
 
 /* ── Section card wrapper ── */
-function SectionCard({ icon, title, iconBg = '#EEF2FF', iconFg = PRIMARY, children, action }: {
+function SectionCard({ icon, title, iconBg = '#FEE2E2', iconFg = PRIMARY, children, action }: {
   icon: React.ComponentProps<typeof Feather>['name'];
   title: string;
   iconBg?: string;
@@ -185,7 +185,7 @@ export default function AnalyticsScreen() {
         {/* ── Revenue summary ── */}
         <View style={styles.heroRow}>
           <LinearGradient
-            colors={['#1D4ED8', '#2563EB']}
+            colors={['#921527', '#C41E3A']}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={styles.heroCard}
           >
@@ -201,7 +201,7 @@ export default function AnalyticsScreen() {
           </LinearGradient>
 
           <LinearGradient
-            colors={['#2563EB', '#6366F1']}
+            colors={['#C41E3A', '#6366F1']}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={styles.heroCard}
           >
@@ -222,7 +222,7 @@ export default function AnalyticsScreen() {
           {[
             { label: 'Avg Job Value', value: isLoading ? null : formatCurrency(avgJobValue),  icon: 'dollar-sign', bg: '#FFFBEB', fg: WARNING },
             { label: 'Completion',    value: isLoading ? null : `${completionRate}%`,           icon: 'check-circle', bg: '#ECFDF5', fg: SUCCESS },
-            { label: 'Completed',     value: isLoading ? null : String(completedJobs),          icon: 'award',        bg: '#EEF2FF', fg: PRIMARY },
+            { label: 'Completed',     value: isLoading ? null : String(completedJobs),          icon: 'award',        bg: '#FEE2E2', fg: PRIMARY },
           ].map(m => (
             <View key={m.label} style={styles.metricCard}>
               <View style={[styles.metricIcon, { backgroundColor: m.bg }]}>
@@ -382,7 +382,7 @@ export default function AnalyticsScreen() {
         </SectionCard>
 
         {/* ── Customer insights ── */}
-        <SectionCard icon="user-check" title="Customer Insights" iconBg="#EEF2FF" iconFg={INDIGO}>
+        <SectionCard icon="user-check" title="Customer Insights" iconBg="#FEE2E2" iconFg={INDIGO}>
           {isLoading ? (
             <View style={{ gap: 12 }}>
               {[1,2,3].map(i => <SkeletonBlock key={i} height={14} radius={7} />)}

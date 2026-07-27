@@ -16,7 +16,7 @@ import Avatar from '@/src/components/ui/Avatar';
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#2563EB';
+const PRIMARY = '#C41E3A';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
@@ -146,7 +146,7 @@ export default function MoreScreen() {
         <MenuGroup title="Garage" items={[
           {
             label: 'Garage Profile', sub: 'Workshop info & hours',
-            icon: 'home', iconBg: '#EEF2FF', iconFg: PRIMARY,
+            icon: 'home', iconBg: '#FEE2E2', iconFg: PRIMARY,
             route: '/(tabs)/more/garage',
           },
         ]} />
@@ -155,7 +155,7 @@ export default function MoreScreen() {
         <MenuGroup title="Account" items={[
           {
             label: 'My Profile', sub: 'Name, email, contact',
-            icon: 'user', iconBg: '#F5F3FF', iconFg: '#2563EB',
+            icon: 'user', iconBg: '#F5F3FF', iconFg: '#C41E3A',
             route: '/(tabs)/more/profile',
           },
           {
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
   garageName:    { fontSize: 11, color: MUTED },
   profileChevron: {
     width: 32, height: 32, borderRadius: 10,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#FEE2E2',
     alignItems: 'center', justifyContent: 'center',
   },
 

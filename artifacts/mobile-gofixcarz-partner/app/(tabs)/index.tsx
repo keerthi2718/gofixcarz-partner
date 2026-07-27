@@ -26,7 +26,7 @@ import { SkeletonList } from '@/src/components/ui/SkeletonCard';
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#2563EB';
+const PRIMARY = '#C41E3A';
 const INDIGO  = '#6366F1';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
@@ -40,7 +40,7 @@ const BOOKING_STATUS: Record<string, { label: string; color: string; bg: string 
 };
 
 const QUICK_ACTIONS = [
-  { label: 'New\nBooking',  icon: 'calendar'    as const, bg: '#EEF2FF', fg: PRIMARY,    route: '/(tabs)/bookings'      },
+  { label: 'New\nBooking',  icon: 'calendar'    as const, bg: '#FEE2E2', fg: PRIMARY,    route: '/(tabs)/bookings'      },
   { label: 'Add\nService',  icon: 'tool'        as const, bg: '#FFF7ED', fg: '#F97316',   route: '/(tabs)/services'      },
   { label: 'Analytics',     icon: 'bar-chart-2' as const, bg: '#F0FDF4', fg: '#10B981',   route: '/(tabs)/analytics'     },
   { label: 'More',          icon: 'grid'        as const, bg: '#F5F3FF', fg: INDIGO,      route: '/(tabs)/more'          },
@@ -67,7 +67,7 @@ export default function DashboardScreen() {
   const garageName = garage?.name ?? 'Your Garage';
 
   const STATS = [
-    { label: 'Active Jobs', value: data?.open_jobs        ?? 0, icon: 'briefcase'   as const, color: PRIMARY,   bg: '#EEF2FF' },
+    { label: 'Active Jobs', value: data?.open_jobs        ?? 0, icon: 'briefcase'   as const, color: PRIMARY,   bg: '#FEE2E2' },
     { label: 'Pending',     value: data?.pending_bookings ?? 0, icon: 'clock'       as const, color: '#F59E0B',  bg: '#FFF7ED' },
     { label: 'Completed',   value: data?.completed_jobs   ?? 0, icon: 'check-circle'as const, color: '#10B981',  bg: '#ECFDF5' },
   ];
@@ -123,7 +123,7 @@ export default function DashboardScreen() {
             <View style={styles.revenueRow}>
               {/* Today's Revenue */}
               <LinearGradient
-                colors={['#1D4ED8', '#2563EB']}
+                colors={['#921527', '#C41E3A']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.revenueCard}
@@ -147,7 +147,7 @@ export default function DashboardScreen() {
 
               {/* This Month */}
               <LinearGradient
-                colors={['#2563EB', '#06B6D4']}
+                colors={['#C41E3A', '#E11D48']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.revenueCard}
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     minHeight: 120,
     justifyContent: 'flex-end',
     ...Platform.select({
-      ios: { shadowColor: '#1D4ED8', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14 },
+      ios: { shadowColor: '#921527', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14 },
       android: { elevation: 8 },
       default: {},
     }),
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
   emptyWrap: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 20 },
   emptyIcon: {
     width: 64, height: 64, borderRadius: 20,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#FEE2E2',
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 16,
   },

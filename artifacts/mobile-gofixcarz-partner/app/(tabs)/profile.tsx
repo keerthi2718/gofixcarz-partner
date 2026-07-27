@@ -21,7 +21,7 @@ import type { ProfileUpdate } from '@/src/types';
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#2563EB';
+const PRIMARY = '#C41E3A';
 const INDIGO  = '#6366F1';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
@@ -38,7 +38,7 @@ const MENU_ITEMS: {
   iconFg: string;
   route?: string;
 }[] = [
-  { icon: 'bell',        label: 'Notifications', sub: 'Alerts & updates',   iconBg: '#EEF2FF', iconFg: PRIMARY,  route: '/(tabs)/more/notifications' },
+  { icon: 'bell',        label: 'Notifications', sub: 'Alerts & updates',   iconBg: '#FEE2E2', iconFg: PRIMARY,  route: '/(tabs)/more/notifications' },
   { icon: 'map-pin',     label: 'My Garage',      sub: 'Workshop details',   iconBg: '#FFF7ED', iconFg: '#F97316', route: '/(tabs)/more/garage' },
   { icon: 'bar-chart-2', label: 'Analytics',      sub: 'Revenue reports',    iconBg: '#F0FDF4', iconFg: '#10B981', route: '/(tabs)/more/analytics' },
   { icon: 'help-circle', label: 'Help & Support', sub: 'FAQs & contact',     iconBg: '#FDF4FF', iconFg: INDIGO },
@@ -79,11 +79,11 @@ export default function ProfileScreen() {
       style={[styles.root, { backgroundColor: BG }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#1D4ED8" />
+      <StatusBar barStyle="light-content" backgroundColor="#921527" />
 
       {/* ── Profile hero ── */}
       <LinearGradient
-        colors={['#1D4ED8', '#2563EB']}
+        colors={['#921527', '#C41E3A']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.hero, { paddingTop: topPad + 20 }]}
@@ -131,7 +131,7 @@ export default function ProfileScreen() {
           {editMode ? (
             <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
-                <View style={[styles.sectionIconWrap, { backgroundColor: '#EEF2FF' }]}>
+                <View style={[styles.sectionIconWrap, { backgroundColor: '#FEE2E2' }]}>
                   <Feather name="edit-2" size={15} color={PRIMARY} />
                 </View>
                 <Text style={styles.sectionTitle}>Edit Profile</Text>
@@ -157,7 +157,7 @@ export default function ProfileScreen() {
               {/* ── Info card ── */}
               <View style={styles.sectionCard}>
                 <View style={styles.sectionHeader}>
-                  <View style={[styles.sectionIconWrap, { backgroundColor: '#EEF2FF' }]}>
+                  <View style={[styles.sectionIconWrap, { backgroundColor: '#FEE2E2' }]}>
                     <Feather name="user" size={15} color={PRIMARY} />
                   </View>
                   <Text style={styles.sectionTitle}>Account Info</Text>
@@ -170,7 +170,7 @@ export default function ProfileScreen() {
                     { icon: 'clock' as const, label: 'Member since', value: data?.created_at ? new Date(data.created_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) : null },
                   ].map((row, i, arr) => (
                     <View key={row.label} style={[styles.infoRow, i < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }]}>
-                      <View style={[styles.infoIconWrap, { backgroundColor: '#EEF2FF' }]}>
+                      <View style={[styles.infoIconWrap, { backgroundColor: '#FEE2E2' }]}>
                         <Feather name={row.icon} size={14} color={PRIMARY} />
                       </View>
                       <View style={{ flex: 1 }}>

@@ -23,9 +23,9 @@ import InputField from '@/src/components/ui/InputField';
 import { radius, shadow, spacing, typography } from '@/constants/theme';
 
 /* ── Design tokens ─────────────────────────────────── */
-const PRIMARY       = '#2563EB';
-const PRIMARY_D     = '#1D4ED8';
-const PRIMARY_LIGHT = '#DBEAFE';
+const PRIMARY       = '#C41E3A';
+const PRIMARY_D     = '#921527';
+const PRIMARY_LIGHT = '#FDECEA';
 const TEXT_COLOR    = '#1E293B';
 const BG            = '#F8FAFC';
 const CARD          = '#FFFFFF';
@@ -313,7 +313,7 @@ function SubmitButton({
         activeOpacity={1}
       >
         <LinearGradient
-          colors={['#2563EB', '#1D4ED8']}
+          colors={['#C41E3A', '#921527']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.submitGradient}
@@ -480,7 +480,7 @@ export default function RegisterScreen() {
             {(form.firstName || form.lastName) ? (
               <View style={styles.namePreviewRow}>
                 <LinearGradient
-                  colors={['#2563EB', '#06B6D4']}
+                  colors={['#C41E3A', '#E11D48']}
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                   style={styles.nameAvatarGradient}
                 >
@@ -856,7 +856,7 @@ const styles = StyleSheet.create({
     marginBottom: 22,
     borderWidth: 1, borderColor: '#BFDBFE',
     ...Platform.select({
-      ios: { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.10, shadowRadius: 10 },
+      ios: { shadowColor: '#C41E3A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.10, shadowRadius: 10 },
       android: { elevation: 2 },
       default: {},
     }),

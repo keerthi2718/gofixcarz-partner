@@ -1,14 +1,14 @@
 /**
  * GoFixAuto Partner — Design Tokens
- * Brand palette: Red (#2563EB) primary — matches Figma design.
+ * Brand palette: Red (#C41E3A) primary — matches Figma design.
  */
 
 const colors = {
   light: {
     // Brand
-    primary: '#2563EB',
-    primaryDark: '#1D4ED8',
-    primaryLight: '#DBEAFE',
+    primary: '#C41E3A',
+    primaryDark: '#921527',
+    primaryLight: '#FDECEA',
     primaryForeground: '#FFFFFF',
 
     // Semantic
@@ -36,13 +36,13 @@ const colors = {
     card: '#FFFFFF',
     cardForeground: '#1E293B',
     accent: '#3B82F6',
-    accentLight: '#DBEAFE',
+    accentLight: '#FDECEA',
     accentForeground: '#FFFFFF',
     secondary: '#F1F5F9',
     secondaryForeground: '#374151',
     muted: '#F1F5F9',
     mutedForeground: '#64748B',
-    tint: '#2563EB',
+    tint: '#C41E3A',
     destructive: '#EF4444',
     destructiveLight: '#FEE2E2',
 
@@ -83,9 +83,9 @@ const colors = {
   },
 
   dark: {
-    primary: '#3B82F6',
-    primaryDark: '#2563EB',
-    primaryLight: '#1E3A5F',
+    primary: '#E11D48',
+    primaryDark: '#C41E3A',
+    primaryLight: '#3D0B17',
     primaryForeground: '#FFFFFF',
     success: '#34D399',
     successLight: '#064E3B',
@@ -111,7 +111,7 @@ const colors = {
     secondaryForeground: '#CBD5E1',
     muted: '#1E293B',
     mutedForeground: '#94A3B8',
-    tint: '#3B82F6',
+    tint: '#E11D48',
     destructive: '#F87171',
     destructiveLight: '#450A0A',
     border: '#334155',

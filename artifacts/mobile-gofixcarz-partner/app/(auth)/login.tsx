@@ -20,8 +20,8 @@ import { useAuth } from '@/src/context/AuthContext';
 import PrimaryButton from '@/src/components/ui/PrimaryButton';
 
 /* ── Design tokens ── */
-const PRIMARY   = '#2563EB';
-const INDIGO    = '#1D4ED8';
+const PRIMARY   = '#C41E3A';
+const INDIGO    = '#921527';
 const BG        = '#EEEEF6';
 const CARD      = '#FFFFFF';
 const TEXT      = '#1E293B';
@@ -68,7 +68,7 @@ export default function LoginScreen() {
       >
         {/* ── Gradient header ── */}
         <LinearGradient
-          colors={[INDIGO, PRIMARY, '#06B6D4']}
+          colors={[INDIGO, PRIMARY, '#E11D48']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[styles.headerGradient, { paddingTop: insets.top + 28 }]}

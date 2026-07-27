@@ -19,7 +19,7 @@ import { useAuth } from '@/src/context/AuthContext';
 import { useAuthStore } from '@/src/store/auth.store';
 import PrimaryButton from '@/src/components/ui/PrimaryButton';
 
-const PRIMARY   = '#2563EB';
+const PRIMARY   = '#C41E3A';
 const INDIGO    = '#6366F1';
 const BG        = '#EEEEF6';
 const OTP_LENGTH = 6;
@@ -96,7 +96,7 @@ export default function OtpScreen() {
       <StatusBar barStyle="light-content" backgroundColor={PRIMARY} />
 
       <LinearGradient
-        colors={['#1D4ED8', '#2563EB']}
+        colors={['#921527', '#C41E3A']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.topBand, { paddingTop: insets.top + 28 }]}
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   },
   otpBoxFilled: {
     borderColor: PRIMARY,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#FEE2E2',
     color: PRIMARY,
   },
   otpBoxError: {

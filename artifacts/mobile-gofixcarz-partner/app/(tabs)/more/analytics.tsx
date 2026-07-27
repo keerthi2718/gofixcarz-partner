@@ -16,7 +16,7 @@ import type { AnalyticsPeriod } from '@/src/types';
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#2563EB';
+const PRIMARY = '#C41E3A';
 const INDIGO  = '#6366F1';
 const SUCCESS = '#10B981';
 const WARNING = '#F59E0B';
@@ -48,7 +48,7 @@ function SkeletonBlock({ height = 16, width = '100%', radius = 8, style }: {
   );
 }
 
-function SectionCard({ icon, title, iconBg = '#EEF2FF', iconFg = PRIMARY, children }: {
+function SectionCard({ icon, title, iconBg = '#FEE2E2', iconFg = PRIMARY, children }: {
   icon: React.ComponentProps<typeof Feather>['name'];
   title: string;
   iconBg?: string;
@@ -181,7 +181,7 @@ export default function MoreAnalyticsScreen() {
         {/* KPI Row */}
         <View style={styles.kpiRow}>
           <LinearGradient
-            colors={['#1D4ED8', '#2563EB']}
+            colors={['#921527', '#C41E3A']}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={[styles.kpiCard, { flex: 1.3 }]}
           >
@@ -289,7 +289,7 @@ export default function MoreAnalyticsScreen() {
         </SectionCard>
 
         {/* Jobs by Status */}
-        <SectionCard icon="pie-chart" title="Jobs by Status" iconBg="#F5F3FF" iconFg="#2563EB">
+        <SectionCard icon="pie-chart" title="Jobs by Status" iconBg="#F5F3FF" iconFg="#C41E3A">
           {isLoading ? (
             <View style={{ gap: 14 }}>
               {[1,2,3].map(i => <SkeletonBlock key={i} height={12} radius={6} />)}
@@ -358,7 +358,7 @@ export default function MoreAnalyticsScreen() {
         </SectionCard>
 
         {/* Customer Insights */}
-        <SectionCard icon="user-check" title="Customer Insights" iconBg="#EEF2FF" iconFg={INDIGO}>
+        <SectionCard icon="user-check" title="Customer Insights" iconBg="#FEE2E2" iconFg={INDIGO}>
           {isLoading ? (
             <View style={{ gap: 12 }}>
               {[1,2,3].map(i => <SkeletonBlock key={i} height={14} radius={7} />)}
@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
 
   infoChip: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: '#EEF2FF', borderRadius: 14,
+    backgroundColor: '#FEE2E2', borderRadius: 14,
     borderWidth: 1, borderColor: 'rgba(37,99,235,0.2)',
     padding: 14,
   },

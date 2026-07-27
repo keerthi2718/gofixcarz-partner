@@ -19,7 +19,7 @@ import type { GarageUpdate } from '@/src/types';
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#2563EB';
+const PRIMARY = '#C41E3A';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
@@ -34,7 +34,7 @@ type FormData = {
   alternate_number: string;
 };
 
-function SectionCard({ icon, title, iconBg = '#EEF2FF', iconFg = PRIMARY, children }: {
+function SectionCard({ icon, title, iconBg = '#FEE2E2', iconFg = PRIMARY, children }: {
   icon: React.ComponentProps<typeof Feather>['name'];
   title: string;
   iconBg?: string;
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   pageTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '700', color: TEXT },
   editBtn: {
     width: 42, height: 42, borderRadius: 21,
-    backgroundColor: '#EEF2FF', borderWidth: 1, borderColor: 'rgba(37,99,235,0.2)',
+    backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: 'rgba(37,99,235,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
   editBtnActive: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   },
   heroIcon: {
     width: 54, height: 54, borderRadius: 16,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#FEE2E2',
     alignItems: 'center', justifyContent: 'center',
   },
   heroName: { fontSize: 17, fontWeight: '800', color: TEXT, marginBottom: 3 },
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   editingBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 8, paddingVertical: 4,
-    backgroundColor: '#EEF2FF', borderRadius: 8,
+    backgroundColor: '#FEE2E2', borderRadius: 8,
     borderWidth: 1, borderColor: 'rgba(37,99,235,0.2)',
   },
   editingBadgeText: { fontSize: 10, fontWeight: '700', color: PRIMARY },
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
 
   infoChip: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: '#EEF2FF', borderRadius: 14,
+    backgroundColor: '#FEE2E2', borderRadius: 14,
     borderWidth: 1, borderColor: 'rgba(37,99,235,0.2)',
     padding: 14, marginBottom: 14,
   },

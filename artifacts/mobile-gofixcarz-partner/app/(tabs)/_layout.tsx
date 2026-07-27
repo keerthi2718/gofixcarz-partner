@@ -6,7 +6,7 @@ import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /* ── Design tokens ── */
-const PRIMARY   = '#2563EB';
+const PRIMARY   = '#C41E3A';
 const INACTIVE  = '#94A3B8';
 const BG        = 'rgba(255,255,255,0.97)';
 const BORDER    = 'rgba(226,232,240,0.9)';
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   iconPillActive: {
-    backgroundColor: '#EEF2FF',   // soft indigo tint
+    backgroundColor: '#FEE2E2',   // soft indigo tint
   },
 
   label: {

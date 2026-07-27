@@ -20,15 +20,15 @@ import type { ProfileUpdate } from '@/src/types';
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#2563EB';
-const INDIGO  = '#1D4ED8';
+const PRIMARY = '#C41E3A';
+const INDIGO  = '#921527';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
 
 type FormData = { name: string; email: string; mobile: string };
 
-function SectionCard({ icon, title, iconBg = '#EEF2FF', iconFg = PRIMARY, children }: {
+function SectionCard({ icon, title, iconBg = '#FEE2E2', iconFg = PRIMARY, children }: {
   icon: React.ComponentProps<typeof Feather>['name'];
   title: string;
   iconBg?: string;
@@ -109,7 +109,7 @@ export default function ProfileScreen() {
 
       {/* ── Gradient hero header ── */}
       <LinearGradient
-        colors={[INDIGO, PRIMARY, '#06B6D4']}
+        colors={[INDIGO, PRIMARY, '#E11D48']}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={[styles.hero, { paddingTop: topPad + 16 }]}
       >
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
 
   infoChip: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: '#EEF2FF', borderRadius: 14,
+    backgroundColor: '#FEE2E2', borderRadius: 14,
     borderWidth: 1, borderColor: 'rgba(37,99,235,0.2)',
     padding: 14, marginBottom: 14,
   },

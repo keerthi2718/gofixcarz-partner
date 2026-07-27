@@ -17,7 +17,7 @@ import type { BookingStatus } from '@/src/types';
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#2563EB';
+const PRIMARY = '#C41E3A';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   metaIconWrap: {
     width: 20, height: 20, borderRadius: 6,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#FEE2E2',
     alignItems: 'center', justifyContent: 'center',
   },
   metaText: { fontSize: 12, color: MUTED },
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingVertical: 60 },
   emptyIcon: {
     width: 64, height: 64, borderRadius: 20,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#FEE2E2',
     alignItems: 'center', justifyContent: 'center', marginBottom: 16,
   },
   emptyTitle:    { fontSize: 16, fontWeight: '700', color: TEXT, marginBottom: 6 },

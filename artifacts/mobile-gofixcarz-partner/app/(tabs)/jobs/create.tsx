@@ -18,7 +18,7 @@ import { formatCurrency } from '@/src/utils/helpers';
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#2563EB';
+const PRIMARY = '#C41E3A';
 const INDIGO  = '#6366F1';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
@@ -46,7 +46,7 @@ type PhotoItem   = { uri: string; name?: string };
 type DocItem     = { uri: string; name: string; mimeType?: string };
 
 /* ── Reusable step section card ── */
-function StepCard({ icon, title, children, iconBg = '#EEF2FF', iconFg = PRIMARY }: {
+function StepCard({ icon, title, children, iconBg = '#FEE2E2', iconFg = PRIMARY }: {
   icon: React.ComponentProps<typeof Feather>['name'];
   title: string;
   children: React.ReactNode;
@@ -514,7 +514,7 @@ export default function CreateJobScreen() {
             {/* Customer picker card */}
             <View style={cardStyles.card}>
               <View style={cardStyles.header}>
-                <View style={[cardStyles.iconWrap, { backgroundColor: '#EEF2FF' }]}>
+                <View style={[cardStyles.iconWrap, { backgroundColor: '#FEE2E2' }]}>
                   <Feather name="user" size={16} color={PRIMARY} />
                 </View>
                 <Text style={cardStyles.title}>Customer</Text>
@@ -961,7 +961,7 @@ export default function CreateJobScreen() {
                 <Text style={styles.stepErrorText}>{errors.technician}</Text>
               </View>
             )}
-            <StepCard icon="users" title="Assign Technician" iconBg="#F5F3FF" iconFg="#2563EB">
+            <StepCard icon="users" title="Assign Technician" iconBg="#F5F3FF" iconFg="#C41E3A">
               {mockTechs.map(t => (
                 <TouchableOpacity
                   key={t.id}
@@ -1115,11 +1115,11 @@ export default function CreateJobScreen() {
               ))}
             </StepCard>
 
-            <StepCard icon="zap" title="Advance Status" iconBg="#EEF2FF" iconFg={INDIGO}>
+            <StepCard icon="zap" title="Advance Status" iconBg="#FEE2E2" iconFg={INDIGO}>
               <View style={styles.stageGrid}>
                 {[
                   { label: 'Waiting for Parts', color: WARN,    bg: '#FFFBEB' },
-                  { label: 'Quality Check',     color: INDIGO,  bg: '#EEF2FF' },
+                  { label: 'Quality Check',     color: INDIGO,  bg: '#FEE2E2' },
                   { label: 'Ready',             color: SUCCESS, bg: '#ECFDF5' },
                   { label: 'Completed',         color: '#059669', bg: '#D1FAE5' },
                 ].map(s => (
@@ -1142,7 +1142,7 @@ export default function CreateJobScreen() {
         {step === 5 && (
           <>
             <LinearGradient
-              colors={['#1D4ED8', '#2563EB', '#06B6D4']}
+              colors={['#921527', '#C41E3A', '#E11D48']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.invoiceHero}
@@ -1188,7 +1188,7 @@ export default function CreateJobScreen() {
             )}
 
             {labourTotal > 0 && (
-              <StepCard icon="users" title="Labour" iconBg="#F5F3FF" iconFg="#2563EB">
+              <StepCard icon="users" title="Labour" iconBg="#F5F3FF" iconFg="#C41E3A">
                 <View style={styles.lineItem}>
                   <Text style={styles.lineItemName}>Labour Charge{estHours ? ` (${estHours}h)` : ''}</Text>
                   <Text style={styles.lineItemAmt}>{formatCurrency(labourTotal)}</Text>
@@ -1221,7 +1221,7 @@ export default function CreateJobScreen() {
 
             <View style={styles.invoiceActions}>
               <TouchableOpacity style={styles.invoiceActionBtn} activeOpacity={0.8}>
-                <View style={[styles.invoiceActionIcon, { backgroundColor: '#EEF2FF' }]}>
+                <View style={[styles.invoiceActionIcon, { backgroundColor: '#FEE2E2' }]}>
                   <Feather name="download" size={16} color={PRIMARY} />
                 </View>
                 <Text style={styles.invoiceActionText}>Download PDF</Text>
@@ -1354,7 +1354,7 @@ const styles = StyleSheet.create({
   contactsBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     marginLeft: 'auto', paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: 10, backgroundColor: '#EEF2FF',
+    borderRadius: 10, backgroundColor: '#FEE2E2',
     borderWidth: 1, borderColor: PRIMARY + '30',
   },
   contactsBtnText: { fontSize: 12, fontWeight: '600', color: PRIMARY },
@@ -1370,7 +1370,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
   },
-  custRowActive: { backgroundColor: '#EEF2FF', borderRadius: 12, paddingHorizontal: 8, marginHorizontal: -8 },
+  custRowActive: { backgroundColor: '#FEE2E2', borderRadius: 12, paddingHorizontal: 8, marginHorizontal: -8 },
   custAvatar: {
     width: 40, height: 40, borderRadius: 12,
     backgroundColor: '#E2E8F0',
@@ -1430,7 +1430,7 @@ const styles = StyleSheet.create({
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 12, borderRadius: 12,
     borderWidth: 1.5, borderColor: PRIMARY + '40',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#FEE2E2',
   },
   photoActionText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
   thumbRow: { gap: 10, paddingBottom: 4 },
@@ -1456,7 +1456,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 12, borderRadius: 12,
     borderWidth: 1.5, borderColor: PRIMARY + '40',
-    backgroundColor: '#EEF2FF', marginBottom: 12,
+    backgroundColor: '#FEE2E2', marginBottom: 12,
   },
   docPickText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
   docList: { gap: 8 },
@@ -1467,7 +1467,7 @@ const styles = StyleSheet.create({
   },
   docIcon: {
     width: 32, height: 32, borderRadius: 9,
-    backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center',
   },
   docName:  { flex: 1, fontSize: 13, color: TEXT, fontWeight: '500' },
   docEmpty: { fontSize: 12, color: MUTED, textAlign: 'center', paddingVertical: 8 },
@@ -1496,7 +1496,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 12, paddingVertical: 6,
     borderRadius: 20, borderWidth: 1.5, borderColor: PRIMARY + '40',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#FEE2E2',
   },
   suggestChipText: { fontSize: 12, fontWeight: '600', color: PRIMARY },
 
@@ -1505,7 +1505,7 @@ const styles = StyleSheet.create({
   serviceTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
   serviceIconDot: {
     width: 26, height: 26, borderRadius: 8,
-    backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center',
   },
   serviceItemName: { flex: 1, fontSize: 14, fontWeight: '600', color: TEXT },
   serviceBottom: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 36 },
@@ -1541,7 +1541,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: BORDER,
     backgroundColor: '#F8FAFC', marginBottom: 10,
   },
-  techCardActive: { borderColor: PRIMARY, backgroundColor: '#EEF2FF' },
+  techCardActive: { borderColor: PRIMARY, backgroundColor: '#FEE2E2' },
   techCardError:  { borderColor: DANGER + '80' },
   techAvatar: {
     width: 44, height: 44, borderRadius: 14,
@@ -1578,7 +1578,7 @@ const styles = StyleSheet.create({
   currentBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     marginTop: 5, alignSelf: 'flex-start',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#FEE2E2',
     borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
   },
   currentDot:       { width: 6, height: 6, borderRadius: 3, backgroundColor: PRIMARY },

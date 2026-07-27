@@ -17,7 +17,7 @@ import type { JobStatus } from '@/src/types';
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#2563EB';
+const PRIMARY = '#C41E3A';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
@@ -35,7 +35,7 @@ const JOB_STATUS: Record<string, { label: string; color: string; bg: string }> =
   OPEN:              { label: 'Open',        color: '#3B82F6', bg: '#EFF6FF' },
   IN_PROGRESS:       { label: 'In Progress', color: '#8B5CF6', bg: '#F5F3FF' },
   WAITING_FOR_PARTS: { label: 'Waiting',     color: '#F59E0B', bg: '#FFFBEB' },
-  QUALITY_CHECK:     { label: 'QC Check',    color: '#6366F1', bg: '#EEF2FF' },
+  QUALITY_CHECK:     { label: 'QC Check',    color: '#6366F1', bg: '#FEE2E2' },
   READY:             { label: 'Ready',       color: '#10B981', bg: '#ECFDF5' },
   COMPLETED:         { label: 'Completed',   color: '#059669', bg: '#D1FAE5' },
   CANCELLED:         { label: 'Cancelled',   color: '#EF4444', bg: '#FEF2F2' },
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingVertical: 60 },
   emptyIcon: {
     width: 64, height: 64, borderRadius: 20,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#FEE2E2',
     alignItems: 'center', justifyContent: 'center', marginBottom: 16,
   },
   emptyTitle:    { fontSize: 16, fontWeight: '700', color: TEXT, marginBottom: 6 },
