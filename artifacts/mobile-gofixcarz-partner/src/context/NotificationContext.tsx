@@ -1,8 +1,12 @@
 /**
  * NotificationContext — FCM push notification integration via expo-notifications.
  *
- * All expo-notifications calls are guarded by try/catch so that Expo Go
- * (which removed Android push support in SDK 53) never crashes the app.
+ * expo-notifications is ONLY imported in standalone builds (EAS / APK / IPA).
+ * In Expo Go (appOwnership === 'expo') we skip the import entirely because
+ * expo-notifications throws a hard ERROR on Android Expo Go (SDK 53+) during
+ * its own module initialisation — before any try/catch can stop it — which
+ * stalls the JS module queue and prevents fonts from loading (blank icon boxes).
+ *
  * In Expo Go the context mounts silently with unreadCount = 0.
  * In a standalone EAS build everything works as expected.
  */
@@ -10,8 +14,18 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
+import Constants from 'expo-constants';
 import { QUERY_KEYS } from '@/src/constants/api';
 import NotificationService from '@/src/services/notification.service';
+
+/**
+ * True when running inside Expo Go.
+ * SDK 47+ uses executionEnvironment = 'storeClient'; older SDKs used appOwnership = 'expo'.
+ * We check both so this works across SDK versions.
+ */
+const IS_EXPO_GO =
+  (Constants.executionEnvironment as string) === 'storeClient' ||
+  Constants.appOwnership === 'expo';
 
 /* ── Route resolver ───────────────────────────────────────────────────────── */
 type NotifData = Record<string, string | null | undefined>;
@@ -78,16 +92,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   /* ── setup ──────────────────────────────────────────────────────────────── */
   useEffect(() => {
-    // Push notifications are only available in standalone builds on iOS/Android.
-    // Expo Go (SDK 53+) removed support — guard everything so the app never crashes.
-    if (Platform.OS === 'web') {
+    // In Expo Go, expo-notifications throws a hard ERROR on Android during its
+    // own module initialisation (SDK 53+). We skip the import entirely so fonts
+    // load cleanly and icons render correctly.
+    if (IS_EXPO_GO || Platform.OS === 'web') {
       refreshUnread();
       return;
     }
 
     void (async () => {
       try {
-        // Lazy-import so Expo Go's error is caught here, not at module load time
+        // Only reached in standalone EAS builds (APK / IPA)
         const Notifications = await import('expo-notifications');
         const Device        = await import('expo-device');
 
