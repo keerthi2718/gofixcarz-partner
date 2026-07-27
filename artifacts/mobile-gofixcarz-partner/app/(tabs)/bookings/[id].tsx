@@ -12,6 +12,64 @@ import Avatar from '@/src/components/ui/Avatar';
 import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 import { formatDate, formatDateTime } from '@/src/utils/helpers';
 
+/* ── Seeded mock history ── */
+const PAST_SERVICES = [
+  { service: 'Oil Change & Filter',        amount: 1800,  tech: 'Suresh Kumar' },
+  { service: 'Brake Pad Replacement',      amount: 4500,  tech: 'Mahesh Reddy' },
+  { service: 'AC Gas Refill',              amount: 3200,  tech: 'Ganesh Patel' },
+  { service: 'Full Car Service',           amount: 7500,  tech: 'Suresh Kumar' },
+  { service: 'Tyre Rotation & Balancing',  amount: 1200,  tech: 'Mahesh Reddy' },
+  { service: 'Battery Replacement',        amount: 5800,  tech: 'Ganesh Patel' },
+  { service: 'Engine Diagnostics',         amount: 2000,  tech: 'Suresh Kumar' },
+  { service: 'Wheel Alignment',            amount: 900,   tech: 'Mahesh Reddy' },
+  { service: 'Clutch Plate Replacement',   amount: 9500,  tech: 'Ganesh Patel' },
+  { service: 'Coolant Flush',              amount: 1500,  tech: 'Suresh Kumar' },
+  { service: 'Suspension Check & Repair',  amount: 6200,  tech: 'Mahesh Reddy' },
+  { service: 'Spark Plug Replacement',     amount: 2400,  tech: 'Ganesh Patel' },
+];
+
+const PAST_STATUS = ['COMPLETED', 'COMPLETED', 'COMPLETED', 'COMPLETED', 'CANCELLED'];
+const VEHICLES    = ['MH12 AB 1234', 'KA05 XY 9876', 'DL8C 4321', 'TN09 PQ 5678', 'GJ01 ZZ 1111'];
+
+// Simple seeded RNG (mulberry32) — same seed → same output every render
+function seededRng(seed: number) {
+  let s = seed;
+  return () => { s |= 0; s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
+function idToSeed(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function getVisitHistory(bookingId: string) {
+  const rng   = seededRng(idToSeed(bookingId));
+  const count = 2 + Math.floor(rng() * 3); // 2–4 past visits
+  const now   = new Date('2026-07-27');
+  const visits = [];
+  let daysBack = 30 + Math.floor(rng() * 20);
+
+  for (let i = 0; i < count; i++) {
+    daysBack += 40 + Math.floor(rng() * 60);
+    const date     = new Date(now.getTime() - daysBack * 86400000);
+    const svcIdx   = Math.floor(rng() * PAST_SERVICES.length);
+    const stIdx    = Math.floor(rng() * PAST_STATUS.length);
+    const vehIdx   = Math.floor(rng() * VEHICLES.length);
+    const jitter   = 1 + (rng() * 0.4 - 0.2);          // ±20% price variation
+    visits.push({
+      date,
+      service:  PAST_SERVICES[svcIdx].service,
+      amount:   Math.round(PAST_SERVICES[svcIdx].amount * jitter / 100) * 100,
+      tech:     PAST_SERVICES[svcIdx].tech,
+      status:   PAST_STATUS[stIdx],
+      vehicle:  VEHICLES[vehIdx],
+      jobId:    `JOB-${1000 + Math.floor(rng() * 8000)}`,
+    });
+  }
+  return visits;
+}
+
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
@@ -85,7 +143,8 @@ export default function BookingDetailScreen() {
     );
   }
 
-  const st = STATUS_META[booking.status] ?? { label: booking.status, color: MUTED, bg: '#F3F4F6', icon: 'circle' };
+  const st      = STATUS_META[booking.status] ?? { label: booking.status, color: MUTED, bg: '#F3F4F6', icon: 'circle' };
+  const history = getVisitHistory(booking.id);
 
   function handleConfirm() {
     if (!booking) return;
@@ -196,6 +255,72 @@ export default function BookingDetailScreen() {
             <Text style={styles.notesText}>{booking.notes}</Text>
           </SectionCard>
         ) : null}
+
+        {/* ── Visit History ── */}
+        <SectionCard icon="clock" title="Visit History" iconBg="#F0FDF4" iconFg={SUCCESS}>
+          {history.map((visit, i) => {
+            const isCompleted = visit.status === 'COMPLETED';
+            const isLast      = i === history.length - 1;
+            return (
+              <View key={visit.jobId} style={[styles.historyItem, !isLast && styles.historyItemBorder]}>
+                {/* Left: date column */}
+                <View style={styles.historyDateCol}>
+                  <Text style={styles.historyDay}>
+                    {visit.date.toLocaleDateString('en-IN', { day: '2-digit' })}
+                  </Text>
+                  <Text style={styles.historyMonth}>
+                    {visit.date.toLocaleDateString('en-IN', { month: 'short' })}
+                  </Text>
+                  <Text style={styles.historyYear}>
+                    {visit.date.getFullYear()}
+                  </Text>
+                </View>
+
+                {/* Divider line */}
+                <View style={styles.historyDivider} />
+
+                {/* Right: details */}
+                <View style={styles.historyDetails}>
+                  <View style={styles.historyTopRow}>
+                    <Text style={styles.historyService} numberOfLines={1}>{visit.service}</Text>
+                    <View style={[
+                      styles.historyStatusPill,
+                      { backgroundColor: isCompleted ? '#ECFDF5' : '#FEF2F2' },
+                    ]}>
+                      <Text style={[
+                        styles.historyStatusText,
+                        { color: isCompleted ? SUCCESS : DANGER },
+                      ]}>
+                        {isCompleted ? 'Done' : 'Cancelled'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.historyMetaRow}>
+                    <View style={styles.historyMetaItem}>
+                      <Feather name="user" size={10} color={MUTED} />
+                      <Text style={styles.historyMetaText}>{visit.tech}</Text>
+                    </View>
+                    <View style={styles.historyMetaItem}>
+                      <Feather name="tag" size={10} color={MUTED} />
+                      <Text style={styles.historyMetaText}>{visit.jobId}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.historyBottomRow}>
+                    <View style={styles.historyMetaItem}>
+                      <Feather name="truck" size={10} color={MUTED} />
+                      <Text style={styles.historyMetaText}>{visit.vehicle}</Text>
+                    </View>
+                    <Text style={[styles.historyAmount, { color: isCompleted ? PRIMARY : MUTED }]}>
+                      {isCompleted ? `₹${visit.amount.toLocaleString('en-IN')}` : '—'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </SectionCard>
 
         {/* ── Timeline ── */}
         <SectionCard icon="activity" title="Status Timeline" iconBg="#F5F3FF" iconFg={PURPLE}>
@@ -404,6 +529,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center', gap: 8,
   },
   convertBtnText: { color: '#fff', fontSize: 15, fontWeight: '700', flex: 1, textAlign: 'center' },
+
+  /* Visit history */
+  historyItem:       { flexDirection: 'row', alignItems: 'stretch', paddingVertical: 14, gap: 14 },
+  historyItemBorder: { borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  historyDateCol:    { width: 34, alignItems: 'center', justifyContent: 'center', gap: 1 },
+  historyDay:        { fontSize: 16, fontWeight: '800', color: TEXT, lineHeight: 18 },
+  historyMonth:      { fontSize: 10, fontWeight: '700', color: PRIMARY, textTransform: 'uppercase', letterSpacing: 0.3 },
+  historyYear:       { fontSize: 9, color: MUTED, marginTop: 1 },
+  historyDivider:    { width: 1.5, borderRadius: 2, backgroundColor: '#E2E8F0' },
+  historyDetails:    { flex: 1, gap: 6 },
+  historyTopRow:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  historyService:    { flex: 1, fontSize: 13, fontWeight: '700', color: TEXT },
+  historyStatusPill: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
+  historyStatusText: { fontSize: 10, fontWeight: '700' },
+  historyMetaRow:    { flexDirection: 'row', gap: 14 },
+  historyBottomRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  historyMetaItem:   { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  historyMetaText:   { fontSize: 11, color: MUTED },
+  historyAmount:     { fontSize: 13, fontWeight: '800' },
 
   closedBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
