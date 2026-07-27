@@ -1,40 +1,78 @@
 /**
- * Patches @expo/cli's tryGetUserAsync to silently proceed anonymously
- * in non-interactive environments (e.g. Replit workflow pseudo-TTY).
+ * Patches @expo/cli to work in Replit's pseudo-TTY workflow environment.
  *
- * Without this patch, expo start hangs waiting for keyboard input that
- * never arrives because Replit provides a PTY (isTTY=true) but no human.
- * Re-run this script after any pnpm install that updates @expo/cli.
+ * ROOT CAUSE
+ * ----------
+ * Replit's workflow runner provides a PTY (process.stdout.isTTY = true).
+ * @expo/cli's isInteractive() returns !CI && isTTY, so it thinks a human
+ * is at the keyboard and shows an interactive "Log in / Proceed anonymously"
+ * select-prompt which hangs forever — Metro never starts.
+ *
+ * TWO-PART FIX
+ * ------------
+ * 1. interactive.js  → isInteractive() always returns false (non-interactive)
+ *    → prompt() throws CommandError('NON_INTERACTIVE') instead of hanging
+ *
+ * 2. actions.js → tryGetUserAsync() wraps selectAsync in try-catch
+ *    → catches the NON_INTERACTIVE error → returns null (proceed anonymously)
+ *    → Metro starts normally without any login
+ *
+ * Re-run after any pnpm install that updates @expo/cli.
  */
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
 
-// Find the installed @expo/cli build directory
-let cliRoot;
-try {
-  const out = execSync(
-    'find /home/runner/workspace/node_modules/.pnpm -path "*/@expo/cli/build/src/api/user/actions.js" 2>/dev/null | head -5',
-    { encoding: 'utf8' }
-  ).trim();
-  if (!out) { console.log('patch-expo-cli: actions.js not found, skipping'); process.exit(0); }
-  const files = out.split('\n').filter(Boolean);
-  files.forEach(file => {
-    let src = fs.readFileSync(file, 'utf8');
-    if (src.includes('_nonInteractive')) {
-      console.log('patch-expo-cli: already patched:', file);
-      return;
-    }
-    src = src.replace(
-      '    const value = await (0, _prompts.selectAsync)',
-      '    let value = false;\n    try {\n        value = await (0, _prompts.selectAsync)'
-    ).replace(
-      '    });\n    if (value) {',
-      '    });\n    } catch (_nonInteractive) {\n        return null;\n    }\n    if (value) {'
-    );
-    fs.writeFileSync(file, src);
-    console.log('patch-expo-cli: patched:', file);
-  });
-} catch (e) {
-  console.error('patch-expo-cli: error:', e.message);
+const fs = require('fs');
+
+function patchAll() {
+  const { execSync } = require('child_process');
+
+  // Find every @expo/cli interactive.js and actions.js
+  let interactiveFiles = [], actionsFiles = [];
+  try {
+    interactiveFiles = execSync(
+      'find /home/runner/workspace/node_modules/.pnpm -path "*/@expo/cli/build/src/utils/interactive.js" 2>/dev/null',
+      { encoding: 'utf8' }
+    ).trim().split('\n').filter(Boolean);
+    actionsFiles = execSync(
+      'find /home/runner/workspace/node_modules/.pnpm -path "*/@expo/cli/build/src/api/user/actions.js" 2>/dev/null',
+      { encoding: 'utf8' }
+    ).trim().split('\n').filter(Boolean);
+  } catch (e) { /* ignore */ }
+
+  interactiveFiles.forEach(f => patchInteractive(f));
+  actionsFiles.forEach(f => patchActions(f));
 }
+
+function patchInteractive(file) {
+  try {
+    let src = fs.readFileSync(file, 'utf8');
+    if (src.includes('REPLIT_PATCH')) { console.log('[patch] already patched:', file); return; }
+    const patched = src.replace(
+      'function isInteractive() {\n    return !_env.env.CI && process.stdout.isTTY;\n}',
+      'function isInteractive() {\n    return false; // REPLIT_PATCH: always non-interactive\n}'
+    );
+    if (patched === src) { console.warn('[patch] interactive.js pattern not found in', file); return; }
+    fs.writeFileSync(file, patched);
+    console.log('[patch] patched interactive.js:', file);
+  } catch (e) { console.error('[patch] error patching', file, e.message); }
+}
+
+function patchActions(file) {
+  try {
+    let src = fs.readFileSync(file, 'utf8');
+    if (src.includes('_nonInteractive')) { console.log('[patch] already patched:', file); return; }
+    let patched = src
+      .replace(
+        '    const value = await (0, _prompts.selectAsync)',
+        '    let value = false;\n    try {\n        value = await (0, _prompts.selectAsync)'
+      )
+      .replace(
+        '    });\n    if (value) {',
+        '    });\n    } catch (_nonInteractive) { return null; }\n    if (value) {'
+      );
+    if (patched === src) { console.warn('[patch] actions.js pattern not found in', file); return; }
+    fs.writeFileSync(file, patched);
+    console.log('[patch] patched actions.js:', file);
+  } catch (e) { console.error('[patch] error patching', file, e.message); }
+}
+
+patchAll();
