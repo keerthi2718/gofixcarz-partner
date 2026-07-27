@@ -115,9 +115,10 @@ export default function CreateJobScreen() {
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
   const scrollRef = useRef<ScrollView>(null);
 
-  const [step,       setStep]       = useState(0);
-  const [errors,     setErrors]     = useState<Record<string, string>>({});
+  const [step,        setStep]       = useState(0);
+  const [errors,      setErrors]     = useState<Record<string, string>>({});
   const [draftBanner, setDraftBanner] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   /* Step 0 — Customer & Vehicle */
   const [customerSearch,  setCustomerSearch]  = useState('');
@@ -250,9 +251,7 @@ export default function CreateJobScreen() {
     if (step === 2) {
       if (services.length === 0) errs.services = 'Please add at least one service.';
     }
-    if (step === 3) {
-      if (!selectedTechId) errs.technician = 'Please assign a technician.';
-    }
+    // Technician is optional – mock IDs are not sent to the API
     return errs;
   }
 
@@ -278,9 +277,20 @@ export default function CreateJobScreen() {
       estimated_amount: grandTotal || null,
     }),
     onSuccess: (job) => {
+      setCreateError(null);
       clearDraft();
       setCreatedJobId(job?.id ?? null);
       setStep(4);
+    },
+    onError: (err: any) => {
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'Something went wrong. Please try again.';
+      setCreateError(msg);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      Alert.alert('Failed to Create Job', msg);
     },
   });
 
@@ -292,6 +302,7 @@ export default function CreateJobScreen() {
       return;
     }
     setErrors({});
+    setCreateError(null);
     if (step === 3) { createJob(); return; }
     if (step < 5) { setStep(s => s + 1); scrollRef.current?.scrollTo({ y: 0, animated: true }); }
   }
@@ -907,10 +918,10 @@ export default function CreateJobScreen() {
         {/* ═══════════════════════════════════════════════════════ */}
         {step === 3 && (
           <>
-            {errors.technician && (
+            {createError && (
               <View style={styles.stepErrorBanner}>
                 <Feather name="alert-circle" size={14} color={DANGER} />
-                <Text style={styles.stepErrorText}>{errors.technician}</Text>
+                <Text style={styles.stepErrorText}>{createError}</Text>
               </View>
             )}
             <StepCard icon="users" title="Assign Technician" iconBg="#F5F3FF" iconFg="#C41E3A">
