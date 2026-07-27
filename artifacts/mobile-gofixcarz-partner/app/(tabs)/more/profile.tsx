@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform,
   ScrollView, StatusBar, StyleSheet, Text,
   TextInput, TouchableOpacity, View,
 } from 'react-native';
@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
 
 /* ── Design tokens ── */
 const BG       = '#EEEEF6';
@@ -159,7 +160,25 @@ export default function ProfileScreen() {
   const [pincode,   setPincode]    = useState(INITIAL.pincode);
   const [openTime,  setOpenTime]   = useState(dateFromHHMM('09:00'));
   const [closeTime, setCloseTime]  = useState(dateFromHHMM('19:00'));
+  const [logoUri,   setLogoUri]    = useState<string | null>(null);
   const [saving,    setSaving]     = useState(false);
+
+  async function pickLogo() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow access to your photo library to upload a logo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      setLogoUri(result.assets[0].uri);
+    }
+  }
 
   function handleSave() {
     if (!garageName.trim()) {
@@ -204,10 +223,22 @@ export default function ProfileScreen() {
 
         {/* Logo upload */}
         <View style={styles.logoWrap}>
-          <TouchableOpacity style={styles.logoBtn} activeOpacity={0.75}>
-            <Feather name="upload" size={22} color={MUTED} />
+          <TouchableOpacity style={styles.logoBtn} onPress={pickLogo} activeOpacity={0.75}>
+            {logoUri ? (
+              <>
+                <Image source={{ uri: logoUri }} style={styles.logoImage} />
+                {/* Change badge */}
+                <View style={styles.logoBadge}>
+                  <Feather name="edit-2" size={11} color="#fff" />
+                </View>
+              </>
+            ) : (
+              <Feather name="upload" size={22} color={MUTED} />
+            )}
           </TouchableOpacity>
-          <Text style={styles.logoLabel}>Upload Logo</Text>
+          <Text style={styles.logoLabel}>
+            {logoUri ? 'Tap to change logo' : 'Upload Logo'}
+          </Text>
         </View>
 
         {/* Form */}
@@ -338,6 +369,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   logoLabel: { fontSize: 13, color: PRIMARY, fontWeight: '600' },
+  logoImage: { width: 72, height: 72, borderRadius: 12 },
+  logoBadge: {
+    position: 'absolute', bottom: -4, right: -4,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: PRIMARY,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: CARD,
+  },
 
   /* Form */
   form: {
