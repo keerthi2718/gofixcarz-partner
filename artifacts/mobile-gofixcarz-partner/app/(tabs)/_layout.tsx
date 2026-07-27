@@ -1,6 +1,6 @@
 import React from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Tabs } from 'expo-router';
+import { Tabs, usePathname } from 'expo-router';
 import { Feather } from '@/src/components/ui/FeatherIcon';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,8 +20,13 @@ const TABS = [
 ];
 
 function TabBar({ state, descriptors, navigation }: any) {
-  const insets  = useSafeAreaInsets();
-  const isIOS   = Platform.OS === 'ios';
+  const insets   = useSafeAreaInsets();
+  const isIOS    = Platform.OS === 'ios';
+  const pathname = usePathname();
+
+  // Hide the tab bar on full-screen flows (job creation, etc.)
+  const HIDDEN_PATHS = ['/jobs/create'];
+  if (HIDDEN_PATHS.some(p => pathname.endsWith(p))) return null;
 
   return (
     <View style={[styles.wrapper, { paddingBottom: insets.bottom || 10 }]}>
