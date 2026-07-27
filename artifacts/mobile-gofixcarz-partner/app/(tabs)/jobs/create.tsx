@@ -644,8 +644,7 @@ export default function CreateJobScreen() {
                 <Text style={cardStyles.title}>Customer</Text>
               </View>
               <View style={cardStyles.body}>
-                <View>
-                  <InputField
+                <InputField
                     label="Customer Name *"
                     value={customerName}
                     onChangeText={v => { setCustomerName(v); clearFieldError('customerName'); }}
@@ -654,10 +653,7 @@ export default function CreateJobScreen() {
                     leadingIcon="user"
                     error={errors.customerName}
                   />
-                  <FieldError msg={errors.customerName} />
-                </View>
-                <View>
-                  <InputField
+                <InputField
                     label="Phone Number"
                     value={customerPhone}
                     onChangeText={v => {
@@ -671,15 +667,12 @@ export default function CreateJobScreen() {
                     maxLength={10}
                     error={errors.customerPhone}
                   />
-                  <FieldError msg={errors.customerPhone} />
-                </View>
               </View>
             </View>
 
             {/* Vehicle Details */}
             <StepCard icon="truck" title="Vehicle Details" iconBg="#FFF7ED" iconFg="#F97316">
-              <View>
-                <InputField
+              <InputField
                   label="Registration Number *"
                   value={regNumber}
                   onChangeText={v => { setRegNumber(v); clearFieldError('regNumber'); }}
@@ -688,8 +681,6 @@ export default function CreateJobScreen() {
                   leadingIcon="hash"
                   error={errors.regNumber}
                 />
-                <FieldError msg={errors.regNumber} />
-              </View>
               <SelectDropdown
                 label="Vehicle Brand *"
                 value={brand}
@@ -736,8 +727,7 @@ export default function CreateJobScreen() {
                   </ScrollView>
                 </View>
               </View>
-              <View>
-                <InputField
+              <InputField
                   label="Odometer (km)"
                   value={odometer}
                   onChangeText={v => { setOdometer(v); clearFieldError('odometer'); }}
@@ -746,8 +736,6 @@ export default function CreateJobScreen() {
                   leadingIcon="navigation"
                   error={errors.odometer}
                 />
-                <FieldError msg={errors.odometer} />
-              </View>
             </StepCard>
           </>
         )}
