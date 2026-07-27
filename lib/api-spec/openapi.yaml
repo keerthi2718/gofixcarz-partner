@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: notifications
+    description: Device token registration and push notification dispatch
+  - name: jobs
+    description: Job management and assignment
 paths:
   /healthz:
     get:
@@ -24,7 +28,136 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /notifications/device-token:
+    post:
+      operationId: registerDeviceToken
+      tags: [notifications]
+      summary: Register a device push token
+      description: >
+        Registers (or refreshes) an FCM / APNs device token for the
+        authenticated partner. Uses an upsert so re-registrations and
+        token rotations are handled cleanly.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterDeviceTokenRequest"
+      responses:
+        "200":
+          description: Token registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid authorization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      operationId: listDeviceTokens
+      tags: [notifications]
+      summary: List device tokens for the authenticated partner
+      description: Returns masked device tokens registered for the partner. Useful for debugging.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of registered tokens
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceTokenListResponse"
+        "401":
+          description: Missing or invalid authorization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /notifications/test:
+    post:
+      operationId: sendTestNotification
+      tags: [notifications]
+      summary: Send a test push notification
+      description: >
+        Sends a test FCM push notification to all devices registered for
+        the authenticated partner. Confirms end-to-end delivery.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Notification dispatched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestNotificationResponse"
+        "401":
+          description: Missing or invalid authorization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No device tokens registered for this partner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /jobs/{jobId}/assign:
+    post:
+      operationId: assignJob
+      tags: [jobs]
+      summary: Assign a job to a partner and send FCM notification
+      description: >
+        Assigns a job to a partner and dispatches an FCM push notification
+        to every device token registered for that partner.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignJobRequest"
+      responses:
+        "200":
+          description: Job assigned (notification sent if tokens exist)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssignJobResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +167,122 @@ components:
       required:
         - status
 
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+        - message
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+        - message
+
+    RegisterDeviceTokenRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Raw FCM registration token or APNs device token
+        platform:
+          type: string
+          enum: [android, ios]
+      required:
+        - token
+        - platform
+
+    DeviceTokenEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+          enum: [android, ios]
+        tokenPrefix:
+          type: string
+          description: First 20 characters of the token (masked for security)
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - platform
+        - tokenPrefix
+        - createdAt
+        - updatedAt
+
+    DeviceTokenListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeviceTokenEntry"
+      required:
+        - success
+        - data
+
+    TestNotificationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        tokenCount:
+          type: integer
+      required:
+        - success
+        - message
+        - tokenCount
+
+    AssignJobRequest:
+      type: object
+      properties:
+        partnerId:
+          type: string
+        service:
+          type: string
+          default: Vehicle Service
+        customerName:
+          type: string
+          default: Customer
+      required:
+        - partnerId
+
+    AssignJobResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        notified:
+          type: boolean
+        tokenCount:
+          type: integer
+        jobId:
+          type: string
+        partnerId:
+          type: string
+        reason:
+          type: string
+      required:
+        - success
+        - notified
