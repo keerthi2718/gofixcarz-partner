@@ -174,12 +174,15 @@ export default function CreateJobScreen() {
   const grandTotal    = subtotal + gst;
 
   /* ── Draft helpers ── */
+  const isDone = useRef(false); // prevents debounced save from overwriting clearDraft on success
+
   const draftData = useCallback(() => ({
-    step, customerName, customerPhone, regNumber, brand, model,
+    // NOTE: `step` is intentionally excluded — always restart at step 0
+    customerName, customerPhone, regNumber, brand, model,
     fuelType, odometer, fuelLevel, complaint, inspectionNotes,
     services, selectedTechId, selectedTechName, estHours,
     labourCharge, deliveryDate, deliveryTime, additionalNotes,
-  }), [step, customerName, customerPhone, regNumber, brand, model,
+  }), [customerName, customerPhone, regNumber, brand, model,
     fuelType, odometer, fuelLevel, complaint, inspectionNotes,
     services, selectedTechId, selectedTechName, estHours,
     labourCharge, deliveryDate, deliveryTime, additionalNotes]);
@@ -210,7 +213,6 @@ export default function CreateJobScreen() {
           setDeliveryDate(d.deliveryDate ?? '');
           setDeliveryTime(d.deliveryTime ?? '');
           setAdditionalNotes(d.additionalNotes ?? '');
-          setStep(d.step ?? 0);
           setDraftBanner(true);
           setTimeout(() => setDraftBanner(false), 3500);
         }
@@ -220,6 +222,7 @@ export default function CreateJobScreen() {
 
   /* Save draft whenever key data changes (debounced) */
   useEffect(() => {
+    if (isDone.current) return; // job already created — don't overwrite the cleared draft
     const t = setTimeout(() => {
       AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draftData())).catch(() => {});
     }, 800);
@@ -228,6 +231,7 @@ export default function CreateJobScreen() {
 
   /* Clear draft after job created */
   function clearDraft() {
+    isDone.current = true;
     AsyncStorage.removeItem(DRAFT_KEY).catch(() => {});
   }
 
