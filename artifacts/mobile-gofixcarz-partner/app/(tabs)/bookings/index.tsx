@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
 import {
-  FlatList, Platform, Pressable, RefreshControl,
-  ScrollView, StatusBar, StyleSheet, Text,
+  FlatList, Platform, Pressable, ScrollView,
+  StatusBar, StyleSheet, Text,
   TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
-import { QUERY_KEYS } from '@/src/constants/api';
-import BookingService from '@/src/services/booking.service';
 import Avatar from '@/src/components/ui/Avatar';
-import { SkeletonList } from '@/src/components/ui/SkeletonCard';
+import { MOCK_BOOKINGS } from '@/src/data/mockBookings';
 import type { BookingStatus } from '@/src/types';
 
 /* ── Design tokens ── */
@@ -23,11 +20,11 @@ const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
 
 const FILTERS: { label: string; value: BookingStatus | '' }[] = [
-  { label: 'All',       value: '' },
-  { label: 'Pending',   value: 'PENDING' },
-  { label: 'Confirmed', value: 'ACCEPTED' },
+  { label: 'All',       value: ''          },
+  { label: 'Pending',   value: 'PENDING'   },
+  { label: 'Confirmed', value: 'ACCEPTED'  },
   { label: 'Converted', value: 'CONVERTED' },
-  { label: 'Rejected',  value: 'REJECTED' },
+  { label: 'Rejected',  value: 'REJECTED'  },
 ];
 
 const STATUS: Record<string, { label: string; color: string; bg: string }> = {
@@ -39,23 +36,22 @@ const STATUS: Record<string, { label: string; color: string; bg: string }> = {
 
 export default function BookingsScreen() {
   const insets = useSafeAreaInsets();
-  const [filter, setFilter] = useState<BookingStatus | ''>('');
-  const [search, setSearch] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [filter,      setFilter]      = useState<BookingStatus | ''>('');
+  const [search,      setSearch]      = useState('');
+  const [searchOpen,  setSearchOpen]  = useState(false);
+  const [, forceUpdate] = useState(0);          // re-render when returning from detail
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
-  const { data, isLoading, isRefetching, refetch, error } = useQuery({
-    queryKey: QUERY_KEYS.BOOKINGS({ status: filter || undefined }),
-    queryFn: () => BookingService.list({ status: filter || undefined, page_size: 30 }),
-  });
+  const filtered = MOCK_BOOKINGS
+    .filter(b => !filter || b.status === filter)
+    .filter(b =>
+      !search ||
+      (b.customer_name  ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (b.customer_mobile ?? '').includes(search),
+    );
 
-  const all = data?.items ?? [];
-  const items = search
-    ? all.filter(b =>
-        (b.customer_name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-        (b.customer_mobile ?? '').includes(search),
-      )
-    : all;
+  const counts: Record<string, number> = {};
+  for (const b of MOCK_BOOKINGS) counts[b.status] = (counts[b.status] ?? 0) + 1;
 
   return (
     <View style={[styles.root, { backgroundColor: BG }]}>
@@ -65,11 +61,11 @@ export default function BookingsScreen() {
       <View style={[styles.topBar, { paddingTop: topPad + 16 }]}>
         <View>
           <Text style={styles.pageTitle}>Bookings</Text>
-          <Text style={styles.pageSubtitle}>{data?.total ?? 0} total requests</Text>
+          <Text style={styles.pageSubtitle}>{MOCK_BOOKINGS.length} total requests</Text>
         </View>
         <TouchableOpacity
           style={styles.iconBtn}
-          onPress={() => setSearchOpen(v => !v)}
+          onPress={() => { setSearchOpen(v => !v); setSearch(''); }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Feather name={searchOpen ? 'x' : 'search'} size={18} color={TEXT} />
@@ -105,44 +101,33 @@ export default function BookingsScreen() {
         contentContainerStyle={styles.chipRow}
         style={styles.chipBar}
       >
-        {FILTERS.map(f => (
-          <Pressable
-            key={f.value}
-            style={[styles.chip, filter === f.value && styles.chipActive]}
-            onPress={() => setFilter(f.value)}
-          >
-            <Text style={[styles.chipText, filter === f.value && styles.chipTextActive]}>
-              {f.label}
-            </Text>
-          </Pressable>
-        ))}
+        {FILTERS.map(f => {
+          const count = f.value ? (counts[f.value] ?? 0) : MOCK_BOOKINGS.length;
+          return (
+            <Pressable
+              key={f.value}
+              style={[styles.chip, filter === f.value && styles.chipActive]}
+              onPress={() => setFilter(f.value)}
+            >
+              <Text style={[styles.chipText, filter === f.value && styles.chipTextActive]}>
+                {f.label}
+              </Text>
+              <View style={[styles.chipBadge, filter === f.value && styles.chipBadgeActive]}>
+                <Text style={[styles.chipBadgeText, filter === f.value && styles.chipBadgeTextActive]}>
+                  {count}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
-      {/* ── Error banner ── */}
-      {error && !isLoading && (
-        <View style={styles.errorBanner}>
-          <Feather name="wifi-off" size={13} color="#92400E" />
-          <Text style={styles.errorBannerText}>Couldn't load bookings.</Text>
-          <TouchableOpacity onPress={() => refetch()} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-            <Text style={styles.errorBannerRetry}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {isLoading ? (
-        <ScrollView
-          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 110 }]}
-          showsVerticalScrollIndicator={false}
-        >
-          <SkeletonList count={7} />
-        </ScrollView>
-      ) : (
       <FlatList
-        data={items}
+        data={filtered}
         keyExtractor={item => item.id}
         contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 110 }]}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={PRIMARY} />}
         showsVerticalScrollIndicator={false}
+        onLayout={() => forceUpdate(n => n + 1)}   // sync status changes from detail screen
         renderItem={({ item }) => {
           const st = STATUS[item.status] ?? { label: item.status, color: MUTED, bg: '#F3F4F6' };
           return (
@@ -181,7 +166,7 @@ export default function BookingsScreen() {
                   ) : null}
                   {item.booking_date ? (
                     <View style={styles.metaRow}>
-                      <View style={styles.metaIconWrap}>
+                      <View style={[styles.metaIconWrap, { backgroundColor: '#F1F5F9' }]}>
                         <Feather name="calendar" size={11} color={MUTED} />
                       </View>
                       <Text style={styles.metaText}>
@@ -201,14 +186,13 @@ export default function BookingsScreen() {
             <View style={styles.emptyIcon}>
               <Feather name="calendar" size={28} color={PRIMARY} />
             </View>
-            <Text style={styles.emptyTitle}>No bookings yet</Text>
+            <Text style={styles.emptyTitle}>No bookings found</Text>
             <Text style={styles.emptySubtitle}>
-              {search ? 'Try a different search.' : 'Booking requests will appear here.'}
+              {search ? 'Try a different search.' : 'No requests match this filter.'}
             </Text>
           </View>
         }
       />
-      )}
     </View>
   );
 }
@@ -216,7 +200,6 @@ export default function BookingsScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
 
-  /* Header */
   topBar: {
     flexDirection: 'row', alignItems: 'flex-end',
     justifyContent: 'space-between',
@@ -229,13 +212,12 @@ const styles = StyleSheet.create({
     backgroundColor: CARD, borderWidth: 1, borderColor: BORDER,
     alignItems: 'center', justifyContent: 'center',
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
       android: { elevation: 2 },
       default: {},
     }),
   },
 
-  /* Search */
   searchWrap: { paddingHorizontal: 20, paddingBottom: 12 },
   searchBox: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -243,69 +225,57 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: BORDER,
     paddingHorizontal: 14, height: 46,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
       android: { elevation: 2 },
       default: {},
     }),
   },
   searchInput: { flex: 1, fontSize: 15, color: TEXT },
 
-  /* Filter chips */
   chipBar: { flexGrow: 0 },
   chipRow: { paddingHorizontal: 20, paddingBottom: 14, gap: 8 },
   chip: {
-    paddingHorizontal: 16, paddingVertical: 7,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 7,
     borderRadius: 20, borderWidth: 1.5, borderColor: BORDER,
     backgroundColor: CARD,
   },
-  chipActive:     { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  chipText:       { fontSize: 12, fontWeight: '600', color: MUTED },
-  chipTextActive: { color: '#fff' },
+  chipActive:         { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  chipText:           { fontSize: 12, fontWeight: '600', color: MUTED },
+  chipTextActive:     { color: '#fff' },
+  chipBadge:          { backgroundColor: '#F1F5F9', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1 },
+  chipBadgeActive:    { backgroundColor: 'rgba(255,255,255,0.25)' },
+  chipBadgeText:      { fontSize: 10, fontWeight: '700', color: MUTED },
+  chipBadgeTextActive:{ color: '#fff' },
 
-  /* List */
   list: { paddingHorizontal: 20, gap: 10 },
 
-  /* Card */
   card: {
     backgroundColor: CARD,
     borderRadius: 18, borderWidth: 1, borderColor: BORDER,
     overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
       android: { elevation: 2 },
       default: {},
     }),
   },
-  cardTop: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 12, padding: 14,
-  },
+  cardTop:   { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
   cardName:  { fontSize: 15, fontWeight: '600', color: TEXT, marginBottom: 3 },
   cardPhone: { fontSize: 12, color: MUTED },
 
-  /* Meta row */
   cardMeta: {
     flexDirection: 'row', gap: 12,
-    paddingHorizontal: 14, paddingBottom: 12,
-    flexWrap: 'wrap',
+    paddingHorizontal: 14, paddingBottom: 12, flexWrap: 'wrap',
   },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  metaIconWrap: {
-    width: 20, height: 20, borderRadius: 6,
-    backgroundColor: '#FEE2E2',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  metaText: { fontSize: 12, color: MUTED },
+  metaRow:     { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  metaIconWrap:{ width: 20, height: 20, borderRadius: 6, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' },
+  metaText:    { fontSize: 12, color: MUTED },
 
-  /* Status pill */
-  statusPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
-  },
+  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   dot:        { width: 5, height: 5, borderRadius: 3 },
   statusText: { fontSize: 11, fontWeight: '600' },
 
-  /* Empty */
   empty: { alignItems: 'center', paddingVertical: 60 },
   emptyIcon: {
     width: 64, height: 64, borderRadius: 20,
@@ -314,15 +284,4 @@ const styles = StyleSheet.create({
   },
   emptyTitle:    { fontSize: 16, fontWeight: '700', color: TEXT, marginBottom: 6 },
   emptySubtitle: { fontSize: 13, color: MUTED },
-
-  /* Error banner */
-  errorBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#FEF3C7',
-    marginHorizontal: 20, marginBottom: 10,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 1, borderColor: '#FDE68A',
-  },
-  errorBannerText:  { flex: 1, fontSize: 13, color: '#92400E', fontWeight: '500' },
-  errorBannerRetry: { fontSize: 13, color: '#D97706', fontWeight: '700' },
 });
