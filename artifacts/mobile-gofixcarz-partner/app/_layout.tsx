@@ -12,6 +12,9 @@ import {
   Inter_600SemiBold, Inter_700Bold, useFonts,
 } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
+// Local copy of Feather.ttf avoids pnpm symlink resolution issues in Metro.
+// This ensures icons load in both Expo Go and standalone EAS builds.
+const FeatherFont = require('../assets/fonts/Feather.ttf');
 import * as SplashScreen from 'expo-splash-screen';
 
 SplashScreen.preventAutoHideAsync();
@@ -33,13 +36,11 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
-  // Feather (and all @expo/vector-icons) are pre-loaded natively in Expo Go.
-  // For standalone builds the expo-font plugin in app.json embeds the TTF.
-  // Do NOT include Feather.font here — adding it to useFonts can silently
-  // fail in Expo Go (re-registering a pre-loaded font), which poisons the
-  // whole batch and prevents Inter from loading too, leaving blank icon boxes.
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold,
+    // Load Feather from a local copy so Metro can resolve it without symlinks.
+    // The font family name must match what @expo/vector-icons uses: 'feather'.
+    feather: FeatherFont,
   });
 
   useEffect(() => {
