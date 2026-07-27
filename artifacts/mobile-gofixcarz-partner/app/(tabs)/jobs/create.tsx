@@ -16,6 +16,8 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import JobService from '@/src/services/job.service';
 import InputField from '@/src/components/ui/InputField';
+import SelectDropdown from '@/src/components/ui/SelectDropdown';
+import { VEHICLE_BRANDS, getModelsForBrand } from '@/src/data/vehicleData';
 import { formatCurrency } from '@/src/utils/helpers';
 
 /* ── Design tokens ── */
@@ -777,29 +779,30 @@ export default function CreateJobScreen() {
                 />
                 <FieldError msg={errors.regNumber} />
               </View>
-              <View style={styles.row}>
-                <View style={{ flex: 1 }}>
-                  <InputField
-                    label="Brand *"
-                    value={brand}
-                    onChangeText={v => { setBrand(v); clearFieldError('brand'); }}
-                    placeholder="Honda"
-                    autoCapitalize="words"
-                    error={errors.brand}
-                  />
-                  <FieldError msg={errors.brand} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <InputField
-                    label="Model *"
-                    value={model}
-                    onChangeText={v => { setModel(v); clearFieldError('model'); }}
-                    placeholder="City"
-                    error={errors.model}
-                  />
-                  <FieldError msg={errors.model} />
-                </View>
-              </View>
+              <SelectDropdown
+                label="Vehicle Brand *"
+                value={brand}
+                onChange={v => {
+                  setBrand(v);
+                  setModel('');           // clear dependent model
+                  clearFieldError('brand');
+                  clearFieldError('model');
+                }}
+                options={VEHICLE_BRANDS}
+                placeholder="Select Vehicle Brand"
+                error={errors.brand}
+                leadingIcon="tag"
+              />
+              <SelectDropdown
+                label="Vehicle Model *"
+                value={model}
+                onChange={v => { setModel(v); clearFieldError('model'); }}
+                options={getModelsForBrand(brand)}
+                placeholder={brand ? 'Select Vehicle Model' : 'Select a brand first'}
+                disabled={!brand}
+                error={errors.model}
+                leadingIcon="git-branch"
+              />
               <View style={styles.row}>
                 <View style={{ flex: 1 }}>
                   <FieldLabel text="Fuel Type" />
