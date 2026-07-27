@@ -15,10 +15,12 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.gofixcarz.partner"
+      "bundleIdentifier": "com.gofixcarz.partner",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
-      "package": "com.gofixcarz.partner"
+      "package": "com.gofixcarz.partner",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/images/logo.jpg"

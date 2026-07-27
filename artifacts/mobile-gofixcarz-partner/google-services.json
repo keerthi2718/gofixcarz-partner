@@ -1,0 +1,20 @@
+{
+  "_PLACEHOLDER_": true,
+  "_instructions_": [
+    "Replace this entire file with the real google-services.json downloaded from the Firebase console.",
+    "",
+    "Steps:",
+    "  1. Open https://console.firebase.google.com and select the GoFixCarz project.",
+    "  2. Go to Project Settings (gear icon) → 'Your apps' → Android app (com.gofixcarz.partner).",
+    "  3. Click 'Download google-services.json'.",
+    "  4. Overwrite this file with the downloaded file.",
+    "  5. Run `eas build --platform android` to create a new build — FCM delivery is now enabled.",
+    "",
+    "Expected top-level structure of the real file:",
+    "  {",
+    "    \"project_info\": { \"project_number\": \"...\", \"project_id\": \"...\", ... },",
+    "    \"client\": [ { \"client_info\": { ... }, \"oauth_client\": [...], ... } ],",
+    "    \"configuration_version\": \"1\"",
+    "  }"
+  ]
+}

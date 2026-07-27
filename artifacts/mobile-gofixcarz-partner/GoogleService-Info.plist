@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  PLACEHOLDER — Replace this entire file with the real GoogleService-Info.plist.
+
+  Steps:
+    1. Open https://console.firebase.google.com and select the GoFixCarz project.
+    2. Go to Project Settings (gear icon) → 'Your apps' → iOS app (com.gofixcarz.partner).
+       If no iOS app exists yet, add one with bundle ID: com.gofixcarz.partner
+    3. Click 'Download GoogleService-Info.plist'.
+    4. Overwrite this file with the downloaded file.
+    5. Run `eas build --platform ios` to create a new build — APNs/FCM delivery is now enabled.
+
+  The real file will contain keys like:
+    API_KEY, GCM_SENDER_ID, BUNDLE_ID, PROJECT_ID, GOOGLE_APP_ID, etc.
+-->
+<plist version="1.0">
+<dict>
+  <key>_PLACEHOLDER_</key>
+  <true/>
+</dict>
+</plist>
