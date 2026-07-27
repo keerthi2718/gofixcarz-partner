@@ -63,6 +63,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
+    "@react-native-community/datetimepicker": "^8.4.4",
     "axios": "^1.18.1",
     "expo-clipboard": "~8.0.8",
     "expo-contacts": "^57.0.2",

@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform,
   Pressable, ScrollView, StatusBar, StyleSheet,
   Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -145,8 +146,10 @@ export default function CreateJobScreen() {
   const [selectedTechName, setSelectedTechName] = useState('');
   const [estHours,         setEstHours]         = useState('');
   const [labourCharge,     setLabourCharge]      = useState('');
-  const [deliveryDate,     setDeliveryDate]      = useState('');
-  const [deliveryTime,     setDeliveryTime]      = useState('');
+  const [deliveryDate,     setDeliveryDate]      = useState<Date | null>(null);
+  const [deliveryTime,     setDeliveryTime]      = useState<Date | null>(null);
+  const [showDatePicker,   setShowDatePicker]    = useState(false);
+  const [showTimePicker,   setShowTimePicker]    = useState(false);
   const [additionalNotes,  setAdditionalNotes]   = useState('');
 
   /* Step 4/5 — created job */
@@ -172,7 +175,10 @@ export default function CreateJobScreen() {
     customerName, customerPhone, regNumber, brand, model,
     fuelType, odometer, fuelLevel, complaint, inspectionNotes,
     services, selectedTechId, selectedTechName, estHours,
-    labourCharge, deliveryDate, deliveryTime, additionalNotes,
+    labourCharge,
+    deliveryDate: deliveryDate?.toISOString() ?? null,
+    deliveryTime: deliveryTime?.toISOString() ?? null,
+    additionalNotes,
   }), [customerName, customerPhone, regNumber, brand, model,
     fuelType, odometer, fuelLevel, complaint, inspectionNotes,
     services, selectedTechId, selectedTechName, estHours,
@@ -200,8 +206,8 @@ export default function CreateJobScreen() {
           setSelectedTechName(d.selectedTechName ?? '');
           setEstHours(d.estHours ?? '');
           setLabourCharge(d.labourCharge ?? '');
-          setDeliveryDate(d.deliveryDate ?? '');
-          setDeliveryTime(d.deliveryTime ?? '');
+          setDeliveryDate(d.deliveryDate ? new Date(d.deliveryDate) : null);
+          setDeliveryTime(d.deliveryTime ? new Date(d.deliveryTime) : null);
           setAdditionalNotes(d.additionalNotes ?? '');
           setDraftBanner(true);
           setTimeout(() => setDraftBanner(false), 3500);
@@ -910,26 +916,119 @@ export default function CreateJobScreen() {
             </StepCard>
 
             <StepCard icon="calendar" title="Expected Delivery" iconBg="#FFF7ED" iconFg="#F97316">
+              {/* Date + Time picker buttons */}
               <View style={styles.row}>
-                <View style={{ flex: 1 }}>
-                  <InputField
-                    label="Date"
-                    value={deliveryDate}
-                    onChangeText={setDeliveryDate}
-                    placeholder="DD-MM-YYYY"
-                    leadingIcon="calendar"
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <InputField
-                    label="Time"
-                    value={deliveryTime}
-                    onChangeText={setDeliveryTime}
-                    placeholder="05:00 PM"
-                    leadingIcon="clock"
-                  />
-                </View>
+                {/* Date */}
+                <TouchableOpacity
+                  style={styles.pickerBtn}
+                  onPress={() => setShowDatePicker(true)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.pickerBtnIcon}>
+                    <Feather name="calendar" size={17} color={PRIMARY} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pickerBtnLabel}>Date</Text>
+                    <Text style={[styles.pickerBtnValue, !deliveryDate && styles.pickerBtnPlaceholder]}>
+                      {deliveryDate
+                        ? deliveryDate.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })
+                        : 'Select date'}
+                    </Text>
+                  </View>
+                  <Feather name="chevron-down" size={15} color={MUTED} />
+                </TouchableOpacity>
+
+                {/* Time */}
+                <TouchableOpacity
+                  style={styles.pickerBtn}
+                  onPress={() => setShowTimePicker(true)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.pickerBtnIcon}>
+                    <Feather name="clock" size={17} color={PRIMARY} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pickerBtnLabel}>Time</Text>
+                    <Text style={[styles.pickerBtnValue, !deliveryTime && styles.pickerBtnPlaceholder]}>
+                      {deliveryTime
+                        ? deliveryTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+                        : 'Select time'}
+                    </Text>
+                  </View>
+                  <Feather name="chevron-down" size={15} color={MUTED} />
+                </TouchableOpacity>
               </View>
+
+              {/* Android: renders as a native dialog — no Modal needed */}
+              {Platform.OS === 'android' && showDatePicker && (
+                <DateTimePicker
+                  value={deliveryDate ?? new Date()}
+                  mode="date"
+                  minimumDate={new Date()}
+                  display="calendar"
+                  onChange={(_: DateTimePickerEvent, date?: Date) => {
+                    setShowDatePicker(false);
+                    if (date) setDeliveryDate(date);
+                  }}
+                />
+              )}
+              {Platform.OS === 'android' && showTimePicker && (
+                <DateTimePicker
+                  value={deliveryTime ?? new Date()}
+                  mode="time"
+                  is24Hour={false}
+                  display="clock"
+                  onChange={(_: DateTimePickerEvent, date?: Date) => {
+                    setShowTimePicker(false);
+                    if (date) setDeliveryTime(date);
+                  }}
+                />
+              )}
+
+              {/* iOS: inline spinner — wrap in Modal with Done button */}
+              <Modal visible={Platform.OS === 'ios' && (showDatePicker || showTimePicker)} transparent animationType="slide">
+                <View style={styles.pickerModal}>
+                  <View style={styles.pickerModalSheet}>
+                    <View style={styles.pickerModalHeader}>
+                      <Text style={styles.pickerModalTitle}>
+                        {showDatePicker ? 'Select Date' : 'Select Time'}
+                      </Text>
+                      <TouchableOpacity onPress={() => { setShowDatePicker(false); setShowTimePicker(false); }}>
+                        <Text style={styles.pickerModalDone}>Done</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {showDatePicker && (
+                      <DateTimePicker
+                        value={deliveryDate ?? new Date()}
+                        mode="date"
+                        minimumDate={new Date()}
+                        display="inline"
+                        themeVariant="light"
+                        accentColor={PRIMARY}
+                        onChange={(_: DateTimePickerEvent, date?: Date) => {
+                          if (date) setDeliveryDate(date);
+                        }}
+                        style={{ alignSelf: 'center' }}
+                      />
+                    )}
+                    {showTimePicker && (
+                      <DateTimePicker
+                        value={deliveryTime ?? new Date()}
+                        mode="time"
+                        is24Hour={false}
+                        display="spinner"
+                        themeVariant="light"
+                        accentColor={PRIMARY}
+                        onChange={(_: DateTimePickerEvent, date?: Date) => {
+                          if (date) setDeliveryTime(date);
+                        }}
+                        style={{ alignSelf: 'center' }}
+                      />
+                    )}
+                  </View>
+                </View>
+              </Modal>
+
               <FieldLabel text="Additional Notes" />
               <View style={[styles.textAreaWrap, { marginBottom: 0 }]}>
                 <TextInput
@@ -1232,6 +1331,40 @@ const styles = StyleSheet.create({
 
   /* Row */
   row: { flexDirection: 'row', gap: 10 },
+
+  /* Date / Time picker buttons */
+  pickerBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#F8FAFC', borderRadius: 14,
+    borderWidth: 1.5, borderColor: BORDER,
+    paddingHorizontal: 12, paddingVertical: 12, marginBottom: 14,
+  },
+  pickerBtnIcon: {
+    width: 34, height: 34, borderRadius: 10,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  pickerBtnLabel:       { fontSize: 11, color: MUTED, fontWeight: '500', marginBottom: 2 },
+  pickerBtnValue:       { fontSize: 13, fontWeight: '700', color: TEXT },
+  pickerBtnPlaceholder: { color: '#94A3B8', fontWeight: '400' },
+
+  /* iOS picker modal */
+  pickerModal: {
+    flex: 1, justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  pickerModalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingBottom: 32, overflow: 'hidden',
+  },
+  pickerModalHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 16,
+    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+  },
+  pickerModalTitle: { fontSize: 16, fontWeight: '700', color: TEXT },
+  pickerModalDone:  { fontSize: 15, fontWeight: '700', color: PRIMARY },
 
   /* Chips */
   chipRow: { gap: 8 },
