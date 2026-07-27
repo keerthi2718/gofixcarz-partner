@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Image, KeyboardAvoidingView,
   Platform, ScrollView, StatusBar, StyleSheet,
@@ -125,10 +125,27 @@ function WorkingHours({
   closeTime: Date; setCloseTime: (d: Date) => void;
 }) {
   const [pickerFor, setPickerFor] = useState<'open' | 'close' | null>(null);
+  // Ref keeps the live value so the async onChange callback never reads stale state
+  const pickerForRef = useRef<'open' | 'close' | null>(null);
 
-  function onPick(_: DateTimePickerEvent, sel?: Date) {
-    if (sel) pickerFor === 'open' ? setOpenTime(sel) : setCloseTime(sel);
-    if (Platform.OS !== 'ios') setPickerFor(null);
+  function openPicker(which: 'open' | 'close') {
+    // toggle: tap again to close
+    const next = pickerForRef.current === which ? null : which;
+    pickerForRef.current = next;
+    setPickerFor(next);
+  }
+
+  function onPick(event: DateTimePickerEvent, sel?: Date) {
+    // guard: only act on real confirmations, not dismiss/teardown events
+    if (event.type !== 'set' || !sel) return;
+    const which = pickerForRef.current;
+    if (which === 'open')  setOpenTime(sel);
+    if (which === 'close') setCloseTime(sel);
+    // on Android the dialog closes itself; on iOS keep it open for smooth spinning
+    if (Platform.OS !== 'ios') {
+      pickerForRef.current = null;
+      setPickerFor(null);
+    }
   }
 
   return (
@@ -156,7 +173,7 @@ function WorkingHours({
       {/* ── Opens at ── */}
       <TouchableOpacity
         style={wh.timeRow}
-        onPress={() => setPickerFor(p => p === 'open' ? null : 'open')}
+        onPress={() => openPicker('open')}
         activeOpacity={0.75}
       >
         <View style={wh.timeIcon}>
@@ -168,13 +185,17 @@ function WorkingHours({
             {fmt(openTime)}
           </Text>
         </View>
-        <Feather name="chevron-down" size={15} color={pickerFor === 'open' ? PRIMARY : MUTED} style={{ marginLeft: 4 }} />
+        <Feather
+          name={pickerFor === 'open' ? 'chevron-up' : 'chevron-down'}
+          size={15} color={pickerFor === 'open' ? PRIMARY : MUTED}
+          style={{ marginLeft: 4 }}
+        />
       </TouchableOpacity>
 
       {pickerFor === 'open' && (
         <DateTimePicker
           value={openTime} mode="time" is24Hour
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          display="spinner"
           onChange={onPick}
         />
       )}
@@ -184,7 +205,7 @@ function WorkingHours({
       {/* ── Closes at ── */}
       <TouchableOpacity
         style={wh.timeRow}
-        onPress={() => setPickerFor(p => p === 'close' ? null : 'close')}
+        onPress={() => openPicker('close')}
         activeOpacity={0.75}
       >
         <View style={wh.timeIcon}>
@@ -196,13 +217,17 @@ function WorkingHours({
             {fmt(closeTime)}
           </Text>
         </View>
-        <Feather name="chevron-down" size={15} color={pickerFor === 'close' ? PRIMARY : MUTED} style={{ marginLeft: 4 }} />
+        <Feather
+          name={pickerFor === 'close' ? 'chevron-up' : 'chevron-down'}
+          size={15} color={pickerFor === 'close' ? PRIMARY : MUTED}
+          style={{ marginLeft: 4 }}
+        />
       </TouchableOpacity>
 
       {pickerFor === 'close' && (
         <DateTimePicker
           value={closeTime} mode="time" is24Hour
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          display="spinner"
           onChange={onPick}
         />
       )}
