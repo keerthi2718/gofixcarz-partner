@@ -1,0 +1,59 @@
+Implement a complete Push Notification system for the app without modifying existing APIs or business logic.
+
+Requirements:
+
+General
+- Integrate Firebase Cloud Messaging (FCM) for Android and iOS.
+- Request notification permission during onboarding or first app launch.
+- Store and update the device FCM token securely.
+- Support notifications in foreground, background, and when the app is closed.
+- Tapping a notification should open the relevant screen.
+
+Customer Notifications
+- Booking confirmed.
+- Service accepted by the garage.
+- Mechanic assigned.
+- Vehicle check-in completed.
+- Service started.
+- Service completed.
+- Invoice generated.
+- Payment successful.
+- Service cancelled or rejected.
+- Reminder 1 hour before scheduled service.
+- Promotional offers and discounts.
+
+Garage Owner Notifications
+- New booking received.
+- Booking cancelled.
+- Customer rescheduled.
+- Payment received.
+- New customer review submitted.
+- Daily booking summary.
+- Low inventory/service reminder (if applicable).
+
+Admin Notifications
+- New garage registration awaiting approval.
+- New customer registration.
+- Failed payment alerts.
+- High-priority support requests.
+- System alerts and errors.
+
+Notification Center
+- Add a Notifications screen.
+- Display unread/read status.
+- Show notification title, message, date, and time.
+- Allow users to mark notifications as read.
+- Support deleting individual notifications and clearing all.
+- Show notification count badge on the app icon and notification icon.
+
+Settings
+- Allow users to enable or disable promotional notifications.
+- Keep service-related notifications enabled by default.
+- Save notification preferences.
+
+Performance
+- Avoid duplicate notifications.
+- Queue notifications if the device is offline.
+- Ensure reliable delivery and proper error handling.
+
+Do not modify existing APIs, authentication, booking flow, payment flow, or business logic. Keep the implementation modular and scalable for future notification types.
