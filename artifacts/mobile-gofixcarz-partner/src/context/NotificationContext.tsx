@@ -1,33 +1,17 @@
 /**
  * NotificationContext — FCM push notification integration via expo-notifications.
  *
- * Responsibilities:
- *  - Request permission & register device push token with the backend
- *  - Configure Android notification channel
- *  - Show foreground banners
- *  - Auto-refresh the notifications query cache when a push arrives
- *  - Navigate to the correct screen when the user taps a notification
- *  - Expose `unreadCount` for the home-screen bell badge
+ * All expo-notifications calls are guarded by try/catch so that Expo Go
+ * (which removed Android push support in SDK 53) never crashes the app.
+ * In Expo Go the context mounts silently with unreadCount = 0.
+ * In a standalone EAS build everything works as expected.
  */
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import NotificationService from '@/src/services/notification.service';
-
-/* ── Foreground banner config ─────────────────────────────────────────────── */
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert:  true,
-    shouldPlaySound:  true,
-    shouldSetBadge:   true,
-    shouldShowBanner: true,
-    shouldShowList:   true,
-  }),
-});
 
 /* ── Route resolver ───────────────────────────────────────────────────────── */
 type NotifData = Record<string, string | null | undefined>;
@@ -36,7 +20,6 @@ export function resolveRoute(data: NotifData): string {
   const type  = (data?.type  ?? '').toUpperCase();
   const refId = data?.reference_id ?? '';
 
-  // Job-lifecycle events
   if (
     (type.includes('SERVICE') ||
      type.includes('INVOICE') ||
@@ -46,13 +29,9 @@ export function resolveRoute(data: NotifData): string {
   ) {
     return `/(tabs)/jobs/${refId}`;
   }
-
-  // Booking events
   if (type.includes('BOOKING') && refId) {
     return `/(tabs)/bookings/${refId}`;
   }
-
-  // Fallback → notifications list
   return '/(tabs)/more/notifications';
 }
 
@@ -63,20 +42,17 @@ interface NotificationContextValue {
 }
 
 const NotificationContext = createContext<NotificationContextValue>({
-  unreadCount:    0,
-  refreshUnread:  () => {},
+  unreadCount:   0,
+  refreshUnread: () => {},
 });
 
 /* ── Provider ─────────────────────────────────────────────────────────────── */
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const qc = useQueryClient();
   const [unreadCount, setUnreadCount] = useState(0);
-
-  const receivedSub  = useRef<Notifications.EventSubscription | null>(null);
-  const responseSub  = useRef<Notifications.EventSubscription | null>(null);
-  // Prevent double-navigation when both getLastNotificationResponseAsync
-  // and addNotificationResponseReceivedListener fire for the same tap.
-  const handledId    = useRef<string | null>(null);
+  const receivedSub = useRef<any>(null);
+  const responseSub = useRef<any>(null);
+  const handledId   = useRef<string | null>(null);
 
   /* ── fetch unread count ─────────────────────────────────────────────────── */
   const refreshUnread = React.useCallback(async () => {
@@ -89,16 +65,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, []);
 
   /* ── navigate to notification target ───────────────────────────────────── */
-  function navigateFromNotif(
-    data: NotifData,
-    notifId: string,
-    delayMs = 300,
-  ) {
+  function navigateFromNotif(data: NotifData, notifId: string, delayMs = 300) {
     if (handledId.current === notifId) return;
     handledId.current = notifId;
     const route = resolveRoute(data);
     setTimeout(() => {
-      try { router.push(route as any); } catch { /* ignore if navigator not ready */ }
+      try { router.push(route as any); } catch { /* navigator not ready */ }
       qc.invalidateQueries({ queryKey: QUERY_KEYS.NOTIFICATIONS() });
       refreshUnread();
     }, delayMs);
@@ -106,78 +78,90 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   /* ── setup ──────────────────────────────────────────────────────────────── */
   useEffect(() => {
-    // Web doesn't support push notifications
-    if (Platform.OS === 'web') return;
+    // Push notifications are only available in standalone builds on iOS/Android.
+    // Expo Go (SDK 53+) removed support — guard everything so the app never crashes.
+    if (Platform.OS === 'web') {
+      refreshUnread();
+      return;
+    }
 
     void (async () => {
-      // ── Android notification channel ───────────────────────────────────
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name:             'GoFixCarz Alerts',
-          importance:       Notifications.AndroidImportance.HIGH,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor:       '#C41E3A',
-          showBadge:        true,
+      try {
+        // Lazy-import so Expo Go's error is caught here, not at module load time
+        const Notifications = await import('expo-notifications');
+        const Device        = await import('expo-device');
+
+        // ── Foreground banner config ─────────────────────────────────────
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldShowAlert:  true,
+            shouldPlaySound:  true,
+            shouldSetBadge:   true,
+            shouldShowBanner: true,
+            shouldShowList:   true,
+          }),
         });
-      }
 
-      // ── Permission + token registration ──────────────────────────────
-      if (!Device.isDevice) {
-        // Simulators/emulators can't receive push — skip silently
-      } else {
-        // requestPermissionsAsync returns current status if already decided.
-        // Cast to `any` — the expo PermissionResponse type is not fully
-        // re-exported by the `expo` package's TypeScript declarations, but
-        // `.granted` and `.status` are present at runtime.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const perms = (await Notifications.requestPermissionsAsync()) as any;
-        const permissionGranted: boolean =
-          perms.granted === true || perms.status === 'granted';
+        // ── Android notification channel ─────────────────────────────────
+        if (Platform.OS === 'android') {
+          await Notifications.setNotificationChannelAsync('default', {
+            name:             'GoFixCarz Alerts',
+            importance:       Notifications.AndroidImportance.HIGH,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor:       '#C41E3A',
+            showBadge:        true,
+          });
+        }
 
-        if (permissionGranted) {
-          try {
-            // getDevicePushTokenAsync returns the raw FCM (Android) / APNs (iOS)
-            // token — no EAS project ID required.
-            const tokenData = await Notifications.getDevicePushTokenAsync();
-            await NotificationService.registerToken(tokenData.data, Platform.OS);
-          } catch {
-            // Token registration failure is non-fatal; the app continues normally.
+        // ── Permission + token registration ──────────────────────────────
+        if (Device.isDevice) {
+          const perms = (await Notifications.requestPermissionsAsync()) as any;
+          const granted: boolean = perms.granted === true || perms.status === 'granted';
+
+          if (granted) {
+            try {
+              const tokenData = await Notifications.getDevicePushTokenAsync();
+              await NotificationService.registerToken(tokenData.data, Platform.OS);
+            } catch {
+              // Token registration failure is non-fatal
+            }
           }
         }
-      }
 
-      // ── Killed-state tap (app launched by notification) ───────────────
-      try {
-        const lastResponse = await Notifications.getLastNotificationResponseAsync();
-        if (lastResponse) {
-          const notifId = lastResponse.notification.request.identifier;
-          const data    = (lastResponse.notification.request.content.data ?? {}) as NotifData;
-          navigateFromNotif(data, notifId, 1000); // longer delay — navigator still mounting
-        }
-      } catch { /* ignore */ }
+        // ── Killed-state tap ─────────────────────────────────────────────
+        try {
+          const lastResponse = await Notifications.getLastNotificationResponseAsync();
+          if (lastResponse) {
+            const notifId = lastResponse.notification.request.identifier;
+            const data    = (lastResponse.notification.request.content.data ?? {}) as NotifData;
+            navigateFromNotif(data, notifId, 1000);
+          }
+        } catch { /* ignore */ }
+
+        // ── Listeners ────────────────────────────────────────────────────
+        receivedSub.current = Notifications.addNotificationReceivedListener(() => {
+          qc.invalidateQueries({ queryKey: QUERY_KEYS.NOTIFICATIONS() });
+          refreshUnread();
+        });
+
+        responseSub.current = Notifications.addNotificationResponseReceivedListener(response => {
+          const notifId = response.notification.request.identifier;
+          const data    = (response.notification.request.content.data ?? {}) as NotifData;
+          navigateFromNotif(data, notifId, 400);
+        });
+
+      } catch {
+        // expo-notifications unavailable (Expo Go) — degrade silently
+      }
     })();
 
-    // ── Foreground notification received ────────────────────────────────
-    receivedSub.current = Notifications.addNotificationReceivedListener(() => {
-      qc.invalidateQueries({ queryKey: QUERY_KEYS.NOTIFICATIONS() });
-      refreshUnread();
-    });
-
-    // ── Notification tapped (foreground / background) ───────────────────
-    responseSub.current = Notifications.addNotificationResponseReceivedListener(response => {
-      const notifId = response.notification.request.identifier;
-      const data    = (response.notification.request.content.data ?? {}) as NotifData;
-      navigateFromNotif(data, notifId, 400);
-    });
-
-    // Initial unread count fetch
     refreshUnread();
 
     return () => {
       receivedSub.current?.remove();
       responseSub.current?.remove();
     };
-  }, []); // run once on mount
+  }, []);
 
   return (
     <NotificationContext.Provider value={{ unreadCount, refreshUnread }}>
