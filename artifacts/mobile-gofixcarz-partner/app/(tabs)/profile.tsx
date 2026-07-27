@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Image, KeyboardAvoidingView,
+  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal,
   Platform, ScrollView, StatusBar, StyleSheet,
-  Text, TextInput, TouchableOpacity, View,
+  Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -114,6 +114,86 @@ function SectionTitle({ label }: { label: string }) {
 }
 const st = StyleSheet.create({ t: { fontSize: 12, fontWeight: '700', color: MUTED, marginBottom: 8, marginLeft: 4, letterSpacing: 0.5 } });
 
+/* ── Time picker bottom-sheet modal ── */
+function TimePickerModal({
+  visible, label, value, onConfirm, onCancel,
+}: {
+  visible: boolean; label: string; value: Date;
+  onConfirm: (d: Date) => void; onCancel: () => void;
+}) {
+  // draft tracks scroll position; only committed on Done
+  const [draft, setDraft] = useState(value);
+
+  // reset draft whenever modal opens with a new value
+  React.useEffect(() => { if (visible) setDraft(value); }, [visible]);
+
+  function onPick(event: DateTimePickerEvent, sel?: Date) {
+    if (event.type === 'set' && sel) setDraft(sel);
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
+      <TouchableWithoutFeedback onPress={onCancel}>
+        <View style={pm.backdrop} />
+      </TouchableWithoutFeedback>
+
+      <View style={pm.sheet}>
+        {/* handle */}
+        <View style={pm.handle} />
+
+        {/* toolbar */}
+        <View style={pm.toolbar}>
+          <TouchableOpacity onPress={onCancel} style={pm.toolbarBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Text style={pm.cancel}>Cancel</Text>
+          </TouchableOpacity>
+          <Text style={pm.toolbarTitle}>{label}</Text>
+          <TouchableOpacity onPress={() => onConfirm(draft)} style={pm.toolbarBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Text style={pm.done}>Done</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* spinner — always mounted inside modal, no teardown glitch */}
+        <DateTimePicker
+          value={draft}
+          mode="time"
+          is24Hour
+          display="spinner"
+          onChange={onPick}
+          style={pm.picker}
+          textColor={TEXT}
+        />
+      </View>
+    </Modal>
+  );
+}
+const pm = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  sheet: {
+    backgroundColor: CARD,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingBottom: 30,
+    ...Platform.select({
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 16 },
+      android: { elevation: 24 },
+      default: {},
+    }),
+  },
+  handle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: BORDER, alignSelf: 'center', marginTop: 10, marginBottom: 4,
+  },
+  toolbar: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: BORDER,
+  },
+  toolbarBtn:   { minWidth: 60 },
+  toolbarTitle: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '700', color: TEXT },
+  cancel:       { fontSize: 15, color: MUTED, fontWeight: '500' },
+  done:         { fontSize: 15, color: PRIMARY, fontWeight: '700', textAlign: 'right' },
+  picker:       { width: '100%', height: 200 },
+});
+
 /* ── working hours card ── */
 function WorkingHours({
   workDays, toggleDay,
@@ -125,28 +205,6 @@ function WorkingHours({
   closeTime: Date; setCloseTime: (d: Date) => void;
 }) {
   const [pickerFor, setPickerFor] = useState<'open' | 'close' | null>(null);
-  // Ref keeps the live value so the async onChange callback never reads stale state
-  const pickerForRef = useRef<'open' | 'close' | null>(null);
-
-  function openPicker(which: 'open' | 'close') {
-    // toggle: tap again to close
-    const next = pickerForRef.current === which ? null : which;
-    pickerForRef.current = next;
-    setPickerFor(next);
-  }
-
-  function onPick(event: DateTimePickerEvent, sel?: Date) {
-    // guard: only act on real confirmations, not dismiss/teardown events
-    if (event.type !== 'set' || !sel) return;
-    const which = pickerForRef.current;
-    if (which === 'open')  setOpenTime(sel);
-    if (which === 'close') setCloseTime(sel);
-    // on Android the dialog closes itself; on iOS keep it open for smooth spinning
-    if (Platform.OS !== 'ios') {
-      pickerForRef.current = null;
-      setPickerFor(null);
-    }
-  }
 
   return (
     <View style={wh.card}>
@@ -171,68 +229,32 @@ function WorkingHours({
       <View style={wh.divider} />
 
       {/* ── Opens at ── */}
-      <TouchableOpacity
-        style={wh.timeRow}
-        onPress={() => openPicker('open')}
-        activeOpacity={0.75}
-      >
+      <TouchableOpacity style={wh.timeRow} onPress={() => setPickerFor('open')} activeOpacity={0.75}>
         <View style={wh.timeIcon}>
           <Feather name="sun" size={16} color="#F97316" />
         </View>
         <Text style={wh.timeLabel}>Opens at</Text>
-        <View style={[wh.timeBadge, pickerFor === 'open' && wh.timeBadgeActive]}>
-          <Text style={[wh.timeValue, pickerFor === 'open' && wh.timeValueActive]}>
-            {fmt(openTime)}
-          </Text>
+        <View style={wh.timeBadge}>
+          <Text style={wh.timeValue}>{fmt(openTime)}</Text>
         </View>
-        <Feather
-          name={pickerFor === 'open' ? 'chevron-up' : 'chevron-down'}
-          size={15} color={pickerFor === 'open' ? PRIMARY : MUTED}
-          style={{ marginLeft: 4 }}
-        />
+        <Feather name="chevron-right" size={15} color={MUTED} style={{ marginLeft: 4 }} />
       </TouchableOpacity>
-
-      {pickerFor === 'open' && (
-        <DateTimePicker
-          value={openTime} mode="time" is24Hour
-          display="spinner"
-          onChange={onPick}
-        />
-      )}
 
       <View style={wh.innerDivider} />
 
       {/* ── Closes at ── */}
-      <TouchableOpacity
-        style={wh.timeRow}
-        onPress={() => openPicker('close')}
-        activeOpacity={0.75}
-      >
+      <TouchableOpacity style={wh.timeRow} onPress={() => setPickerFor('close')} activeOpacity={0.75}>
         <View style={wh.timeIcon}>
           <Feather name="moon" size={16} color="#6366F1" />
         </View>
         <Text style={wh.timeLabel}>Closes at</Text>
-        <View style={[wh.timeBadge, pickerFor === 'close' && wh.timeBadgeActive]}>
-          <Text style={[wh.timeValue, pickerFor === 'close' && wh.timeValueActive]}>
-            {fmt(closeTime)}
-          </Text>
+        <View style={wh.timeBadge}>
+          <Text style={wh.timeValue}>{fmt(closeTime)}</Text>
         </View>
-        <Feather
-          name={pickerFor === 'close' ? 'chevron-up' : 'chevron-down'}
-          size={15} color={pickerFor === 'close' ? PRIMARY : MUTED}
-          style={{ marginLeft: 4 }}
-        />
+        <Feather name="chevron-right" size={15} color={MUTED} style={{ marginLeft: 4 }} />
       </TouchableOpacity>
 
-      {pickerFor === 'close' && (
-        <DateTimePicker
-          value={closeTime} mode="time" is24Hour
-          display="spinner"
-          onChange={onPick}
-        />
-      )}
-
-      {/* ── Summary ── */}
+      {/* ── Summary pill ── */}
       {workDays.length > 0 && (
         <View style={wh.summary}>
           <Feather name="check-circle" size={13} color={PRIMARY} />
@@ -243,6 +265,22 @@ function WorkingHours({
           </Text>
         </View>
       )}
+
+      {/* ── Pickers (modal, mounted outside card so no ScrollView clipping) ── */}
+      <TimePickerModal
+        visible={pickerFor === 'open'}
+        label="Opening Time"
+        value={openTime}
+        onConfirm={d => { setOpenTime(d); setPickerFor(null); }}
+        onCancel={() => setPickerFor(null)}
+      />
+      <TimePickerModal
+        visible={pickerFor === 'close'}
+        label="Closing Time"
+        value={closeTime}
+        onConfirm={d => { setCloseTime(d); setPickerFor(null); }}
+        onCancel={() => setPickerFor(null)}
+      />
     </View>
   );
 }
