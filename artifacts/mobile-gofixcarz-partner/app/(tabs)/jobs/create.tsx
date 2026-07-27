@@ -12,6 +12,8 @@ import { Feather } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import JobService from '@/src/services/job.service';
 import InputField from '@/src/components/ui/InputField';
 import { formatCurrency } from '@/src/utils/helpers';
@@ -120,6 +122,10 @@ export default function CreateJobScreen() {
   const [errors,      setErrors]     = useState<Record<string, string>>({});
   const [draftBanner, setDraftBanner] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [pdfLoading,  setPdfLoading]  = useState<'download' | 'share' | null>(null);
+
+  // Stable invoice number for this session
+  const invoiceNum = useRef(`INV-${Date.now().toString().slice(-6)}`).current;
 
   /* Step 0 — Customer & Vehicle */
   const [customerName,    setCustomerName]    = useState('');
@@ -166,6 +172,111 @@ export default function CreateJobScreen() {
   const subtotal      = servicesTotal + labourTotal;
   const gst           = subtotal * 0.18;
   const grandTotal    = subtotal + gst;
+
+  /* ── Invoice HTML template ── */
+  function buildInvoiceHtml() {
+    const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const serviceRows = services.map(s => `
+      <tr>
+        <td>${s.name}${s.qty > 1 ? ` &times;${s.qty}` : ''}</td>
+        <td style="text-align:right">${formatCurrency(s.price * s.qty)}</td>
+      </tr>`).join('');
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, Helvetica, Arial, sans-serif; color:#1E293B; background:#fff; }
+  .header { background:linear-gradient(135deg,#921527,#C41E3A,#E11D48); color:#fff; padding:32px 28px 24px; }
+  .header-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
+  .brand { font-size:24px; font-weight:800; letter-spacing:-0.5px; }
+  .tagline { font-size:11px; opacity:0.75; margin-top:3px; }
+  .inv-badge { text-align:right; }
+  .inv-label { font-size:10px; opacity:0.7; text-transform:uppercase; letter-spacing:1px; }
+  .inv-num { font-size:18px; font-weight:700; }
+  .meta { display:flex; gap:24px; font-size:12px; opacity:0.85; }
+  .meta span { display:flex; align-items:center; gap:6px; }
+  .section { padding:20px 28px; border-bottom:1px solid #F1F5F9; }
+  .section-title { font-size:11px; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:12px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  td { padding:7px 0; }
+  .divider { border:none; border-top:1px solid #E2E8F0; margin:8px 0; }
+  .totals { padding:20px 28px; }
+  .total-row { display:flex; justify-content:space-between; font-size:13px; padding:4px 0; color:#64748B; }
+  .grand { display:flex; justify-content:space-between; font-size:17px; font-weight:800; color:#C41E3A; padding-top:12px; margin-top:8px; border-top:2px solid #C41E3A; }
+  .footer { text-align:center; font-size:11px; color:#94A3B8; padding:24px; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-top">
+      <div><div class="brand">GoFixAuto</div><div class="tagline">Smart Garage Management</div></div>
+      <div class="inv-badge"><div class="inv-label">Invoice</div><div class="inv-num">${invoiceNum}</div></div>
+    </div>
+    <div class="meta">
+      <span>&#128100; ${customerName || '—'}</span>
+      <span>&#128663; ${regNumber || '—'}</span>
+      <span>&#128197; ${dateStr}</span>
+    </div>
+  </div>
+
+  ${services.length > 0 ? `
+  <div class="section">
+    <div class="section-title">Services</div>
+    <table><tbody>${serviceRows}</tbody></table>
+  </div>` : ''}
+
+  ${labourTotal > 0 ? `
+  <div class="section">
+    <div class="section-title">Labour</div>
+    <table><tbody>
+      <tr><td>Labour Charge${estHours ? ` (${estHours}h)` : ''}</td><td style="text-align:right">${formatCurrency(labourTotal)}</td></tr>
+    </tbody></table>
+  </div>` : ''}
+
+  <div class="totals">
+    <div class="total-row"><span>Services</span><span>${formatCurrency(servicesTotal)}</span></div>
+    <div class="total-row"><span>Labour</span><span>${formatCurrency(labourTotal)}</span></div>
+    <div class="total-row"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>
+    <div class="total-row"><span>GST (18%)</span><span>${formatCurrency(gst)}</span></div>
+    <div class="grand"><span>Grand Total</span><span>${formatCurrency(grandTotal)}</span></div>
+  </div>
+
+  <div class="footer">Thank you for choosing GoFixAuto &bull; Smart Workshop Manager</div>
+</body>
+</html>`;
+  }
+
+  /* ── PDF actions ── */
+  async function generateAndSharePdf(mode: 'download' | 'share') {
+    if (pdfLoading) return;
+    setPdfLoading(mode);
+    try {
+      const { uri } = await Print.printToFileAsync({ html: buildInvoiceHtml(), base64: false });
+      if (await Sharing.isAvailableAsync()) {
+        // Both modes use the native share sheet:
+        // • Download → user taps "Save to Files" (iOS) or "Save to Downloads" (Android)
+        // • Share    → user picks any app (WhatsApp, email, etc.)
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: mode === 'download' ? `Save ${invoiceNum}` : `Share ${invoiceNum}`,
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        Alert.alert('Not available', 'Sharing is not supported on this device.');
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Could not generate PDF.');
+    } finally {
+      setPdfLoading(null);
+    }
+  }
+
+  const handleDownloadPdf = () => generateAndSharePdf('download');
+  const handleSharePdf    = () => generateAndSharePdf('share');
 
   /* ── Draft helpers ── */
   const isDone = useRef(false); // prevents debounced save from overwriting clearDraft on success
@@ -1118,7 +1229,7 @@ export default function CreateJobScreen() {
                 </View>
                 <View style={styles.invoiceNumWrap}>
                   <Text style={styles.invoiceNumLabel}>INVOICE</Text>
-                  <Text style={styles.invoiceNum}>INV-{Date.now().toString().slice(-4)}</Text>
+                  <Text style={styles.invoiceNum}>{invoiceNum}</Text>
                 </View>
               </View>
               <View style={styles.invoiceMeta}>
@@ -1183,15 +1294,29 @@ export default function CreateJobScreen() {
             </View>
 
             <View style={styles.invoiceActions}>
-              <TouchableOpacity style={styles.invoiceActionBtn} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={[styles.invoiceActionBtn, pdfLoading === 'download' && { opacity: 0.6 }]}
+                onPress={handleDownloadPdf}
+                disabled={!!pdfLoading}
+                activeOpacity={0.8}
+              >
                 <View style={[styles.invoiceActionIcon, { backgroundColor: '#FEE2E2' }]}>
-                  <Feather name="download" size={16} color={PRIMARY} />
+                  {pdfLoading === 'download'
+                    ? <ActivityIndicator size="small" color={PRIMARY} />
+                    : <Feather name="download" size={16} color={PRIMARY} />}
                 </View>
                 <Text style={styles.invoiceActionText}>Download PDF</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.invoiceActionBtn} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={[styles.invoiceActionBtn, pdfLoading === 'share' && { opacity: 0.6 }]}
+                onPress={handleSharePdf}
+                disabled={!!pdfLoading}
+                activeOpacity={0.8}
+              >
                 <View style={[styles.invoiceActionIcon, { backgroundColor: '#F0FDF4' }]}>
-                  <Feather name="share-2" size={16} color={SUCCESS} />
+                  {pdfLoading === 'share'
+                    ? <ActivityIndicator size="small" color={SUCCESS} />
+                    : <Feather name="share-2" size={16} color={SUCCESS} />}
                 </View>
                 <Text style={styles.invoiceActionText}>Share Invoice</Text>
               </TouchableOpacity>

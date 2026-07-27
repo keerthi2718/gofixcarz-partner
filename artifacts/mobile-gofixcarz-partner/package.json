@@ -67,6 +67,9 @@
     "axios": "^1.18.1",
     "expo-clipboard": "~8.0.8",
     "expo-contacts": "^57.0.2",
+    "expo-file-system": "^57.0.1",
+    "expo-print": "^57.0.1",
+    "expo-sharing": "^57.0.7",
     "react-hook-form": "^7.81.0",
     "react-native-paper": "^5.15.3",
     "zustand": "^5.0.14"
