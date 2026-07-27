@@ -1054,11 +1054,10 @@ export default function CreateJobScreen() {
               {[
                 { label: 'Job Created',         desc: 'Job card successfully created', done: true  },
                 { label: 'Technician Assigned', desc: selectedTechName || '—',         done: !!selectedTechId },
-                { label: 'Work Started',         desc: 'Vehicle under service',         current: true },
-                { label: 'Waiting for Parts',    desc: '',                              done: false },
-                { label: 'Quality Check',        desc: '',                              done: false },
-                { label: 'Ready for Delivery',   desc: '',                              done: false },
-                { label: 'Completed',            desc: '',                              done: false },
+                { label: 'Work Started',        desc: 'Vehicle under service',         current: true },
+                { label: 'Quality Check',       desc: '',                              done: false },
+                { label: 'Ready for Delivery',  desc: '',                              done: false },
+                { label: 'Completed',           desc: '',                              done: false },
               ].map((item, i, arr) => (
                 <View key={i} style={styles.timelineRow}>
                   <View style={styles.timelineLeft}>
@@ -1097,24 +1096,6 @@ export default function CreateJobScreen() {
               ))}
             </StepCard>
 
-            <StepCard icon="zap" title="Advance Status" iconBg="#FEE2E2" iconFg={INDIGO}>
-              <View style={styles.stageGrid}>
-                {[
-                  { label: 'Waiting for Parts', color: WARN,    bg: '#FFFBEB' },
-                  { label: 'Quality Check',     color: INDIGO,  bg: '#FEE2E2' },
-                  { label: 'Ready',             color: SUCCESS, bg: '#ECFDF5' },
-                  { label: 'Completed',         color: '#059669', bg: '#D1FAE5' },
-                ].map(s => (
-                  <TouchableOpacity
-                    key={s.label}
-                    style={[styles.stageBtn, { backgroundColor: s.bg, borderColor: s.color + '40' }]}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.stageBtnText, { color: s.color }]}>{s.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </StepCard>
           </>
         )}
 
