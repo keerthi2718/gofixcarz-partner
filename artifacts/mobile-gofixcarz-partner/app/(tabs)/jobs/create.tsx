@@ -121,10 +121,8 @@ export default function CreateJobScreen() {
   const [createError, setCreateError] = useState<string | null>(null);
 
   /* Step 0 — Customer & Vehicle */
-  const [customerSearch,  setCustomerSearch]  = useState('');
   const [customerName,    setCustomerName]    = useState('');
   const [customerPhone,   setCustomerPhone]   = useState('');
-  const [isManualEntry,   setIsManualEntry]   = useState(false);
   const [regNumber,      setRegNumber]      = useState('');
   const [brand,          setBrand]          = useState('');
   const [model,          setModel]          = useState('');
@@ -160,13 +158,6 @@ export default function CreateJobScreen() {
     { id: 't3', name: 'Ganesh Patel', role: 'AC Specialist',    available: false },
   ];
 
-  const mockCustomers = [
-    { id: 'c1', name: 'Rajesh Kumar',  phone: '+91 98765 43210' },
-    { id: 'c2', name: 'Priya Sharma',  phone: '+91 87654 32109' },
-    { id: 'c3', name: 'Amit Patel',    phone: '+91 76543 21098' },
-    { id: 'c4', name: 'Sneha Reddy',   phone: '+91 65432 10987' },
-  ];
-
   const servicesTotal = services.reduce((sum, s) => sum + s.price * s.qty, 0);
   const labourTotal   = parseFloat(labourCharge) || 0;
   const subtotal      = servicesTotal + labourTotal;
@@ -196,7 +187,6 @@ export default function CreateJobScreen() {
         if (d.customerName || d.regNumber) {
           setCustomerName(d.customerName ?? '');
           setCustomerPhone(d.customerPhone ?? '');
-          if (d.customerName) setIsManualEntry(true);
           setRegNumber(d.regNumber ?? '');
           setBrand(d.brand ?? '');
           setModel(d.model ?? '');
@@ -495,109 +485,35 @@ export default function CreateJobScreen() {
                 <Text style={cardStyles.title}>Customer</Text>
               </View>
               <View style={cardStyles.body}>
-                {/* Search */}
-                <View style={styles.custSearch}>
-                  <Feather name="search" size={15} color={MUTED} />
-                  <TextInput
-                    style={styles.custSearchInput}
-                    value={customerSearch}
-                    onChangeText={setCustomerSearch}
-                    placeholder="Search by name or phone…"
-                    placeholderTextColor="#94A3B8"
+                <View>
+                  <InputField
+                    label="Customer Name *"
+                    value={customerName}
+                    onChangeText={v => { setCustomerName(v); clearFieldError('customerName'); }}
+                    placeholder="Full name"
+                    autoCapitalize="words"
+                    leadingIcon="user"
+                    error={errors.customerName}
                   />
-                  {customerSearch.length > 0 && (
-                    <TouchableOpacity onPress={() => setCustomerSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Feather name="x-circle" size={15} color={MUTED} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Quick-select customer list */}
-                {mockCustomers
-                  .filter(c =>
-                    !customerSearch ||
-                    c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-                    c.phone.includes(customerSearch)
-                  )
-                  .map(c => {
-                    const selected = customerName === c.name;
-                    return (
-                      <TouchableOpacity
-                        key={c.id}
-                        style={[styles.custRow, selected && styles.custRowActive]}
-                        onPress={() => {
-                          setCustomerName(c.name);
-                          setCustomerPhone(c.phone.replace(/\D/g, '').slice(-10));
-                          setIsManualEntry(false);
-                          clearFieldError('customerName');
-                          clearFieldError('customerPhone');
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <View style={[styles.custAvatar, selected && { backgroundColor: PRIMARY }]}>
-                          <Text style={[styles.custAvatarText, selected && { color: '#fff' }]}>
-                            {c.name.charAt(0)}
-                          </Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.custName, selected && { color: PRIMARY }]}>{c.name}</Text>
-                          <Text style={styles.custPhone}>{c.phone}</Text>
-                        </View>
-                        <Feather name={selected ? 'check-circle' : 'chevron-right'} size={16} color={selected ? PRIMARY : '#CBD5E1'} />
-                      </TouchableOpacity>
-                    );
-                  })
-                }
-
-                {/* Add new customer */}
-                <TouchableOpacity
-                  style={styles.addCustBtn}
-                  onPress={() => { setCustomerName(''); setCustomerPhone(''); setCustomerSearch(''); setIsManualEntry(true); }}
-                  activeOpacity={0.8}
-                >
-                  <Feather name="plus-circle" size={15} color={PRIMARY} />
-                  <Text style={styles.addCustText}>Add New Customer</Text>
-                </TouchableOpacity>
-
-                {/* Manual entry */}
-                {isManualEntry && (
-                  <>
-                    <View>
-                      <InputField
-                        label="Customer Name *"
-                        value={customerName}
-                        onChangeText={v => { setCustomerName(v); clearFieldError('customerName'); }}
-                        placeholder="Full name"
-                        autoCapitalize="words"
-                        leadingIcon="user"
-                        error={errors.customerName}
-                      />
-                      <FieldError msg={errors.customerName} />
-                    </View>
-                    <View>
-                      <InputField
-                        label="Phone Number"
-                        value={customerPhone}
-                        onChangeText={v => {
-                          setCustomerPhone(v.replace(/\D/g, '').slice(0, 10));
-                          clearFieldError('customerPhone');
-                        }}
-                        placeholder="10-digit mobile"
-                        keyboardType="phone-pad"
-                        leadingIcon="phone"
-                        prefix="+91"
-                        maxLength={10}
-                        error={errors.customerPhone}
-                      />
-                      <FieldError msg={errors.customerPhone} />
-                    </View>
-                  </>
-                )}
-
-                {/* Show selected name error even when customer is selected */}
-                {customerName !== '' && errors.customerName && (
                   <FieldError msg={errors.customerName} />
-                )}
+                </View>
+                <View>
+                  <InputField
+                    label="Phone Number"
+                    value={customerPhone}
+                    onChangeText={v => {
+                      setCustomerPhone(v.replace(/\D/g, '').slice(0, 10));
+                      clearFieldError('customerPhone');
+                    }}
+                    placeholder="10-digit mobile"
+                    keyboardType="phone-pad"
+                    leadingIcon="phone"
+                    prefix="+91"
+                    maxLength={10}
+                    error={errors.customerPhone}
+                  />
+                  <FieldError msg={errors.customerPhone} />
+                </View>
               </View>
             </View>
 
@@ -1316,33 +1232,6 @@ const styles = StyleSheet.create({
 
   /* Row */
   row: { flexDirection: 'row', gap: 10 },
-
-  custSearch: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#F8FAFC', borderRadius: 12,
-    borderWidth: 1.5, borderColor: BORDER,
-    paddingHorizontal: 12, height: 44, marginBottom: 12,
-  },
-  custSearchInput: { flex: 1, fontSize: 14, color: TEXT },
-  custRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
-  },
-  custRowActive: { backgroundColor: '#FEE2E2', borderRadius: 12, paddingHorizontal: 8, marginHorizontal: -8 },
-  custAvatar: {
-    width: 40, height: 40, borderRadius: 12,
-    backgroundColor: '#E2E8F0',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  custAvatarText: { fontSize: 16, fontWeight: '700', color: TEXT },
-  custName:  { fontSize: 14, fontWeight: '600', color: TEXT, marginBottom: 2 },
-  custPhone: { fontSize: 12, color: MUTED },
-  addCustBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#F1F5F9', marginTop: 4,
-  },
-  addCustText: { fontSize: 14, fontWeight: '600', color: PRIMARY },
 
   /* Chips */
   chipRow: { gap: 8 },
