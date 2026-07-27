@@ -389,48 +389,6 @@ export default function CreateJobScreen() {
     setDocuments(prev => prev.filter((_, i) => i !== idx));
   }
 
-  /* ── Contact import (native only) ── */
-  async function importContact() {
-    if (Platform.OS === 'web') {
-      Alert.alert('Not Available', 'Contact import is available on the mobile app only.');
-      return;
-    }
-    try {
-      const Contacts = await import('expo-contacts');
-      const { status } = await Contacts.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Contacts access is needed to import customer details.');
-        return;
-      }
-      const { data } = await Contacts.getContactsAsync({
-        fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
-      });
-      if (data.length === 0) {
-        Alert.alert('No Contacts', 'No contacts found on this device.');
-        return;
-      }
-      Alert.alert(
-        'Select Contact',
-        'Choose a contact to import:',
-        [
-          ...data.slice(0, 5).map(c => ({
-            text: `${c.name ?? '?'} — ${c.phoneNumbers?.[0]?.number ?? 'no number'}`,
-            onPress: () => {
-              setCustomerName(c.name ?? '');
-              const phone = c.phoneNumbers?.[0]?.number?.replace(/\D/g, '').slice(-10) ?? '';
-              setCustomerPhone(phone);
-              clearFieldError('customerName');
-              clearFieldError('customerPhone');
-            },
-          })),
-          { text: 'Cancel', style: 'cancel' },
-        ]
-      );
-    } catch {
-      Alert.alert('Error', 'Could not load contacts. Please enter customer details manually.');
-    }
-  }
-
   /*
    * The custom tab bar is position:absolute (floating pill). It does NOT push
    * layout — the screen content fills the entire window height on every platform.
@@ -518,15 +476,6 @@ export default function CreateJobScreen() {
                   <Feather name="user" size={16} color={PRIMARY} />
                 </View>
                 <Text style={cardStyles.title}>Customer</Text>
-                {/* Import from Contacts */}
-                <TouchableOpacity
-                  style={styles.contactsBtn}
-                  onPress={importContact}
-                  activeOpacity={0.8}
-                >
-                  <Feather name="book" size={13} color={PRIMARY} />
-                  <Text style={styles.contactsBtnText}>Contacts</Text>
-                </TouchableOpacity>
               </View>
               <View style={cardStyles.body}>
                 {/* Search */}
@@ -1350,14 +1299,6 @@ const styles = StyleSheet.create({
   /* Row */
   row: { flexDirection: 'row', gap: 10 },
 
-  /* Customer picker */
-  contactsBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    marginLeft: 'auto', paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: 10, backgroundColor: '#FEE2E2',
-    borderWidth: 1, borderColor: PRIMARY + '30',
-  },
-  contactsBtnText: { fontSize: 12, fontWeight: '600', color: PRIMARY },
   custSearch: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: '#F8FAFC', borderRadius: 12,
