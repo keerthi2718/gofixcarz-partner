@@ -114,32 +114,173 @@ function SectionTitle({ label }: { label: string }) {
 }
 const st = StyleSheet.create({ t: { fontSize: 12, fontWeight: '700', color: MUTED, marginBottom: 8, marginLeft: 4, letterSpacing: 0.5 } });
 
-/* ── time picker pill ── */
-function TimePill({ value, onChange, label }: { value: Date; onChange: (d: Date) => void; label: string }) {
-  const [show, setShow] = useState(false);
+/* ── working hours card ── */
+function WorkingHours({
+  workDays, toggleDay,
+  openTime, setOpenTime,
+  closeTime, setCloseTime,
+}: {
+  workDays: string[]; toggleDay: (d: string) => void;
+  openTime: Date; setOpenTime: (d: Date) => void;
+  closeTime: Date; setCloseTime: (d: Date) => void;
+}) {
+  const [pickerFor, setPickerFor] = useState<'open' | 'close' | null>(null);
+
   function onPick(_: DateTimePickerEvent, sel?: Date) {
-    if (Platform.OS !== 'ios') setShow(false);
-    if (sel) onChange(sel);
+    if (sel) pickerFor === 'open' ? setOpenTime(sel) : setCloseTime(sel);
+    if (Platform.OS !== 'ios') setPickerFor(null);
   }
+
   return (
-    <View style={tp.wrap}>
-      <Text style={tp.label}>{label}</Text>
-      <TouchableOpacity style={tp.pill} onPress={() => setShow(true)} activeOpacity={0.7}>
-        <Feather name="clock" size={13} color={PRIMARY} />
-        <Text style={tp.time}>{fmt(value)}</Text>
+    <View style={wh.card}>
+      {/* ── Day selector ── */}
+      <View style={wh.daysRow}>
+        {DAYS.map(d => {
+          const on = workDays.includes(d);
+          return (
+            <TouchableOpacity
+              key={d}
+              style={[wh.dayBtn, on && wh.dayBtnOn]}
+              onPress={() => toggleDay(d)}
+              activeOpacity={0.7}
+            >
+              <Text style={[wh.dayTxt, on && wh.dayTxtOn]}>{d[0]}</Text>
+              <Text style={[wh.dayFull, on && wh.dayFullOn]}>{d}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <View style={wh.divider} />
+
+      {/* ── Opens at ── */}
+      <TouchableOpacity
+        style={wh.timeRow}
+        onPress={() => setPickerFor(p => p === 'open' ? null : 'open')}
+        activeOpacity={0.75}
+      >
+        <View style={wh.timeIcon}>
+          <Feather name="sun" size={16} color="#F97316" />
+        </View>
+        <Text style={wh.timeLabel}>Opens at</Text>
+        <View style={[wh.timeBadge, pickerFor === 'open' && wh.timeBadgeActive]}>
+          <Text style={[wh.timeValue, pickerFor === 'open' && wh.timeValueActive]}>
+            {fmt(openTime)}
+          </Text>
+        </View>
+        <Feather name="chevron-down" size={15} color={pickerFor === 'open' ? PRIMARY : MUTED} style={{ marginLeft: 4 }} />
       </TouchableOpacity>
-      {show && (
-        <DateTimePicker value={value} mode="time" is24Hour
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onPick} />
+
+      {pickerFor === 'open' && (
+        <DateTimePicker
+          value={openTime} mode="time" is24Hour
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={onPick}
+        />
+      )}
+
+      <View style={wh.innerDivider} />
+
+      {/* ── Closes at ── */}
+      <TouchableOpacity
+        style={wh.timeRow}
+        onPress={() => setPickerFor(p => p === 'close' ? null : 'close')}
+        activeOpacity={0.75}
+      >
+        <View style={wh.timeIcon}>
+          <Feather name="moon" size={16} color="#6366F1" />
+        </View>
+        <Text style={wh.timeLabel}>Closes at</Text>
+        <View style={[wh.timeBadge, pickerFor === 'close' && wh.timeBadgeActive]}>
+          <Text style={[wh.timeValue, pickerFor === 'close' && wh.timeValueActive]}>
+            {fmt(closeTime)}
+          </Text>
+        </View>
+        <Feather name="chevron-down" size={15} color={pickerFor === 'close' ? PRIMARY : MUTED} style={{ marginLeft: 4 }} />
+      </TouchableOpacity>
+
+      {pickerFor === 'close' && (
+        <DateTimePicker
+          value={closeTime} mode="time" is24Hour
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={onPick}
+        />
+      )}
+
+      {/* ── Summary ── */}
+      {workDays.length > 0 && (
+        <View style={wh.summary}>
+          <Feather name="check-circle" size={13} color={PRIMARY} />
+          <Text style={wh.summaryTxt}>
+            {workDays.length === 7 ? 'Every day' : workDays.join(' · ')}
+            {'  '}
+            <Text style={{ color: TEXT }}>{fmt(openTime)} – {fmt(closeTime)}</Text>
+          </Text>
+        </View>
       )}
     </View>
   );
 }
-const tp = StyleSheet.create({
-  wrap:  { flex: 1, alignItems: 'center' },
-  label: { fontSize: 11, color: MUTED, fontWeight: '600', marginBottom: 6 },
-  pill:  { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: TINT, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(196,30,58,0.18)', paddingHorizontal: 16, paddingVertical: 10, width: '100%', justifyContent: 'center' },
-  time:  { fontSize: 17, fontWeight: '800', color: PRIMARY },
+
+const wh = StyleSheet.create({
+  card: {
+    backgroundColor: CARD, borderRadius: 18,
+    borderWidth: 1, borderColor: BORDER, marginBottom: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6 },
+      android: { elevation: 2 },
+      default: {},
+    }),
+  },
+
+  /* days */
+  daysRow: {
+    flexDirection: 'row', paddingHorizontal: 12,
+    paddingTop: 14, paddingBottom: 12, gap: 4,
+  },
+  dayBtn: {
+    flex: 1, alignItems: 'center', paddingVertical: 8,
+    borderRadius: 12, backgroundColor: BG,
+    borderWidth: 1, borderColor: BORDER,
+  },
+  dayBtnOn: { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  dayTxt:   { fontSize: 13, fontWeight: '800', color: MUTED, lineHeight: 16 },
+  dayTxtOn: { color: '#fff' },
+  dayFull:  { fontSize: 9,  fontWeight: '500', color: MUTED, lineHeight: 13 },
+  dayFullOn:{ color: 'rgba(255,255,255,0.8)' },
+
+  divider:      { height: 1, backgroundColor: BORDER },
+  innerDivider: { height: 1, backgroundColor: BORDER, marginHorizontal: 16 },
+
+  /* time rows */
+  timeRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 14, gap: 12,
+  },
+  timeIcon: {
+    width: 34, height: 34, borderRadius: 10,
+    backgroundColor: BG,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  timeLabel: { flex: 1, fontSize: 15, fontWeight: '500', color: TEXT },
+  timeBadge: {
+    backgroundColor: BG, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 7,
+    borderWidth: 1, borderColor: BORDER,
+  },
+  timeBadgeActive: { backgroundColor: TINT, borderColor: 'rgba(196,30,58,0.3)' },
+  timeValue:       { fontSize: 16, fontWeight: '700', color: TEXT },
+  timeValueActive: { color: PRIMARY },
+
+  /* summary */
+  summary: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: TINT, margin: 12, marginTop: 0,
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9,
+    borderWidth: 1, borderColor: 'rgba(196,30,58,0.15)',
+  },
+  summaryTxt: { flex: 1, fontSize: 12, color: PRIMARY, fontWeight: '600', flexWrap: 'wrap' },
 });
 
 /* ════════════════════════════════════════════════════════════════════════ */
@@ -241,29 +382,11 @@ export default function ProfileScreen() {
 
         {/* ── Working hours ── */}
         <SectionTitle label="WORKING HOURS" />
-        <Group>
-          {/* Days */}
-          <View style={s.daysWrap}>
-            <Text style={s.daysHint}>Tap days your garage is open</Text>
-            <View style={s.daysRow}>
-              {DAYS.map(d => {
-                const on = workDays.includes(d);
-                return (
-                  <TouchableOpacity key={d} style={[s.dayChip, on && s.dayOn]} onPress={() => toggleDay(d)} activeOpacity={0.7}>
-                    <Text style={[s.dayText, on && s.dayTextOn]}>{d}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Time pickers */}
-          <View style={s.timesRow}>
-            <TimePill value={openTime}  onChange={setOpenTime}  label="Opens at" />
-            <View style={s.timeSep}><Text style={s.timeSepText}>–</Text></View>
-            <TimePill value={closeTime} onChange={setCloseTime} label="Closes at" />
-          </View>
-        </Group>
+        <WorkingHours
+          workDays={workDays}  toggleDay={toggleDay}
+          openTime={openTime}  setOpenTime={setOpenTime}
+          closeTime={closeTime} setCloseTime={setCloseTime}
+        />
 
         {/* ── Services ── */}
         <SectionTitle label="SERVICES OFFERED" />
@@ -361,20 +484,6 @@ const s = StyleSheet.create({
   },
   logoName: { fontSize: 18, fontWeight: '800', color: TEXT, letterSpacing: -0.3 },
   logoSub:  { fontSize: 13, color: MUTED, marginTop: 2 },
-
-  /* Days */
-  daysWrap: { padding: 16, borderBottomWidth: 1, borderBottomColor: BORDER },
-  daysHint: { fontSize: 12, color: MUTED, marginBottom: 10 },
-  daysRow:  { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  dayChip:  { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: BG, borderWidth: 1, borderColor: BORDER },
-  dayOn:    { backgroundColor: TINT, borderColor: 'rgba(196,30,58,0.3)' },
-  dayText:  { fontSize: 13, fontWeight: '600', color: MUTED },
-  dayTextOn:{ color: PRIMARY },
-
-  /* Times */
-  timesRow: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 8 },
-  timeSep:  { alignItems: 'center', paddingHorizontal: 4 },
-  timeSepText: { fontSize: 20, color: MUTED, fontWeight: '300' },
 
   /* Services */
   svcWrap:  { padding: 16 },
