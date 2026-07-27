@@ -22,6 +22,7 @@ import BookingService from '@/src/services/booking.service';
 import GarageService from '@/src/services/garage.service';
 import { formatCurrency } from '@/src/utils/helpers';
 import { SkeletonList } from '@/src/components/ui/SkeletonCard';
+import { useNotificationContext } from '@/src/context/NotificationContext';
 
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
@@ -66,6 +67,8 @@ export default function DashboardScreen() {
   const bookings   = bookingsData?.items ?? [];
   const garageName = garage?.name ?? 'Your Garage';
 
+  const { unreadCount } = useNotificationContext();
+
   const STATS = [
     { label: 'Active Jobs', value: data?.open_jobs        ?? 0, icon: 'briefcase'   as const, color: PRIMARY,   bg: '#FEE2E2' },
     { label: 'Pending',     value: data?.pending_bookings ?? 0, icon: 'clock'       as const, color: '#F59E0B',  bg: '#FFF7ED' },
@@ -104,7 +107,13 @@ export default function DashboardScreen() {
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Feather name="bell" size={20} color={TEXT} />
-                <View style={styles.bellDot} />
+                {unreadCount > 0 && (
+                  <View style={styles.bellBadge}>
+                    <Text style={styles.bellBadgeText}>
+                      {unreadCount > 9 ? '9+' : String(unreadCount)}
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
 
@@ -311,11 +320,16 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
-  bellDot: {
-    position: 'absolute', top: 10, right: 11,
-    width: 7, height: 7, borderRadius: 3.5,
+  bellBadge: {
+    position: 'absolute', top: 6, right: 6,
+    minWidth: 17, height: 17, borderRadius: 9,
     backgroundColor: '#EF4444',
     borderWidth: 1.5, borderColor: BG,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  bellBadgeText: {
+    fontSize: 8, fontWeight: '800', color: '#fff', lineHeight: 11,
   },
 
   /* ── Revenue cards ── */

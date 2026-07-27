@@ -60,6 +60,7 @@ export const ENDPOINTS = {
   NOTIFICATIONS: {
     LIST: '/notifications',
     MARK_READ: (id: string) => `/notifications/${id}/read`,
+    REGISTER_TOKEN: '/notifications/device-token',
   },
 
   STATIC: {

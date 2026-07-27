@@ -22,6 +22,19 @@ const NotificationService = {
     );
     return data.data;
   },
+
+  /**
+   * Register a device push token with the backend so the server can send
+   * FCM (Android) / APNs (iOS) notifications to this device.
+   * Failures are intentionally swallowed by the caller — never blocks startup.
+   */
+  async registerToken(token: string, platform: string) {
+    const { data } = await apiClient.post<APIResponse<void>>(
+      ENDPOINTS.NOTIFICATIONS.REGISTER_TOKEN,
+      { token, platform }
+    );
+    return data;
+  },
 };
 
 export default NotificationService;

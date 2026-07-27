@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PaperProvider } from 'react-native-paper';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/src/context/AuthContext';
+import { NotificationProvider } from '@/src/context/NotificationContext';
 import {
   Inter_400Regular, Inter_500Medium,
   Inter_600SemiBold, Inter_700Bold, useFonts,
@@ -52,7 +53,9 @@ export default function RootLayout() {
             <KeyboardProvider>
               <PaperProvider>
                 <AuthProvider>
-                  <RootLayoutNav />
+                  <NotificationProvider>
+                    <RootLayoutNav />
+                  </NotificationProvider>
                 </AuthProvider>
               </PaperProvider>
             </KeyboardProvider>
