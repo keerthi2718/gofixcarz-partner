@@ -153,90 +153,92 @@ export default function SelectDropdown({
         </View>
       ) : null}
 
-      {/* ── Bottom-sheet modal ───────────────────────────────────── */}
-      <Modal
-        visible={open}
-        animationType="slide"
-        transparent
-        onRequestClose={close}
-      >
-        <TouchableWithoutFeedback onPress={close}>
-          <View style={st.backdrop} />
-        </TouchableWithoutFeedback>
+      {/* ── Bottom-sheet modal — only mounted when open ─────────── */}
+      {open && (
+        <Modal
+          visible
+          animationType="slide"
+          transparent
+          onRequestClose={close}
+        >
+          <TouchableWithoutFeedback onPress={close}>
+            <View style={st.backdrop} />
+          </TouchableWithoutFeedback>
 
-        <View style={[st.sheet, { paddingBottom: insets.bottom + 8 }]}>
-          {/* Handle */}
-          <View style={st.handle} />
+          <View style={[st.sheet, { paddingBottom: insets.bottom + 8 }]}>
+            {/* Handle */}
+            <View style={st.handle} />
 
-          {/* Sheet header */}
-          <View style={st.sheetHeader}>
-            <Text style={st.sheetTitle}>{label?.replace(' *', '') ?? 'Select'}</Text>
-            <TouchableOpacity onPress={close} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <View style={st.closeBtn}>
-                <Feather name="x" size={16} color={TEXT_COLOR} />
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {/* Search bar */}
-          {showSearch && (
-            <View style={st.searchWrap}>
-              <Feather name="search" size={15} color={PLACEHOLDER} />
-              <TextInput
-                ref={searchRef}
-                style={st.searchInput}
-                value={query}
-                onChangeText={setQuery}
-                placeholder={`Search ${label?.replace(' *', '') ?? 'options'}…`}
-                placeholderTextColor={PLACEHOLDER}
-                autoFocus={false}
-                returnKeyType="search"
-                clearButtonMode="while-editing"
-              />
-              {query.length > 0 && Platform.OS !== 'ios' && (
-                <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Feather name="x-circle" size={15} color={PLACEHOLDER} />
-                </TouchableOpacity>
-              )}
+            {/* Sheet header */}
+            <View style={st.sheetHeader}>
+              <Text style={st.sheetTitle}>{label?.replace(' *', '') ?? 'Select'}</Text>
+              <TouchableOpacity onPress={close} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <View style={st.closeBtn}>
+                  <Feather name="x" size={16} color={TEXT_COLOR} />
+                </View>
+              </TouchableOpacity>
             </View>
-          )}
 
-          {/* Options list */}
-          <FlatList
-            data={filtered}
-            keyExtractor={item => item}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={filtered.length === 0 ? st.emptyContainer : undefined}
-            style={st.list}
-            renderItem={({ item }) => {
-              const selected = item === value;
-              return (
-                <TouchableOpacity
-                  style={[st.option, selected && st.optionSelected]}
-                  onPress={() => pick(item)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[st.optionText, selected && st.optionTextSelected]}>
-                    {item}
-                  </Text>
-                  {selected && (
-                    <View style={st.checkBadge}>
-                      <Feather name="check" size={13} color="#fff" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            }}
-            ListEmptyComponent={
-              <View style={st.empty}>
-                <Feather name="search" size={28} color="#CBD5E1" />
-                <Text style={st.emptyText}>No results for "{query}"</Text>
+            {/* Search bar */}
+            {showSearch && (
+              <View style={st.searchWrap}>
+                <Feather name="search" size={15} color={PLACEHOLDER} />
+                <TextInput
+                  ref={searchRef}
+                  style={st.searchInput}
+                  value={query}
+                  onChangeText={setQuery}
+                  placeholder={`Search ${label?.replace(' *', '') ?? 'options'}…`}
+                  placeholderTextColor={PLACEHOLDER}
+                  autoFocus={false}
+                  returnKeyType="search"
+                  clearButtonMode="while-editing"
+                />
+                {query.length > 0 && Platform.OS !== 'ios' && (
+                  <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Feather name="x-circle" size={15} color={PLACEHOLDER} />
+                  </TouchableOpacity>
+                )}
               </View>
-            }
-          />
-        </View>
-      </Modal>
+            )}
+
+            {/* Options list */}
+            <FlatList
+              data={filtered}
+              keyExtractor={item => item}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={filtered.length === 0 ? st.emptyContainer : undefined}
+              style={st.list}
+              renderItem={({ item }) => {
+                const selected = item === value;
+                return (
+                  <TouchableOpacity
+                    style={[st.option, selected && st.optionSelected]}
+                    onPress={() => pick(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[st.optionText, selected && st.optionTextSelected]}>
+                      {item}
+                    </Text>
+                    {selected && (
+                      <View style={st.checkBadge}>
+                        <Feather name="check" size={13} color="#fff" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={st.empty}>
+                  <Feather name="search" size={28} color="#CBD5E1" />
+                  <Text style={st.emptyText}>No results for "{query}"</Text>
+                </View>
+              }
+            />
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
