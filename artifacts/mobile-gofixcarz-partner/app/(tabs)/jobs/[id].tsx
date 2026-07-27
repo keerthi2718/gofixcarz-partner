@@ -26,7 +26,7 @@ const BORDER  = 'rgba(226,232,240,0.7)';
 const SUCCESS = '#10B981';
 
 const STATUS_FLOW: JobStatus[] = [
-  'OPEN','IN_PROGRESS','WAITING_FOR_PARTS','QUALITY_CHECK','READY','COMPLETED','CANCELLED',
+  'OPEN','IN_PROGRESS','QUALITY_CHECK','READY','COMPLETED','CANCELLED',
 ];
 
 /* ── Shared section card ── */
@@ -178,20 +178,38 @@ export default function JobDetailScreen() {
           ) : null}
 
           {/* Timeline */}
-          {data.timelines?.length ? (
-            <SectionCard icon="clock" title="Timeline">
-              {[...data.timelines].reverse().map((t, i) => (
-                <View key={t.id} style={styles.timelineItem}>
-                  <View style={[styles.timelineDot, i === 0 ? { backgroundColor: PRIMARY } : { backgroundColor: '#CBD5E1' }]} />
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <StatusBadge status={t.status} size="sm" />
-                    {t.notes ? <Text style={styles.timelineNote}>{t.notes}</Text> : null}
-                    <Text style={styles.timelineDate}>{formatDateTime(t.created_at)}</Text>
-                  </View>
-                </View>
-              ))}
-            </SectionCard>
-          ) : null}
+          {(() => {
+            const entries = [...(data.timelines ?? [])]
+              .filter(t => t.status !== 'WAITING_FOR_PARTS')
+              .reverse();
+            if (!entries.length) return null;
+            return (
+              <SectionCard icon="clock" title="Timeline">
+                {entries.map((t, i, arr) => {
+                  const isFirst = i === 0;
+                  const isLast  = i === arr.length - 1;
+                  return (
+                    <View key={t.id ?? i} style={styles.timelineRow}>
+                      {/* Dot + connecting line */}
+                      <View style={styles.timelineLeft}>
+                        <View style={[
+                          styles.timelineDot,
+                          isFirst ? styles.timelineDotActive : styles.timelineDotDone,
+                        ]} />
+                        {!isLast && <View style={styles.timelineLine} />}
+                      </View>
+                      {/* Content */}
+                      <View style={[styles.timelineContent, isLast && { paddingBottom: 0 }]}>
+                        <StatusBadge status={t.status} size="sm" />
+                        {t.notes ? <Text style={styles.timelineNote}>{t.notes}</Text> : null}
+                        <Text style={styles.timelineDate}>{formatDateTime(t.created_at)}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </SectionCard>
+            );
+          })()}
 
           {/* Complete button */}
           {(data.status === 'QUALITY_CHECK' || data.status === 'READY') && (
@@ -345,8 +363,13 @@ const styles = StyleSheet.create({
   grandTotalValue: { fontSize: 20, fontWeight: '800', color: PRIMARY },
 
   /* Timeline */
-  timelineItem: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginBottom: 14 },
-  timelineDot:  { width: 10, height: 10, borderRadius: 5, marginTop: 5, flexShrink: 0 },
+  timelineRow:  { flexDirection: 'row', gap: 12 },
+  timelineLeft: { alignItems: 'center', width: 20, paddingTop: 3 },
+  timelineDot:  { width: 12, height: 12, borderRadius: 6, flexShrink: 0 },
+  timelineDotActive: { backgroundColor: PRIMARY },
+  timelineDotDone:   { backgroundColor: '#CBD5E1' },
+  timelineLine: { width: 2, flex: 1, backgroundColor: '#E2E8F0', marginVertical: 4, borderRadius: 1 },
+  timelineContent: { flex: 1, paddingBottom: 16, gap: 4 },
   timelineNote: { fontSize: 12, color: MUTED },
   timelineDate: { fontSize: 11, color: MUTED },
 
