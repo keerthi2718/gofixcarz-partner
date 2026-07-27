@@ -175,94 +175,226 @@ export default function CreateJobScreen() {
 
   /* ── Invoice HTML template ── */
   function buildInvoiceHtml() {
-    const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    const serviceRows = services.map(s => `
-      <tr>
-        <td>${s.name}${s.qty > 1 ? ` &times;${s.qty}` : ''}</td>
-        <td style="text-align:right">${formatCurrency(s.price * s.qty)}</td>
+    const now     = new Date();
+    const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+    const dueStr  = deliveryDate
+      ? deliveryDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
+      : '—';
+
+    const vehicleLabel = [brand, model, fuelType].filter(Boolean).join(' · ') || '—';
+
+    const serviceRows = services.map((s, i) => `
+      <tr style="background:${i % 2 === 0 ? '#FAFAFA' : '#fff'}">
+        <td style="padding:10px 12px; border-bottom:1px solid #F1F5F9;">
+          <div style="font-weight:600;color:#1E293B;font-size:13px;">${s.name}</div>
+        </td>
+        <td style="padding:10px 12px; border-bottom:1px solid #F1F5F9; text-align:center;color:#64748B;font-size:13px;">${s.qty}</td>
+        <td style="padding:10px 12px; border-bottom:1px solid #F1F5F9; text-align:right;color:#64748B;font-size:13px;">${formatCurrency(s.price)}</td>
+        <td style="padding:10px 12px; border-bottom:1px solid #F1F5F9; text-align:right;font-weight:600;color:#1E293B;font-size:13px;">${formatCurrency(s.price * s.qty)}</td>
       </tr>`).join('');
 
     return `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: -apple-system, Helvetica, Arial, sans-serif; color:#1E293B; background:#fff; }
-  .header { background:linear-gradient(135deg,#921527,#C41E3A,#E11D48); color:#fff; padding:32px 28px 24px; }
-  .header-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
-  .brand { font-size:24px; font-weight:800; letter-spacing:-0.5px; }
-  .tagline { font-size:11px; opacity:0.75; margin-top:3px; }
-  .inv-badge { text-align:right; }
-  .inv-label { font-size:10px; opacity:0.7; text-transform:uppercase; letter-spacing:1px; }
-  .inv-num { font-size:18px; font-weight:700; }
-  .meta { display:flex; gap:24px; font-size:12px; opacity:0.85; }
-  .meta span { display:flex; align-items:center; gap:6px; }
-  .section { padding:20px 28px; border-bottom:1px solid #F1F5F9; }
-  .section-title { font-size:11px; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:12px; }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  td { padding:7px 0; }
-  .divider { border:none; border-top:1px solid #E2E8F0; margin:8px 0; }
-  .totals { padding:20px 28px; }
-  .total-row { display:flex; justify-content:space-between; font-size:13px; padding:4px 0; color:#64748B; }
-  .grand { display:flex; justify-content:space-between; font-size:17px; font-weight:800; color:#C41E3A; padding-top:12px; margin-top:8px; border-top:2px solid #C41E3A; }
-  .footer { text-align:center; font-size:11px; color:#94A3B8; padding:24px; }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:-apple-system,Helvetica Neue,Arial,sans-serif;color:#1E293B;background:#F8FAFC;font-size:13px;}
+  a{color:inherit;text-decoration:none;}
+
+  /* ── Page wrapper ── */
+  .page{max-width:680px;margin:0 auto;background:#fff;box-shadow:0 0 0 1px #E2E8F0;}
+
+  /* ── Header band ── */
+  .header{background:linear-gradient(135deg,#7B0E20 0%,#C41E3A 55%,#E11D48 100%);padding:36px 36px 28px;color:#fff;}
+  .header-row{display:flex;justify-content:space-between;align-items:flex-start;}
+  .brand-name{font-size:26px;font-weight:800;letter-spacing:-0.5px;line-height:1;}
+  .brand-tag{font-size:11px;font-weight:500;opacity:0.65;margin-top:5px;letter-spacing:0.4px;}
+  .inv-block{text-align:right;}
+  .inv-word{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;opacity:0.65;margin-bottom:4px;}
+  .inv-number{font-size:22px;font-weight:800;letter-spacing:-0.3px;}
+  .inv-date{font-size:11px;opacity:0.7;margin-top:4px;}
+
+  /* ── Status pill ── */
+  .status-row{margin-top:22px;display:flex;align-items:center;gap:10px;}
+  .status-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:#fff;letter-spacing:0.3px;}
+  .dot{width:6px;height:6px;border-radius:50%;background:#4ADE80;flex-shrink:0;}
+  .due-text{font-size:11px;opacity:0.7;}
+
+  /* ── Two-column info grid ── */
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid #E2E8F0;}
+  .info-cell{padding:20px 28px;}
+  .info-cell+.info-cell{border-left:1px solid #E2E8F0;}
+  .cell-label{font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+  .cell-name{font-size:15px;font-weight:700;color:#1E293B;margin-bottom:3px;}
+  .cell-sub{font-size:12px;color:#64748B;line-height:1.5;}
+
+  /* ── Section header ── */
+  .section-head{padding:16px 28px 12px;border-bottom:2px solid #F1F5F9;display:flex;justify-content:space-between;align-items:center;}
+  .section-title{font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;}
+
+  /* ── Items table ── */
+  .items-table{width:100%;border-collapse:collapse;}
+  .items-table thead tr{background:#F8FAFC;}
+  .items-table thead th{padding:10px 12px;font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:0.8px;border-bottom:2px solid #E2E8F0;}
+  .items-table thead th:first-child{text-align:left;padding-left:28px;}
+  .items-table thead th:last-child{padding-right:28px;}
+  .items-table tbody tr:last-child td{border-bottom:none;}
+  .items-table tbody td:first-child{padding-left:28px;}
+  .items-table tbody td:last-child{padding-right:28px;}
+
+  /* ── Labour row ── */
+  .labour-row{display:flex;justify-content:space-between;align-items:center;padding:12px 28px;background:#FFFBEB;border-top:1px solid #FEF3C7;border-bottom:1px solid #FEF3C7;}
+  .labour-label{font-size:13px;color:#92400E;font-weight:500;}
+  .labour-amount{font-size:13px;font-weight:600;color:#92400E;}
+
+  /* ── Totals box ── */
+  .totals-wrap{padding:20px 28px 24px;border-top:2px solid #F1F5F9;}
+  .total-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#64748B;}
+  .total-row span:last-child{font-weight:500;color:#475569;}
+  .total-divider{border:none;border-top:1px dashed #CBD5E1;margin:12px 0;}
+  .grand-row{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:linear-gradient(135deg,#7B0E20,#C41E3A);border-radius:10px;margin-top:4px;}
+  .grand-label{color:#fff;font-size:13px;font-weight:600;opacity:0.85;}
+  .grand-amount{color:#fff;font-size:20px;font-weight:800;letter-spacing:-0.5px;}
+
+  /* ── Notes ── */
+  .notes-block{margin:0 28px 24px;padding:14px 16px;background:#F8FAFC;border-left:3px solid #C41E3A;border-radius:0 6px 6px 0;}
+  .notes-label{font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+  .notes-text{font-size:12px;color:#475569;line-height:1.6;}
+
+  /* ── Footer ── */
+  .footer{background:#F8FAFC;border-top:1px solid #E2E8F0;padding:20px 28px;display:flex;justify-content:space-between;align-items:center;}
+  .footer-brand{font-size:13px;font-weight:700;color:#C41E3A;}
+  .footer-right{font-size:11px;color:#94A3B8;text-align:right;}
+  .thank-you{font-size:11px;color:#64748B;margin-top:2px;}
 </style>
 </head>
 <body>
+<div class="page">
+
+  <!-- Header -->
   <div class="header">
-    <div class="header-top">
-      <div><div class="brand">GoFixAuto</div><div class="tagline">Smart Garage Management</div></div>
-      <div class="inv-badge"><div class="inv-label">Invoice</div><div class="inv-num">${invoiceNum}</div></div>
+    <div class="header-row">
+      <div>
+        <div class="brand-name">GoFixCarz</div>
+        <div class="brand-tag">Smart Garage Management</div>
+      </div>
+      <div class="inv-block">
+        <div class="inv-word">Tax Invoice</div>
+        <div class="inv-number">${invoiceNum}</div>
+        <div class="inv-date">Issued ${dateStr}</div>
+      </div>
     </div>
-    <div class="meta">
-      <span>&#128100; ${customerName || '—'}</span>
-      <span>&#128663; ${regNumber || '—'}</span>
-      <span>&#128197; ${dateStr}</span>
+    <div class="status-row">
+      <div class="status-pill"><div class="dot"></div>Due on Delivery</div>
+      ${deliveryDate ? `<div class="due-text">Expected: ${dueStr}</div>` : ''}
     </div>
   </div>
 
+  <!-- Bill To / Vehicle -->
+  <div class="info-grid">
+    <div class="info-cell">
+      <div class="cell-label">Bill To</div>
+      <div class="cell-name">${customerName || '—'}</div>
+      <div class="cell-sub">${customerPhone || ''}</div>
+    </div>
+    <div class="info-cell">
+      <div class="cell-label">Vehicle</div>
+      <div class="cell-name">${regNumber || '—'}</div>
+      <div class="cell-sub">${vehicleLabel}</div>
+    </div>
+  </div>
+
+  <!-- Services -->
   ${services.length > 0 ? `
-  <div class="section">
-    <div class="section-title">Services</div>
-    <table><tbody>${serviceRows}</tbody></table>
-  </div>` : ''}
+  <div class="section-head">
+    <div class="section-title">Services &amp; Parts</div>
+    <div style="font-size:11px;color:#94A3B8;">${services.length} item${services.length !== 1 ? 's' : ''}</div>
+  </div>
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th style="text-align:left;">Description</th>
+        <th style="text-align:center;">Qty</th>
+        <th style="text-align:right;">Unit Price</th>
+        <th style="text-align:right;">Amount</th>
+      </tr>
+    </thead>
+    <tbody>${serviceRows}</tbody>
+  </table>` : ''}
 
+  <!-- Labour -->
   ${labourTotal > 0 ? `
-  <div class="section">
-    <div class="section-title">Labour</div>
-    <table><tbody>
-      <tr><td>Labour Charge${estHours ? ` (${estHours}h)` : ''}</td><td style="text-align:right">${formatCurrency(labourTotal)}</td></tr>
-    </tbody></table>
+  <div class="labour-row">
+    <span class="labour-label">&#9881; Labour Charge${estHours ? ` &mdash; ${estHours} hrs estimated` : ''}</span>
+    <span class="labour-amount">${formatCurrency(labourTotal)}</span>
   </div>` : ''}
 
-  <div class="totals">
-    <div class="total-row"><span>Services</span><span>${formatCurrency(servicesTotal)}</span></div>
-    <div class="total-row"><span>Labour</span><span>${formatCurrency(labourTotal)}</span></div>
+  <!-- Totals -->
+  <div class="totals-wrap">
+    <div class="total-row"><span>Services Subtotal</span><span>${formatCurrency(servicesTotal)}</span></div>
+    ${labourTotal > 0 ? `<div class="total-row"><span>Labour</span><span>${formatCurrency(labourTotal)}</span></div>` : ''}
     <div class="total-row"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>
-    <div class="total-row"><span>GST (18%)</span><span>${formatCurrency(gst)}</span></div>
-    <div class="grand"><span>Grand Total</span><span>${formatCurrency(grandTotal)}</span></div>
+    <div class="total-row"><span>GST @ 18%</span><span>${formatCurrency(gst)}</span></div>
+    <hr class="total-divider"/>
+    <div class="grand-row">
+      <span class="grand-label">Grand Total (INR)</span>
+      <span class="grand-amount">${formatCurrency(grandTotal)}</span>
+    </div>
   </div>
 
-  <div class="footer">Thank you for choosing GoFixAuto &bull; Smart Workshop Manager</div>
+  <!-- Notes -->
+  ${additionalNotes ? `
+  <div class="notes-block">
+    <div class="notes-label">Workshop Notes</div>
+    <div class="notes-text">${additionalNotes}</div>
+  </div>` : ''}
+
+  <!-- Footer -->
+  <div class="footer">
+    <div>
+      <div class="footer-brand">GoFixCarz Partner</div>
+      <div class="thank-you">Thank you for your business!</div>
+    </div>
+    <div class="footer-right">
+      <div>This is a computer-generated invoice.</div>
+      <div style="margin-top:2px;">No signature required.</div>
+    </div>
+  </div>
+
+</div>
 </body>
 </html>`;
   }
 
   /* ── PDF actions ── */
-  async function generateAndSharePdf(mode: 'download' | 'share') {
+  // Download PDF  → native print/preview dialog (iOS: share ▸ Save as PDF; Android: print preview ▸ Save)
+  // Share Invoice → share sheet so the user can send via WhatsApp, email, Drive, etc.
+  async function handleDownloadPdf() {
     if (pdfLoading) return;
-    setPdfLoading(mode);
+    setPdfLoading('download');
+    try {
+      await Print.printAsync({ html: buildInvoiceHtml() });
+    } catch (e: any) {
+      // User cancelled the dialog — not an error worth alerting
+      if (!String(e?.message).toLowerCase().includes('cancel')) {
+        Alert.alert('Error', e?.message ?? 'Could not open print dialog.');
+      }
+    } finally {
+      setPdfLoading(null);
+    }
+  }
+
+  async function handleSharePdf() {
+    if (pdfLoading) return;
+    setPdfLoading('share');
     try {
       const { uri } = await Print.printToFileAsync({ html: buildInvoiceHtml(), base64: false });
       if (await Sharing.isAvailableAsync()) {
-        // Both modes use the native share sheet:
-        // • Download → user taps "Save to Files" (iOS) or "Save to Downloads" (Android)
-        // • Share    → user picks any app (WhatsApp, email, etc.)
         await Sharing.shareAsync(uri, {
           mimeType: 'application/pdf',
-          dialogTitle: mode === 'download' ? `Save ${invoiceNum}` : `Share ${invoiceNum}`,
+          dialogTitle: `Share ${invoiceNum}`,
           UTI: 'com.adobe.pdf',
         });
       } else {
@@ -274,9 +406,6 @@ export default function CreateJobScreen() {
       setPdfLoading(null);
     }
   }
-
-  const handleDownloadPdf = () => generateAndSharePdf('download');
-  const handleSharePdf    = () => generateAndSharePdf('share');
 
   /* ── Draft helpers ── */
   const isDone = useRef(false); // prevents debounced save from overwriting clearDraft on success
