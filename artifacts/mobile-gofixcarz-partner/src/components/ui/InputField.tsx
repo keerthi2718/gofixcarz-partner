@@ -3,7 +3,7 @@ import {
   Animated, Platform, StyleSheet, Text, TextInput, TextInputProps,
   TouchableOpacity, View, ViewStyle,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from '@/src/components/ui/FeatherIcon';
 import { radius, spacing, typography } from '@/constants/theme';
 
 /* ── Design tokens (kept local so the component is self-contained) ─── */

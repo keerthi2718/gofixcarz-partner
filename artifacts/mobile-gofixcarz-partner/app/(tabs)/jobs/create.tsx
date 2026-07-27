@@ -8,7 +8,7 @@ import DateTimePicker, { type DateTimePickerEvent } from '@react-native-communit
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from '@/src/components/ui/FeatherIcon';
 import { useMutation } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';

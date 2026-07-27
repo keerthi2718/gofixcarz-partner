@@ -1,7 +1,7 @@
 import React from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Tabs } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from '@/src/components/ui/FeatherIcon';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 

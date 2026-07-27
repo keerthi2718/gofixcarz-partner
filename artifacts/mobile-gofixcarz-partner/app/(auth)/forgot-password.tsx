@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from '@/src/components/ui/FeatherIcon';
 import InputField from '@/src/components/ui/InputField';
 import PrimaryButton from '@/src/components/ui/PrimaryButton';
 import { radius, shadow, spacing, typography } from '@/constants/theme';

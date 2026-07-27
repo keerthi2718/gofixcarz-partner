@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from '@/src/components/ui/FeatherIcon';
 import Avatar from '@/src/components/ui/Avatar';
 import { MOCK_BOOKINGS } from '@/src/data/mockBookings';
 import type { BookingStatus } from '@/src/types';

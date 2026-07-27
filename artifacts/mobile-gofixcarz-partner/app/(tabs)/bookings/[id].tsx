@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from '@/src/components/ui/FeatherIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getMockBooking, updateMockBookingStatus } from '@/src/data/mockBookings';
 import Avatar from '@/src/components/ui/Avatar';

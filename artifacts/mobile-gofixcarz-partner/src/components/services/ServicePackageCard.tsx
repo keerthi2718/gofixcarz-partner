@@ -1,6 +1,6 @@
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from '@/src/components/ui/FeatherIcon';
 import type { ServicePackageResponse } from '@/src/types';
 
 /* ── Design tokens ── */

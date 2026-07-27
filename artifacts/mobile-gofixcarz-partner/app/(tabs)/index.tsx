@@ -14,7 +14,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from '@/src/components/ui/FeatherIcon';
 import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import DashboardService from '@/src/services/dashboard.service';
