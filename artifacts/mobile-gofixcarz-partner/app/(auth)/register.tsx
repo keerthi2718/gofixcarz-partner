@@ -474,28 +474,67 @@ export default function RegisterScreen() {
             sectionKey="personal"
             onSectionLayout={(k, y) => { sectionY.current[k] = y; }}
           >
-            <View style={styles.row}>
-              <View style={{ flex: 1 }}>
-                <InputField
-                  label="First Name *"
-                  value={form.firstName}
-                  onChangeText={v => set('firstName', v)}
-                  onBlur={() => touch('firstName')}
-                  placeholder="First name"
-                  autoCapitalize="words"
-                  leadingIcon="user"
-                  error={errors.firstName}
-                />
+            {/* ── Live name preview — appears as the user types ── */}
+            {(form.firstName || form.lastName) ? (
+              <View style={styles.namePreviewRow}>
+                <LinearGradient
+                  colors={['#2563EB', '#06B6D4']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={styles.nameAvatarGradient}
+                >
+                  <Text style={styles.nameAvatarText}>
+                    {`${(form.firstName[0] ?? '').toUpperCase()}${(form.lastName[0] ?? '').toUpperCase()}`}
+                  </Text>
+                </LinearGradient>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.namePreviewCaption}>Garage Owner</Text>
+                  <Text style={styles.namePreviewFull} numberOfLines={1}>
+                    {[form.firstName, form.lastName].filter(Boolean).join(' ')}
+                  </Text>
+                </View>
+                <View style={styles.namePreviewBadge}>
+                  <Feather name="check" size={11} color="#fff" />
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <InputField
-                  label="Last Name"
-                  value={form.lastName}
-                  onChangeText={v => set('lastName', v)}
-                  placeholder="Last name"
-                  autoCapitalize="words"
-                />
+            ) : (
+              <View style={styles.nameHintRow}>
+                <Feather name="info" size={13} color="#94A3B8" />
+                <Text style={styles.nameHintText}>
+                  Your name appears on customer invoices &amp; job cards
+                </Text>
               </View>
+            )}
+
+            {/* ── First Name — full width ── */}
+            <InputField
+              label="First Name *"
+              value={form.firstName}
+              onChangeText={v => set('firstName', v)}
+              onBlur={() => touch('firstName')}
+              placeholder="Enter your first name"
+              autoCapitalize="words"
+              leadingIcon="user"
+              error={errors.firstName}
+              returnKeyType="next"
+            />
+
+            {/* ── Last Name — full width, optional ── */}
+            <View>
+              <View style={styles.lastNameLabelRow}>
+                <Text style={styles.lastNameLabel}>Last Name</Text>
+                <View style={styles.optionalBadge}>
+                  <Text style={styles.optionalBadgeText}>Optional</Text>
+                </View>
+              </View>
+              <InputField
+                value={form.lastName}
+                onChangeText={v => set('lastName', v)}
+                placeholder="Enter your last name"
+                autoCapitalize="words"
+                leadingIcon="user"
+                containerStyle={{ marginBottom: 0 }}
+                returnKeyType="next"
+              />
             </View>
           </SectionCard>
 
@@ -779,6 +818,76 @@ const styles = StyleSheet.create({
 
   /* Row layout */
   row: { flexDirection: 'row', gap: 10 },
+
+  /* ── Name preview chip ── */
+  namePreviewRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 22,
+    borderWidth: 1, borderColor: '#BFDBFE',
+    ...Platform.select({
+      ios: { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.10, shadowRadius: 10 },
+      android: { elevation: 2 },
+      default: {},
+    }),
+  },
+  nameAvatarGradient: {
+    width: 50, height: 50, borderRadius: 25,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  nameAvatarText: {
+    fontSize: 18, fontWeight: '800', color: '#fff', letterSpacing: 0.5,
+  },
+  namePreviewCaption: {
+    fontSize: 10, fontWeight: '700', color: '#3B82F6',
+    textTransform: 'uppercase', letterSpacing: 0.8,
+  },
+  namePreviewFull: {
+    fontSize: 16, fontWeight: '700', color: '#1E293B', letterSpacing: -0.2,
+  },
+  namePreviewBadge: {
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: '#10B981',
+    alignItems: 'center', justifyContent: 'center',
+    ...Platform.select({
+      ios: { shadowColor: '#10B981', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.30, shadowRadius: 4 },
+      android: { elevation: 3 },
+      default: {},
+    }),
+  },
+
+  /* ── Name hint (empty state) ── */
+  nameHintRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 11,
+    marginBottom: 20,
+    borderWidth: 1, borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+  },
+  nameHintText: {
+    fontSize: 12, color: '#94A3B8', flex: 1, lineHeight: 17,
+  },
+
+  /* ── Last name label row with Optional badge ── */
+  lastNameLabelRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8,
+  },
+  lastNameLabel: {
+    fontSize: 15, fontWeight: '600', color: '#475569',
+  },
+  optionalBadge: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
+    paddingHorizontal: 7, paddingVertical: 2,
+    borderWidth: 1, borderColor: '#E2E8F0',
+  },
+  optionalBadgeText: {
+    fontSize: 10, fontWeight: '600', color: '#94A3B8', letterSpacing: 0.3,
+  },
 
   /* ── Address autocomplete ── */
   fieldLabel: {
