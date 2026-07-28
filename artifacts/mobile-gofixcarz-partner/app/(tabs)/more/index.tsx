@@ -190,7 +190,7 @@ export default function MoreScreen() {
           <Text style={styles.logoutText}>Sign Out</Text>
         </TouchableOpacity>
 
-        <Text style={styles.version}>GoFixAuto Partner v1.0.0</Text>
+        <Text style={styles.version}>GoFixCarz Partner v1.0.0</Text>
       </ScrollView>
     </View>
   );

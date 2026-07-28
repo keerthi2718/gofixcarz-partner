@@ -169,7 +169,7 @@ function AddressAutocomplete({ value, onChangeText, onSelect, error }: AddressAu
           placeholder="Search your workshop address…"
           placeholderTextColor="#94A3B8"
           onFocus={() => setFocused(true)}
-          onBlur={() => { setFocused(false); setTimeout(() => setShowSuggestions(false), 200); }}
+          onBlur={() => { setFocused(false); setTimeout(() => setShowSuggestions(false), 350); }}
           autoCapitalize="none"
           returnKeyType="search"
         />
@@ -456,7 +456,7 @@ export default function RegisterScreen() {
           {/* Page title & subtitle inside gradient */}
           <Text style={styles.pageTitle}>Create Your Garage Owner Account</Text>
           <Text style={styles.pageSubtitle}>
-            Register your garage to receive bookings, manage services, and grow your business with GoFixAuto.
+            Register your garage to receive bookings, manage services, and grow your business with GoFixCarz.
           </Text>
         </LinearGradient>
 
@@ -817,7 +817,6 @@ const styles = StyleSheet.create({
     backgroundColor: CARD,
     borderRadius: 20,
     marginBottom: 20,
-    overflow: 'hidden',
     borderWidth: 1,
     borderColor: BORDER,
     ...Platform.select({
@@ -850,11 +849,11 @@ const styles = StyleSheet.create({
   /* ── Name preview chip ── */
   namePreviewRow: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: PRIMARY_LIGHT,
     borderRadius: 18,
     padding: 14,
     marginBottom: 22,
-    borderWidth: 1, borderColor: '#BFDBFE',
+    borderWidth: 1, borderColor: 'rgba(196,30,58,0.20)',
     ...Platform.select({
       ios: { shadowColor: '#C41E3A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.10, shadowRadius: 10 },
       android: { elevation: 2 },
@@ -869,7 +868,7 @@ const styles = StyleSheet.create({
     fontSize: 18, fontWeight: '800', color: '#fff', letterSpacing: 0.5,
   },
   namePreviewCaption: {
-    fontSize: 10, fontWeight: '700', color: '#3B82F6',
+    fontSize: 10, fontWeight: '700', color: PRIMARY,
     textTransform: 'uppercase', letterSpacing: 0.8,
   },
   namePreviewFull: {
@@ -937,7 +936,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: PRIMARY_LIGHT,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
@@ -997,7 +996,7 @@ const styles = StyleSheet.create({
     fontSize: 10, fontWeight: '500', color: MUTED,
     textAlign: 'center', lineHeight: 13,
   },
-  vChipSubSelected: { color: '#3B82F6' },
+  vChipSubSelected: { color: PRIMARY },
   vChipCheck: {
     position: 'absolute', top: 8, right: 8,
     width: 18, height: 18, borderRadius: 9,

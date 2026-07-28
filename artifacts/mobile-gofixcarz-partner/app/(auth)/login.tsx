@@ -174,7 +174,7 @@ export default function LoginScreen() {
             activeOpacity={0.7}
           >
             <Text style={styles.linkText}>
-              New to GoFixAuto?{' '}
+              New to GoFixCarz?{' '}
               <Text style={styles.linkHighlight}>Create Account</Text>
             </Text>
           </TouchableOpacity>

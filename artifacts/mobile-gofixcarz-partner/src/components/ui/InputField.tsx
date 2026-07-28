@@ -7,10 +7,10 @@ import { Feather } from '@/src/components/ui/FeatherIcon';
 import { radius, spacing, typography } from '@/constants/theme';
 
 /* ── Design tokens (kept local so the component is self-contained) ─── */
-const PRIMARY        = '#2563EB';
-const ICON_BG        = '#EFF6FF';
+const PRIMARY        = '#C41E3A';
+const ICON_BG        = '#FEF2F2';
 const BORDER_DEFAULT = '#E2E8F0';
-const BORDER_FOCUS   = '#2563EB';
+const BORDER_FOCUS   = '#C41E3A';
 const BORDER_ERROR   = '#EF4444';
 const TEXT_COLOR     = '#1E293B';
 const PLACEHOLDER    = '#94A3B8';
@@ -72,7 +72,7 @@ export default function InputField({
 
   const shadowColor = glowAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['rgba(37,99,235,0)', 'rgba(37,99,235,0.18)'],
+    outputRange: ['rgba(196,30,58,0)', 'rgba(196,30,58,0.15)'],
   });
 
   return (
@@ -90,11 +90,11 @@ export default function InputField({
           Platform.OS === 'ios'
             ? {
                 shadowColor: focused ? PRIMARY : '#000',
-                shadowOffset: { width: 0, height: focused ? 0 : 2 },
-                shadowOpacity: focused ? 0.18 : 0.06,
-                shadowRadius: focused ? 8 : 4,
+                shadowOffset: { width: 0, height: focused ? 0 : 1 },
+                shadowOpacity: focused ? 0.14 : 0.04,
+                shadowRadius: focused ? 6 : 3,
               }
-            : { elevation: focused ? 4 : 2 },
+            : { elevation: focused ? 3 : 1 },
         ]}
       >
         {leadingIcon ? (

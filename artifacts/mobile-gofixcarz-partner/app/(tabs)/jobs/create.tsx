@@ -1255,7 +1255,7 @@ export default function CreateJobScreen() {
               <View style={styles.invoiceHeroCircle} />
               <View style={styles.invoiceHeroTop}>
                 <View>
-                  <Text style={styles.invoiceBrand}>GoFixAuto</Text>
+                  <Text style={styles.invoiceBrand}>GoFixCarz</Text>
                   <Text style={styles.invoiceTagline}>Smart Garage Management</Text>
                 </View>
                 <View style={styles.invoiceNumWrap}>
