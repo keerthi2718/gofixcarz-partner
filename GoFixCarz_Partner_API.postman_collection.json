@@ -38,7 +38,11 @@
             "auth": { "type": "noauth" },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/auth/send-otp", "host": ["{{base_url}}"], "path": ["auth", "send-otp"] },
+            "url": {
+              "raw": "{{base_url}}/auth/send-otp",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "send-otp"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
@@ -79,7 +83,11 @@
             "auth": { "type": "noauth" },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/auth/verify-otp", "host": ["{{base_url}}"], "path": ["auth", "verify-otp"] },
+            "url": {
+              "raw": "{{base_url}}/auth/verify-otp",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "verify-otp"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\",\n  \"otp\": \"123456\"\n}",
@@ -102,7 +110,11 @@
             "auth": { "type": "noauth" },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/auth/sign-in", "host": ["{{base_url}}"], "path": ["auth", "sign-in"] },
+            "url": {
+              "raw": "{{base_url}}/auth/sign-in",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "sign-in"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"mobile\": \"{{mobile}}\",\n  \"password\": \"your_password\"\n}",
@@ -116,7 +128,11 @@
             "auth": { "type": "noauth" },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/auth/sign-up", "host": ["{{base_url}}"], "path": ["auth", "sign-up"] },
+            "url": {
+              "raw": "{{base_url}}/auth/sign-up",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "sign-up"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"first_name\": \"Ramesh\",\n  \"last_name\": \"Patel\",\n  \"workshop_name\": \"AutoCare Garage\",\n  \"email\": \"ramesh@autocare.com\",\n  \"mobile\": \"9876543210\",\n  \"address\": \"12, MG Road\",\n  \"city\": \"Bangalore\",\n  \"state\": \"Karnataka\",\n  \"zipcode\": \"560001\",\n  \"country\": \"India\",\n  \"country_code\": \"+91\",\n  \"wheelers\": [\"2-wheeler\", \"4-wheeler\"],\n  \"terms_accepted\": true\n}",
@@ -147,7 +163,11 @@
             "auth": { "type": "noauth" },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/auth/refresh", "host": ["{{base_url}}"], "path": ["auth", "refresh"] },
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
@@ -161,7 +181,11 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/auth/logout", "host": ["{{base_url}}"], "path": ["auth", "logout"] },
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
@@ -179,7 +203,11 @@
           "name": "Get Dashboard Stats",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{base_url}}/dashboard", "host": ["{{base_url}}"], "path": ["dashboard"] },
+            "url": {
+              "raw": "{{base_url}}/dashboard",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard"]
+            },
             "description": "Returns today's KPIs: jobs_today, open_jobs, in_progress_jobs, completed_jobs, cancelled_jobs, bookings_today, pending_bookings, revenue_today, revenue_this_month, recent_activities[]"
           },
           "response": [
@@ -205,9 +233,23 @@
               "host": ["{{base_url}}"],
               "path": ["analytics"],
               "query": [
-                { "key": "period", "value": "week", "description": "week | month | year | custom" },
-                { "key": "start_date", "value": "", "description": "YYYY-MM-DD (required when period=custom)", "disabled": true },
-                { "key": "end_date",   "value": "", "description": "YYYY-MM-DD (required when period=custom)", "disabled": true }
+                {
+                  "key": "period",
+                  "value": "week",
+                  "description": "week | month | year | custom"
+                },
+                {
+                  "key": "start_date",
+                  "value": "",
+                  "description": "YYYY-MM-DD (required when period=custom)",
+                  "disabled": true
+                },
+                {
+                  "key": "end_date",
+                  "value": "",
+                  "description": "YYYY-MM-DD (required when period=custom)",
+                  "disabled": true
+                }
               ]
             },
             "description": "**Query params:**\n- `period`: `week` | `month` | `year` | `custom`\n- `start_date` / `end_date`: ISO date strings, only used when `period=custom`\n\n**Response includes:** total_revenue, total_jobs, status_counts breakdown, graph_data time-series points"
@@ -254,9 +296,9 @@
               "host": ["{{base_url}}"],
               "path": ["analytics"],
               "query": [
-                { "key": "period",     "value": "custom" },
+                { "key": "period", "value": "custom" },
                 { "key": "start_date", "value": "2026-07-01" },
-                { "key": "end_date",   "value": "2026-07-28" }
+                { "key": "end_date", "value": "2026-07-28" }
               ]
             }
           }
@@ -270,7 +312,11 @@
           "name": "Get Garage",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{base_url}}/garage", "host": ["{{base_url}}"], "path": ["garage"] },
+            "url": {
+              "raw": "{{base_url}}/garage",
+              "host": ["{{base_url}}"],
+              "path": ["garage"]
+            },
             "description": "Fetch the authenticated partner's garage profile.\n\n**Response fields:** id, name, owner, address, city, state, zipcode, country, alternate_number, wheelers[], working_hours{}, latitude, longitude, created_at, updated_at"
           },
           "response": [
@@ -287,7 +333,11 @@
           "request": {
             "method": "PUT",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/garage", "host": ["{{base_url}}"], "path": ["garage"] },
+            "url": {
+              "raw": "{{base_url}}/garage",
+              "host": ["{{base_url}}"],
+              "path": ["garage"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"AutoCare Garage\",\n  \"owner\": \"Ramesh Patel\",\n  \"address\": \"12, MG Road\",\n  \"city\": \"Bangalore\",\n  \"state\": \"Karnataka\",\n  \"zipcode\": \"560001\",\n  \"country\": \"India\",\n  \"alternate_number\": \"9000000001\",\n  \"wheelers\": [\"2-wheeler\", \"4-wheeler\"],\n  \"working_hours\": {\n    \"Mon\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": false },\n    \"Tue\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": false },\n    \"Wed\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": false },\n    \"Thu\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": false },\n    \"Fri\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": false },\n    \"Sat\": { \"open\": \"09:00\", \"close\": \"14:00\", \"closed\": false },\n    \"Sun\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": true }\n  },\n  \"latitude\": 12.9716,\n  \"longitude\": 77.5946\n}",
@@ -305,7 +355,11 @@
           "name": "Get Profile",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{base_url}}/profile", "host": ["{{base_url}}"], "path": ["profile"] },
+            "url": {
+              "raw": "{{base_url}}/profile",
+              "host": ["{{base_url}}"],
+              "path": ["profile"]
+            },
             "description": "Fetch the authenticated user's personal profile.\n\n**Response fields:** id, name, mobile, email, is_active, created_at, updated_at"
           },
           "response": [
@@ -322,7 +376,11 @@
           "request": {
             "method": "PUT",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/profile", "host": ["{{base_url}}"], "path": ["profile"] },
+            "url": {
+              "raw": "{{base_url}}/profile",
+              "host": ["{{base_url}}"],
+              "path": ["profile"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Ramesh Patel\",\n  \"email\": \"ramesh@autocare.com\"\n}",
@@ -345,8 +403,13 @@
               "host": ["{{base_url}}"],
               "path": ["bookings"],
               "query": [
-                { "key": "status",    "value": "",   "description": "PENDING | ACCEPTED | REJECTED | CONVERTED", "disabled": true },
-                { "key": "page",      "value": "1" },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "PENDING | ACCEPTED | REJECTED | CONVERTED",
+                  "disabled": true
+                },
+                { "key": "page", "value": "1" },
                 { "key": "page_size", "value": "10" }
               ]
             },
@@ -370,8 +433,8 @@
               "host": ["{{base_url}}"],
               "path": ["bookings"],
               "query": [
-                { "key": "status",    "value": "PENDING" },
-                { "key": "page",      "value": "1" },
+                { "key": "status", "value": "PENDING" },
+                { "key": "page", "value": "1" },
                 { "key": "page_size", "value": "20" }
               ]
             }
@@ -439,13 +502,33 @@
               "host": ["{{base_url}}"],
               "path": ["jobs"],
               "query": [
-                { "key": "search",    "value": "",         "description": "Search by customer name, reg. number, job number", "disabled": true },
-                { "key": "status",    "value": "",         "description": "OPEN | IN_PROGRESS | WAITING_FOR_PARTS | QUALITY_CHECK | READY | COMPLETED | CANCELLED", "disabled": true },
-                { "key": "date_from", "value": "",         "description": "YYYY-MM-DD", "disabled": true },
-                { "key": "date_to",   "value": "",         "description": "YYYY-MM-DD", "disabled": true },
-                { "key": "sort_by",   "value": "created_at", "disabled": true },
-                { "key": "sort_dir",  "value": "desc",     "disabled": true },
-                { "key": "page",      "value": "1" },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search by customer name, reg. number, job number",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "OPEN | IN_PROGRESS | WAITING_FOR_PARTS | QUALITY_CHECK | READY | COMPLETED | CANCELLED",
+                  "disabled": true
+                },
+                {
+                  "key": "date_from",
+                  "value": "",
+                  "description": "YYYY-MM-DD",
+                  "disabled": true
+                },
+                {
+                  "key": "date_to",
+                  "value": "",
+                  "description": "YYYY-MM-DD",
+                  "disabled": true
+                },
+                { "key": "sort_by", "value": "created_at", "disabled": true },
+                { "key": "sort_dir", "value": "desc", "disabled": true },
+                { "key": "page", "value": "1" },
                 { "key": "page_size", "value": "30" }
               ]
             },
@@ -461,8 +544,8 @@
               "host": ["{{base_url}}"],
               "path": ["jobs"],
               "query": [
-                { "key": "status",    "value": "IN_PROGRESS" },
-                { "key": "page",      "value": "1" },
+                { "key": "status", "value": "IN_PROGRESS" },
+                { "key": "page", "value": "1" },
                 { "key": "page_size", "value": "30" }
               ]
             }
@@ -473,7 +556,11 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/jobs", "host": ["{{base_url}}"], "path": ["jobs"] },
+            "url": {
+              "raw": "{{base_url}}/jobs",
+              "host": ["{{base_url}}"],
+              "path": ["jobs"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"customer_name\": \"Arjun Singh\",\n  \"customer_mobile\": \"9123456789\",\n  \"registration_number\": \"KA01AB1234\",\n  \"brand\": \"Maruti Suzuki\",\n  \"vehicle_model\": \"Swift\",\n  \"fuel_type\": \"Petrol\",\n  \"odometer_km\": 45200,\n  \"description\": \"Customer reports rattling noise from engine bay\",\n  \"estimated_amount\": 2500.00,\n  \"customer_id\": null,\n  \"vehicle_id\": null,\n  \"booking_id\": null,\n  \"photos\": []\n}",
@@ -612,10 +699,20 @@
               "host": ["{{base_url}}"],
               "path": ["service-packages"],
               "query": [
-                { "key": "search",      "value": "",     "description": "Search by name", "disabled": true },
-                { "key": "active_only", "value": "true", "description": "true = only active packages", "disabled": true },
-                { "key": "page",        "value": "1",    "disabled": true },
-                { "key": "page_size",   "value": "50" }
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search by name",
+                  "disabled": true
+                },
+                {
+                  "key": "active_only",
+                  "value": "true",
+                  "description": "true = only active packages",
+                  "disabled": true
+                },
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "page_size", "value": "50" }
               ]
             }
           },
@@ -633,7 +730,11 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/service-packages", "host": ["{{base_url}}"], "path": ["service-packages"] },
+            "url": {
+              "raw": "{{base_url}}/service-packages",
+              "host": ["{{base_url}}"],
+              "path": ["service-packages"]
+            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Basic Service\",\n  \"description\": \"Engine oil change, oil filter replacement, coolant top-up, brake fluid check\",\n  \"price\": 1299.00,\n  \"duration_minutes\": 60,\n  \"is_active\": true\n}",
@@ -697,9 +798,13 @@
               "host": ["{{base_url}}"],
               "path": ["notifications"],
               "query": [
-                { "key": "unread_only", "value": "false", "description": "true = only unread" },
-                { "key": "page",        "value": "1",     "disabled": true },
-                { "key": "page_size",   "value": "30" }
+                {
+                  "key": "unread_only",
+                  "value": "false",
+                  "description": "true = only unread"
+                },
+                { "key": "page", "value": "1", "disabled": true },
+                { "key": "page_size", "value": "30" }
               ]
             },
             "description": "Returns the garage's notification inbox.\n\n**type examples:** booking_request, job_update, payment_received, system"
@@ -723,7 +828,7 @@
               "path": ["notifications"],
               "query": [
                 { "key": "unread_only", "value": "true" },
-                { "key": "page_size",   "value": "30" }
+                { "key": "page_size", "value": "30" }
               ]
             }
           }
