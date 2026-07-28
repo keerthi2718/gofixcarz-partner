@@ -33,9 +33,14 @@
           "origin": "https://replit.com/"
         }
       ],
-      ["expo-font", {
-        "fonts": ["./assets/fonts/Feather.ttf"]
-      }],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Feather.ttf"
+          ]
+        }
+      ],
       "expo-web-browser",
       [
         "expo-notifications",
@@ -55,6 +60,7 @@
       "eas": {
         "projectId": "33af7382-e378-4e0b-ae76-44c030a71588"
       }
-    }
+    },
+    "owner": "keerthi27"
   }
 }
