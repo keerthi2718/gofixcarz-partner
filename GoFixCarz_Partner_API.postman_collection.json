@@ -1,0 +1,913 @@
+{
+  "info": {
+    "name": "GoFixCarz Partner API",
+    "_postman_id": "gofixcarz-partner-api-v1",
+    "description": "Complete API collection for the GoFixCarz Partner app.\n\n**Setup:**\n1. Import this collection AND the `GoFixCarz_Partner.postman_environment.json` file.\n2. Select the **GoFixCarz Partner** environment from the top-right dropdown.\n3. Run **Auth → Send OTP**, then **Auth → Verify OTP** — the access token is saved automatically.\n4. All authenticated requests will use `{{access_token}}` from the environment.\n\n**Base URLs:**\n- Backend API: `https://api.gofixcarz.com/api/v1`\n- Local API Server: `{{local_api_url}}` (set to your Replit dev domain, e.g. `https://<slug>.replit.dev/api-server/api`)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://api.gofixcarz.com/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "local_api_url",
+      "value": "http://localhost:3001/api",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Auth",
+      "description": "Authentication endpoints. Run Send OTP → Verify OTP to get a token. The Verify OTP request auto-saves access_token and refresh_token to the active environment.",
+      "item": [
+        {
+          "name": "Send OTP",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/send-otp", "host": ["{{base_url}}"], "path": ["auth", "send-otp"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Send an OTP to the garage owner's mobile number. The OTP will arrive via SMS."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"OTP sent successfully\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Verify OTP  ← auto-saves token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res && res.data) {",
+                  "  const d = res.data;",
+                  "  if (d.access_token)  pm.environment.set('access_token',  d.access_token);",
+                  "  if (d.refresh_token) pm.environment.set('refresh_token', d.refresh_token);",
+                  "  if (d.user && d.user.id) pm.environment.set('partner_id', d.user.id);",
+                  "  console.log('✅ Tokens saved to environment');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/verify-otp", "host": ["{{base_url}}"], "path": ["auth", "verify-otp"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\",\n  \"otp\": \"123456\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Verify the OTP. On success the test script automatically saves `access_token`, `refresh_token`, and `partner_id` to the active environment."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"access_token\": \"eyJ...\",\n    \"refresh_token\": \"eyJ...\",\n    \"user\": {\n      \"id\": \"uuid\",\n      \"name\": \"Ramesh Patel\",\n      \"mobile\": \"9876543210\",\n      \"email\": \"ramesh@autocare.com\",\n      \"is_active\": true\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Sign In (mobile + password)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/sign-in", "host": ["{{base_url}}"], "path": ["auth", "sign-in"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"{{mobile}}\",\n  \"password\": \"your_password\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Sign Up (new garage)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/sign-up", "host": ["{{base_url}}"], "path": ["auth", "sign-up"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Ramesh\",\n  \"last_name\": \"Patel\",\n  \"workshop_name\": \"AutoCare Garage\",\n  \"email\": \"ramesh@autocare.com\",\n  \"mobile\": \"9876543210\",\n  \"address\": \"12, MG Road\",\n  \"city\": \"Bangalore\",\n  \"state\": \"Karnataka\",\n  \"zipcode\": \"560001\",\n  \"country\": \"India\",\n  \"country_code\": \"+91\",\n  \"wheelers\": [\"2-wheeler\", \"4-wheeler\"],\n  \"terms_accepted\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Register a new garage/partner account.\n\n**Required:** first_name, workshop_name, mobile, terms_accepted\n**Optional:** last_name, email, address, city, state, zipcode, country, country_code, wheelers"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res && res.data) {",
+                  "  if (res.data.access_token)  pm.environment.set('access_token',  res.data.access_token);",
+                  "  if (res.data.refresh_token) pm.environment.set('refresh_token', res.data.refresh_token);",
+                  "  console.log('✅ Tokens refreshed');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/refresh", "host": ["{{base_url}}"], "path": ["auth", "refresh"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Get a new access token using the refresh token. Auto-saves updated tokens."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/logout", "host": ["{{base_url}}"], "path": ["auth", "logout"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Invalidate the session. Pass the refresh token to fully revoke it server-side."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏠 Dashboard",
+      "item": [
+        {
+          "name": "Get Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/dashboard", "host": ["{{base_url}}"], "path": ["dashboard"] },
+            "description": "Returns today's KPIs: jobs_today, open_jobs, in_progress_jobs, completed_jobs, cancelled_jobs, bookings_today, pending_bookings, revenue_today, revenue_this_month, recent_activities[]"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"jobs_today\": 4,\n    \"open_jobs\": 2,\n    \"in_progress_jobs\": 1,\n    \"completed_jobs\": 12,\n    \"cancelled_jobs\": 0,\n    \"bookings_today\": 3,\n    \"pending_bookings\": 5,\n    \"revenue_today\": 4500.00,\n    \"revenue_this_month\": 87600.00,\n    \"recent_activities\": [\n      {\n        \"job_id\": \"uuid\",\n        \"job_number\": \"JB-0042\",\n        \"customer_name\": \"Arjun Singh\",\n        \"status\": \"COMPLETED\",\n        \"notes\": null,\n        \"timestamp\": \"2026-07-28T10:30:00Z\"\n      }\n    ]\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "📊 Analytics",
+      "item": [
+        {
+          "name": "Get Analytics — weekly",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/analytics?period=week",
+              "host": ["{{base_url}}"],
+              "path": ["analytics"],
+              "query": [
+                { "key": "period", "value": "week", "description": "week | month | year | custom" },
+                { "key": "start_date", "value": "", "description": "YYYY-MM-DD (required when period=custom)", "disabled": true },
+                { "key": "end_date",   "value": "", "description": "YYYY-MM-DD (required when period=custom)", "disabled": true }
+              ]
+            },
+            "description": "**Query params:**\n- `period`: `week` | `month` | `year` | `custom`\n- `start_date` / `end_date`: ISO date strings, only used when `period=custom`\n\n**Response includes:** total_revenue, total_jobs, status_counts breakdown, graph_data time-series points"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"period\": \"week\",\n    \"start_date\": \"2026-07-21\",\n    \"end_date\": \"2026-07-28\",\n    \"total_revenue\": 32400.00,\n    \"total_jobs\": 18,\n    \"status_counts\": {\n      \"OPEN\": 2,\n      \"IN_PROGRESS\": 3,\n      \"COMPLETED\": 12,\n      \"CANCELLED\": 1\n    },\n    \"graph_data\": [\n      { \"label\": \"Mon\", \"revenue\": 4200, \"job_count\": 3, \"completed_count\": 2 }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Analytics — monthly",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/analytics?period=month",
+              "host": ["{{base_url}}"],
+              "path": ["analytics"],
+              "query": [{ "key": "period", "value": "month" }]
+            }
+          }
+        },
+        {
+          "name": "Get Analytics — yearly",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/analytics?period=year",
+              "host": ["{{base_url}}"],
+              "path": ["analytics"],
+              "query": [{ "key": "period", "value": "year" }]
+            }
+          }
+        },
+        {
+          "name": "Get Analytics — custom range",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/analytics?period=custom&start_date=2026-07-01&end_date=2026-07-28",
+              "host": ["{{base_url}}"],
+              "path": ["analytics"],
+              "query": [
+                { "key": "period",     "value": "custom" },
+                { "key": "start_date", "value": "2026-07-01" },
+                { "key": "end_date",   "value": "2026-07-28" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏪 Garage",
+      "item": [
+        {
+          "name": "Get Garage",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/garage", "host": ["{{base_url}}"], "path": ["garage"] },
+            "description": "Fetch the authenticated partner's garage profile.\n\n**Response fields:** id, name, owner, address, city, state, zipcode, country, alternate_number, wheelers[], working_hours{}, latitude, longitude, created_at, updated_at"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"uuid\",\n    \"name\": \"AutoCare Garage\",\n    \"owner\": \"Ramesh Patel\",\n    \"address\": \"12, MG Road\",\n    \"city\": \"Bangalore\",\n    \"state\": \"Karnataka\",\n    \"zipcode\": \"560001\",\n    \"country\": \"India\",\n    \"alternate_number\": null,\n    \"wheelers\": [\"2-wheeler\", \"4-wheeler\"],\n    \"working_hours\": {\n      \"Mon\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": false },\n      \"Tue\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": false },\n      \"Wed\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": false },\n      \"Thu\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": false },\n      \"Fri\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": false },\n      \"Sat\": { \"open\": \"09:00\", \"close\": \"14:00\", \"closed\": false },\n      \"Sun\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": true }\n    },\n    \"latitude\": 12.9716,\n    \"longitude\": 77.5946,\n    \"created_at\": \"2026-01-15T08:00:00Z\",\n    \"updated_at\": \"2026-07-28T10:00:00Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Garage",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/garage", "host": ["{{base_url}}"], "path": ["garage"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"AutoCare Garage\",\n  \"owner\": \"Ramesh Patel\",\n  \"address\": \"12, MG Road\",\n  \"city\": \"Bangalore\",\n  \"state\": \"Karnataka\",\n  \"zipcode\": \"560001\",\n  \"country\": \"India\",\n  \"alternate_number\": \"9000000001\",\n  \"wheelers\": [\"2-wheeler\", \"4-wheeler\"],\n  \"working_hours\": {\n    \"Mon\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": false },\n    \"Tue\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": false },\n    \"Wed\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": false },\n    \"Thu\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": false },\n    \"Fri\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": false },\n    \"Sat\": { \"open\": \"09:00\", \"close\": \"14:00\", \"closed\": false },\n    \"Sun\": { \"open\": \"09:00\", \"close\": \"19:00\", \"closed\": true }\n  },\n  \"latitude\": 12.9716,\n  \"longitude\": 77.5946\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Update the garage profile. All fields are optional — send only what you want to change.\n\n**working_hours format:** `{ \"Mon\": { \"open\": \"HH:MM\", \"close\": \"HH:MM\", \"closed\": false } }` for all 7 days (Mon–Sun)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 Profile",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/profile", "host": ["{{base_url}}"], "path": ["profile"] },
+            "description": "Fetch the authenticated user's personal profile.\n\n**Response fields:** id, name, mobile, email, is_active, created_at, updated_at"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"uuid\",\n    \"name\": \"Ramesh Patel\",\n    \"mobile\": \"9876543210\",\n    \"email\": \"ramesh@autocare.com\",\n    \"is_active\": true,\n    \"created_at\": \"2026-01-15T08:00:00Z\",\n    \"updated_at\": \"2026-07-28T10:00:00Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/profile", "host": ["{{base_url}}"], "path": ["profile"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ramesh Patel\",\n  \"email\": \"ramesh@autocare.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Update personal profile details.\n\n**Fields:** name (string), email (string)\n\n**Note:** `mobile` is the auth credential. Changing it may require OTP re-verification."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📅 Bookings",
+      "item": [
+        {
+          "name": "List Bookings",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/bookings?page=1&page_size=10",
+              "host": ["{{base_url}}"],
+              "path": ["bookings"],
+              "query": [
+                { "key": "status",    "value": "",   "description": "PENDING | ACCEPTED | REJECTED | CONVERTED", "disabled": true },
+                { "key": "page",      "value": "1" },
+                { "key": "page_size", "value": "10" }
+              ]
+            },
+            "description": "Returns a paginated list of bookings for this garage.\n\n**Status values:** PENDING, ACCEPTED, REJECTED, CONVERTED"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"items\": [\n      {\n        \"id\": \"uuid\",\n        \"garage_id\": \"uuid\",\n        \"customer_id\": \"uuid\",\n        \"vehicle_id\": null,\n        \"status\": \"PENDING\",\n        \"booking_date\": \"2026-07-30T10:00:00Z\",\n        \"notes\": \"Car makes noise when braking\",\n        \"customer_name\": \"Arjun Singh\",\n        \"customer_mobile\": \"9123456789\",\n        \"service_requested\": \"Brake inspection\",\n        \"created_at\": \"2026-07-28T09:00:00Z\",\n        \"updated_at\": \"2026-07-28T09:00:00Z\"\n      }\n    ],\n    \"total\": 23,\n    \"page\": 1,\n    \"page_size\": 10\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Bookings — PENDING only",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/bookings?status=PENDING&page=1&page_size=20",
+              "host": ["{{base_url}}"],
+              "path": ["bookings"],
+              "query": [
+                { "key": "status",    "value": "PENDING" },
+                { "key": "page",      "value": "1" },
+                { "key": "page_size", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Booking Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/bookings/{{booking_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["bookings", "{{booking_id}}"]
+            },
+            "description": "Get full detail of a single booking including customer and vehicle info."
+          }
+        },
+        {
+          "name": "Accept Booking",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{base_url}}/bookings/{{booking_id}}/accept",
+              "host": ["{{base_url}}"],
+              "path": ["bookings", "{{booking_id}}", "accept"]
+            },
+            "description": "Accept a PENDING booking. Status changes to ACCEPTED. No request body required."
+          }
+        },
+        {
+          "name": "Reject Booking",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{base_url}}/bookings/{{booking_id}}/reject",
+              "host": ["{{base_url}}"],
+              "path": ["bookings", "{{booking_id}}", "reject"]
+            },
+            "description": "Reject a PENDING booking. Status changes to REJECTED. No request body required."
+          }
+        },
+        {
+          "name": "Convert Booking → Create Job",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/bookings/{{booking_id}}/create-job",
+              "host": ["{{base_url}}"],
+              "path": ["bookings", "{{booking_id}}", "create-job"]
+            },
+            "description": "Convert an ACCEPTED booking into a Job card. Booking status changes to CONVERTED. Returns the new JobResponse.\n\nNo request body required — job details are pre-filled from the booking."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔧 Jobs",
+      "item": [
+        {
+          "name": "List Jobs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/jobs?page=1&page_size=30",
+              "host": ["{{base_url}}"],
+              "path": ["jobs"],
+              "query": [
+                { "key": "search",    "value": "",         "description": "Search by customer name, reg. number, job number", "disabled": true },
+                { "key": "status",    "value": "",         "description": "OPEN | IN_PROGRESS | WAITING_FOR_PARTS | QUALITY_CHECK | READY | COMPLETED | CANCELLED", "disabled": true },
+                { "key": "date_from", "value": "",         "description": "YYYY-MM-DD", "disabled": true },
+                { "key": "date_to",   "value": "",         "description": "YYYY-MM-DD", "disabled": true },
+                { "key": "sort_by",   "value": "created_at", "disabled": true },
+                { "key": "sort_dir",  "value": "desc",     "disabled": true },
+                { "key": "page",      "value": "1" },
+                { "key": "page_size", "value": "30" }
+              ]
+            },
+            "description": "Paginated list of jobs for this garage.\n\n**Status values:** OPEN, IN_PROGRESS, WAITING_FOR_PARTS, QUALITY_CHECK, READY, COMPLETED, CANCELLED"
+          }
+        },
+        {
+          "name": "List Jobs — active only",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/jobs?status=IN_PROGRESS&page=1&page_size=30",
+              "host": ["{{base_url}}"],
+              "path": ["jobs"],
+              "query": [
+                { "key": "status",    "value": "IN_PROGRESS" },
+                { "key": "page",      "value": "1" },
+                { "key": "page_size", "value": "30" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Job (walk-in)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/jobs", "host": ["{{base_url}}"], "path": ["jobs"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_name\": \"Arjun Singh\",\n  \"customer_mobile\": \"9123456789\",\n  \"registration_number\": \"KA01AB1234\",\n  \"brand\": \"Maruti Suzuki\",\n  \"vehicle_model\": \"Swift\",\n  \"fuel_type\": \"Petrol\",\n  \"odometer_km\": 45200,\n  \"description\": \"Customer reports rattling noise from engine bay\",\n  \"estimated_amount\": 2500.00,\n  \"customer_id\": null,\n  \"vehicle_id\": null,\n  \"booking_id\": null,\n  \"photos\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Create a new walk-in job card. All fields are optional — at minimum pass `customer_name` for identification.\n\n**fuel_type suggestions:** Petrol, Diesel, CNG, Electric, Hybrid"
+          }
+        },
+        {
+          "name": "Get Job Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/jobs/{{job_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["jobs", "{{job_id}}"]
+            },
+            "description": "Full job detail including timelines[], customer, and vehicle info."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"uuid\",\n    \"job_number\": \"JB-0042\",\n    \"garage_id\": \"uuid\",\n    \"customer_id\": null,\n    \"vehicle_id\": null,\n    \"booking_id\": null,\n    \"customer_name\": \"Arjun Singh\",\n    \"customer_mobile\": \"9123456789\",\n    \"registration_number\": \"KA01AB1234\",\n    \"brand\": \"Maruti Suzuki\",\n    \"vehicle_model\": \"Swift\",\n    \"fuel_type\": \"Petrol\",\n    \"odometer_km\": 45200,\n    \"photos\": [],\n    \"inspection\": null,\n    \"services\": null,\n    \"labour\": null,\n    \"billing\": null,\n    \"status\": \"OPEN\",\n    \"description\": \"Rattling noise from engine bay\",\n    \"estimated_amount\": 2500.00,\n    \"final_amount\": null,\n    \"completed_at\": null,\n    \"created_at\": \"2026-07-28T09:30:00Z\",\n    \"updated_at\": \"2026-07-28T09:30:00Z\",\n    \"timelines\": [\n      {\n        \"id\": \"uuid\",\n        \"job_id\": \"uuid\",\n        \"status\": \"OPEN\",\n        \"notes\": \"Job created\",\n        \"created_at\": \"2026-07-28T09:30:00Z\"\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Job (inspection + services)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/jobs/{{job_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["jobs", "{{job_id}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Brake pads worn, wheel alignment off\",\n  \"estimated_amount\": 3200.00,\n  \"photos\": [],\n  \"inspection\": {\n    \"findings\": \"Front brake pads at 20% life. Rear alignment 0.3° off.\",\n    \"parts_needed\": [\"Brake pad set - front\", \"Alignment shims\"]\n  },\n  \"services\": [\n    { \"name\": \"Brake Pad Replacement\", \"price\": 1800.00, \"qty\": 1 },\n    { \"name\": \"Wheel Alignment\",       \"price\": 800.00,  \"qty\": 1 }\n  ],\n  \"labour\": {\n    \"description\": \"2 hours labour\",\n    \"charge\": 600.00\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Update job details, inspection findings, services list, and labour charges.\n\n**services[]**: array of `{ name, price, qty? }`\n**labour**: `{ description?, charge }` — flat labour fee added to billing\n**inspection**: `{ findings?, parts_needed? }`"
+          }
+        },
+        {
+          "name": "Update Job Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/jobs/{{job_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["jobs", "{{job_id}}", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"IN_PROGRESS\",\n  \"notes\": \"Started inspection\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Move a job through its lifecycle.\n\n**Valid status transitions:**\n- OPEN → IN_PROGRESS\n- IN_PROGRESS → WAITING_FOR_PARTS\n- WAITING_FOR_PARTS → IN_PROGRESS\n- IN_PROGRESS → QUALITY_CHECK\n- QUALITY_CHECK → READY\n- Any → CANCELLED\n\n`notes` is optional but recommended for audit trail."
+          }
+        },
+        {
+          "name": "Complete Job",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/jobs/{{job_id}}/complete",
+              "host": ["{{base_url}}"],
+              "path": ["jobs", "{{job_id}}", "complete"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"All repairs completed. Vehicle ready for delivery.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Mark a job as COMPLETED. Sets `completed_at` timestamp and triggers final billing calculation."
+          }
+        },
+        {
+          "name": "Delete Job",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/jobs/{{job_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["jobs", "{{job_id}}"]
+            },
+            "description": "Permanently delete a job. ⚠️ This action cannot be undone."
+          }
+        },
+        {
+          "name": "Upload Job Photo",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/jobs/upload-photo",
+              "host": ["{{base_url}}"],
+              "path": ["jobs", "upload-photo"]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "photo",
+                  "type": "file",
+                  "description": "Image file (JPEG / PNG). Select a file in Postman."
+                }
+              ]
+            },
+            "description": "Upload a photo for a job. Returns a `url` string that can be added to the job's `photos[]` array via Update Job.\n\n**Content-Type:** multipart/form-data (set automatically by Postman when using form-data body)"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"url\": \"https://storage.gofixcarz.com/jobs/photo-uuid.jpg\"\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "📦 Service Packages",
+      "item": [
+        {
+          "name": "List Service Packages",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/service-packages?page_size=50",
+              "host": ["{{base_url}}"],
+              "path": ["service-packages"],
+              "query": [
+                { "key": "search",      "value": "",     "description": "Search by name", "disabled": true },
+                { "key": "active_only", "value": "true", "description": "true = only active packages", "disabled": true },
+                { "key": "page",        "value": "1",    "disabled": true },
+                { "key": "page_size",   "value": "50" }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"items\": [\n      {\n        \"id\": \"uuid\",\n        \"garage_id\": \"uuid\",\n        \"name\": \"Basic Service\",\n        \"description\": \"Oil change, filter replacement, fluid top-up\",\n        \"price\": 1299.00,\n        \"duration_minutes\": 60,\n        \"is_active\": true,\n        \"created_at\": \"2026-01-15T08:00:00Z\",\n        \"updated_at\": \"2026-07-01T10:00:00Z\"\n      }\n    ],\n    \"total\": 5,\n    \"page\": 1,\n    \"page_size\": 50\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Service Package",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/service-packages", "host": ["{{base_url}}"], "path": ["service-packages"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Basic Service\",\n  \"description\": \"Engine oil change, oil filter replacement, coolant top-up, brake fluid check\",\n  \"price\": 1299.00,\n  \"duration_minutes\": 60,\n  \"is_active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Create a new service package that customers can book.\n\n**Required:** name, price\n**Optional:** description, duration_minutes, is_active (default: true)"
+          }
+        },
+        {
+          "name": "Get Service Package Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/service-packages/{{package_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["service-packages", "{{package_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Service Package",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/service-packages/{{package_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["service-packages", "{{package_id}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Basic Service — Updated\",\n  \"price\": 1499.00,\n  \"duration_minutes\": 75,\n  \"is_active\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Partial update — only include the fields you want to change."
+          }
+        },
+        {
+          "name": "Delete Service Package",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/service-packages/{{package_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["service-packages", "{{package_id}}"]
+            },
+            "description": "⚠️ Permanently deletes the service package. This cannot be undone. Consider setting `is_active: false` to deactivate instead."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔔 Notifications",
+      "item": [
+        {
+          "name": "List Notifications",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/notifications?page_size=30",
+              "host": ["{{base_url}}"],
+              "path": ["notifications"],
+              "query": [
+                { "key": "unread_only", "value": "false", "description": "true = only unread" },
+                { "key": "page",        "value": "1",     "disabled": true },
+                { "key": "page_size",   "value": "30" }
+              ]
+            },
+            "description": "Returns the garage's notification inbox.\n\n**type examples:** booking_request, job_update, payment_received, system"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"items\": [\n      {\n        \"id\": \"uuid\",\n        \"garage_id\": \"uuid\",\n        \"title\": \"New Booking Request\",\n        \"message\": \"Arjun Singh has requested a Brake Service on Jul 30\",\n        \"type\": \"booking_request\",\n        \"reference_id\": \"booking-uuid\",\n        \"read_at\": null,\n        \"is_read\": false,\n        \"created_at\": \"2026-07-28T09:00:00Z\",\n        \"updated_at\": \"2026-07-28T09:00:00Z\"\n      }\n    ],\n    \"total\": 8,\n    \"page\": 1,\n    \"page_size\": 30\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Notifications — unread only",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/notifications?unread_only=true&page_size=30",
+              "host": ["{{base_url}}"],
+              "path": ["notifications"],
+              "query": [
+                { "key": "unread_only", "value": "true" },
+                { "key": "page_size",   "value": "30" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{base_url}}/notifications/{{notification_id}}/read",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "{{notification_id}}", "read"]
+            },
+            "description": "Mark a single notification as read. Sets `is_read: true` and `read_at` timestamp. No request body required."
+          }
+        },
+        {
+          "name": "Register Device Token (FCM)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/notifications/device-token",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "device-token"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"fcm_device_token_here\",\n  \"platform\": \"android\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Register an FCM push notification device token for the authenticated partner.\n\n**platform:** `android` | `ios`\n\nThe app calls this automatically on login. Call it manually when testing push notifications."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📄 Static",
+      "item": [
+        {
+          "name": "Help & Support Content",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/static/help-support",
+              "host": ["{{base_url}}"],
+              "path": ["static", "help-support"]
+            },
+            "description": "Returns static help and support page content (FAQ, contact info, etc.)"
+          }
+        },
+        {
+          "name": "Privacy Policy Content",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/static/privacy-policy",
+              "host": ["{{base_url}}"],
+              "path": ["static", "privacy-policy"]
+            },
+            "description": "Returns static privacy policy content."
+          }
+        }
+      ]
+    },
+    {
+      "name": "⚙️ Local API Server",
+      "description": "Endpoints served by the GoFixCarz local Express API server (artifacts/api-server/).\n\nBase URL: `{{local_api_url}}`\n\nAuth uses the same JWT — Bearer token is injected automatically from the collection-level auth. In non-production, the raw token string is also accepted as a partnerId fallback.",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{local_api_url}}/healthz",
+              "host": ["{{local_api_url}}"],
+              "path": ["healthz"]
+            },
+            "description": "Simple liveness probe — no auth required. Returns `{ status: \"ok\" }`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{ \"status\": \"ok\" }"
+            }
+          ]
+        },
+        {
+          "name": "Register Device Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{local_api_url}}/notifications/device-token",
+              "host": ["{{local_api_url}}"],
+              "path": ["notifications", "device-token"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]\",\n  \"platform\": \"android\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Register an FCM / Expo push token for the authenticated partner.\n\n**platform:** `android` | `ios`\n\nTokens are stored per-partner and used when `POST /jobs/:jobId/assign` fires push notifications."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"Device token registered\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Device Tokens",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{local_api_url}}/notifications/device-token",
+              "host": ["{{local_api_url}}"],
+              "path": ["notifications", "device-token"]
+            },
+            "description": "List all registered push tokens for the authenticated partner. Useful to confirm token registration before testing push notifications."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"uuid\",\n      \"platform\": \"android\",\n      \"tokenPrefix\": \"ExponentPushToken[xxxxx...\",\n      \"createdAt\": \"2026-07-28T10:00:00Z\",\n      \"updatedAt\": \"2026-07-28T10:00:00Z\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Send Test Push Notification",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{local_api_url}}/notifications/test",
+              "host": ["{{local_api_url}}"],
+              "path": ["notifications", "test"]
+            },
+            "description": "Fires a test push notification to all registered device tokens for the authenticated partner. No request body needed.\n\nUseful for verifying FCM token registration and push delivery end-to-end."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"Test notification sent\",\n  \"tokenCount\": 1\n}"
+            }
+          ]
+        },
+        {
+          "name": "Simulate Job Assignment (triggers push)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{local_api_url}}/jobs/{{job_id}}/assign",
+              "host": ["{{local_api_url}}"],
+              "path": ["jobs", "{{job_id}}", "assign"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"partnerId\": \"{{partner_id}}\",\n  \"service\": \"Brake Service\",\n  \"customerName\": \"Arjun Singh\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Simulates a job being assigned to a partner by the platform. Does NOT require auth — intended to be called from a backend webhook or admin tool.\n\nOn success, sends a push notification to all registered device tokens for the given `partnerId`.\n\n**Required:** partnerId\n**Optional:** service (service name string), customerName"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"notified\": true,\n  \"tokenCount\": 1,\n  \"jobId\": \"uuid\",\n  \"partnerId\": \"uuid\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

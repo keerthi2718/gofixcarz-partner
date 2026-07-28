@@ -1,0 +1,14 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "SJ7bUef6pFl7CjhCFKJlk"
+uri = "file://GoFixCarz_Partner_API.postman_collection.json"
+type = "unspecified"
+title = "GoFixCarz Partner — Postman Collection"
+
+[[outputs]]
+id = "NlViB5kUUkqjvia5oOoU1"
+uri = "file://GoFixCarz_Partner.postman_environment.json"
+type = "unspecified"
+title = "GoFixCarz Partner — Postman Environment"
