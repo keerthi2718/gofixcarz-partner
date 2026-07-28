@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform,
   ScrollView, StatusBar, StyleSheet, Text,
@@ -10,6 +10,11 @@ import { Feather } from '@/src/components/ui/FeatherIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/src/constants/api';
+import GarageService from '@/src/services/garage.service';
+import ProfileService from '@/src/services/profile.service';
+import type { WorkingHours } from '@/src/types';
 
 /* ─── Tokens ──────────────────────────────────────────────────────────── */
 const BG        = '#EEEEF6';
@@ -23,17 +28,6 @@ const LABEL     = '#475569';
 const BORDER    = '#E2E8F0';
 const TINT      = '#FEF2F2';
 const PLACEHOLDER = '#94A3B8';
-
-/* ─── Mock defaults ──────────────────────────────────────────────────── */
-const DEFAULTS = {
-  garageName : 'AutoCare Garage',
-  ownerName  : 'Ramesh Patel',
-  email      : 'ramesh@autocare.com',
-  phone      : '9876543210',
-  address    : '123 MG Road',
-  city       : 'Bangalore',
-  pincode    : '560001',
-};
 
 const ALL_SERVICES = [
   'Oil Change', 'Tyre Rotation', 'Wheel Alignment', 'Wheel Balancing',
@@ -49,8 +43,8 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 function hhmm(d: Date) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
-function dateFromHHMM(s: string) {
-  const [h = 9, m = 0] = s.split(':').map(Number);
+function dateFromHHMM(s: string): Date {
+  const [h = 9, m = 0] = (s || '').split(':').map(Number);
   const d = new Date(); d.setHours(h, m, 0, 0); return d;
 }
 
@@ -58,7 +52,7 @@ function dateFromHHMM(s: string) {
 function Section({
   icon, iconBg = TINT, iconFg = PRIMARY, title, children,
 }: {
-  icon: keyof typeof Feather.glyphMap;
+  icon: string;
   iconBg?: string; iconFg?: string;
   title: string; children: React.ReactNode;
 }) {
@@ -99,28 +93,30 @@ const sc = StyleSheet.create({
 function Field({
   label, value, onChange, placeholder,
   keyboardType, autoCapitalize = 'sentences',
-  icon, prefix, half = false,
+  icon, prefix, half = false, editable = true,
 }: {
   label: string; value: string; onChange: (v: string) => void;
   placeholder?: string; keyboardType?: TextInput['props']['keyboardType'];
   autoCapitalize?: TextInput['props']['autoCapitalize'];
-  icon?: keyof typeof Feather.glyphMap; prefix?: string; half?: boolean;
+  icon?: string; prefix?: string;
+  half?: boolean; editable?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
   return (
     <View style={[fld.wrap, half && fld.half]}>
       <Text style={fld.label}>{label}</Text>
-      <View style={[fld.row, focused && fld.focused]}>
+      <View style={[fld.row, focused && fld.focused, !editable && fld.disabled]}>
         {icon   && <Feather name={icon} size={15} color={focused ? PRIMARY : PLACEHOLDER} style={fld.icon} />}
         {prefix && <Text style={fld.prefix}>{prefix}</Text>}
         <TextInput
-          style={fld.input}
+          style={[fld.input, !editable && { color: MUTED }]}
           value={value}
           onChangeText={onChange}
           placeholder={placeholder}
           placeholderTextColor={PLACEHOLDER}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
+          editable={editable}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
         />
@@ -129,19 +125,20 @@ function Field({
   );
 }
 const fld = StyleSheet.create({
-  wrap:   { marginBottom: 12 },
-  half:   { flex: 1 },
-  label:  { fontSize: 12, fontWeight: '600', color: LABEL, marginBottom: 5, letterSpacing: 0.2 },
+  wrap:     { marginBottom: 12 },
+  half:     { flex: 1 },
+  label:    { fontSize: 12, fontWeight: '600', color: LABEL, marginBottom: 5, letterSpacing: 0.2 },
   row: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: BG, borderRadius: 12,
     borderWidth: 1, borderColor: BORDER, height: 46,
     paddingHorizontal: 12,
   },
-  focused: { borderColor: PRIMARY, borderWidth: 1.5, backgroundColor: CARD },
-  icon:    { marginRight: 7 },
-  prefix:  { fontSize: 14, color: TEXT, fontWeight: '600', marginRight: 4 },
-  input:   { flex: 1, fontSize: 14, color: TEXT },
+  focused:  { borderColor: PRIMARY, borderWidth: 1.5, backgroundColor: CARD },
+  disabled: { backgroundColor: '#F1F5F9' },
+  icon:     { marginRight: 7 },
+  prefix:   { fontSize: 14, color: TEXT, fontWeight: '600', marginRight: 4 },
+  input:    { flex: 1, fontSize: 14, color: TEXT },
 });
 
 /* ─── Time button ─────────────────────────────────────────────────────── */
@@ -176,31 +173,91 @@ const tb = StyleSheet.create({
 });
 
 /* ═══════════════════════════════════════════════════════════════════════ */
-export default function ProfileScreen() {
+export default function GarageProfileScreen() {
   const insets = useSafeAreaInsets();
+  const qc = useQueryClient();
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
   /* ── State ── */
   const [logoUri,    setLogoUri]    = useState<string | null>(null);
-  const [garageName, setGarageName] = useState(DEFAULTS.garageName);
-  const [ownerName,  setOwnerName]  = useState(DEFAULTS.ownerName);
-  const [email,      setEmail]      = useState(DEFAULTS.email);
-  const [phone,      setPhone]      = useState(DEFAULTS.phone);
-  const [address,    setAddress]    = useState(DEFAULTS.address);
-  const [city,       setCity]       = useState(DEFAULTS.city);
-  const [pincode,    setPincode]    = useState(DEFAULTS.pincode);
+  const [garageName, setGarageName] = useState('');
+  const [ownerName,  setOwnerName]  = useState('');
+  const [email,      setEmail]      = useState('');
+  const [phone,      setPhone]      = useState('');
+  const [address,    setAddress]    = useState('');
+  const [city,       setCity]       = useState('');
+  const [pincode,    setPincode]    = useState('');
 
   /* working hours */
   const [openTime,  setOpenTime]  = useState(dateFromHHMM('09:00'));
   const [closeTime, setCloseTime] = useState(dateFromHHMM('19:00'));
-  const [workDays,  setWorkDays]  = useState<string[]>(['Mon','Tue','Wed','Thu','Fri','Sat']);
+  const [workDays,  setWorkDays]  = useState<string[]>([]);
 
   /* services */
-  const [services, setServices] = useState<string[]>([
-    'Oil Change', 'Tyre Rotation', 'Brake Service', 'AC Service', 'Full Service',
-  ]);
+  const [services, setServices] = useState<string[]>([]);
 
   const [saving, setSaving] = useState(false);
+
+  // guard: only auto-populate once
+  const populated = useRef(false);
+
+  /* ── Queries ── */
+  const { data: garage, isLoading: garageLoading } = useQuery({
+    queryKey: QUERY_KEYS.GARAGE,
+    queryFn: GarageService.get,
+  });
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: QUERY_KEYS.PROFILE,
+    queryFn: ProfileService.get,
+  });
+
+  const isLoading = garageLoading || profileLoading;
+
+  /* ── Populate form from API on first load ── */
+  useEffect(() => {
+    if (populated.current) return;
+    if (!garage && !profile) return;
+
+    if (garage) {
+      setGarageName(garage.name ?? '');
+      setOwnerName(garage.owner ?? '');
+      setAddress(garage.address ?? '');
+      setCity(garage.city ?? '');
+      setPincode(garage.zipcode ?? '');
+
+      if (garage.working_hours) {
+        const activeDays = Object.entries(garage.working_hours)
+          .filter(([, v]) => !v.closed)
+          .map(([day]) => day);
+        setWorkDays(activeDays);
+
+        const firstActive = Object.values(garage.working_hours).find(v => !v.closed);
+        if (firstActive) {
+          setOpenTime(dateFromHHMM(firstActive.open));
+          setCloseTime(dateFromHHMM(firstActive.close));
+        }
+      }
+    }
+
+    if (profile) {
+      setEmail(profile.email ?? '');
+      setPhone(profile.mobile ?? '');
+      // Use profile name as fallback if garage.owner is empty
+      if (!garage?.owner && profile.name) setOwnerName(profile.name);
+    }
+
+    populated.current = true;
+  }, [garage, profile]);
+
+  /* ── Mutations ── */
+  const garageMut = useMutation({
+    mutationFn: GarageService.update,
+    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.GARAGE }),
+  });
+  const profileMut = useMutation({
+    mutationFn: ProfileService.update,
+    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.PROFILE }),
+  });
 
   /* ── Logo picker ── */
   async function pickLogo() {
@@ -233,10 +290,41 @@ export default function ProfileScreen() {
   }
 
   /* ── Save ── */
-  function save() {
+  async function save() {
     if (!garageName.trim()) { Alert.alert('Required', 'Please enter your garage name.'); return; }
     setSaving(true);
-    setTimeout(() => { setSaving(false); Alert.alert('Saved', 'Your profile has been updated!'); }, 1200);
+    try {
+      // Build working_hours object from current state
+      const working_hours: WorkingHours = {};
+      DAYS.forEach(day => {
+        working_hours[day] = {
+          open:   hhmm(openTime),
+          close:  hhmm(closeTime),
+          closed: !workDays.includes(day),
+        };
+      });
+
+      await Promise.all([
+        garageMut.mutateAsync({
+          name:         garageName.trim(),
+          owner:        ownerName.trim()  || null,
+          address:      address.trim()    || null,
+          city:         city.trim()       || null,
+          zipcode:      pincode.trim()    || null,
+          working_hours,
+        }),
+        profileMut.mutateAsync({
+          name:  ownerName.trim() || null,
+          email: email.trim()     || null,
+        }),
+      ]);
+
+      Alert.alert('Saved', 'Your profile has been updated!');
+    } catch {
+      Alert.alert('Error', 'Failed to save profile. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   /* ════════════════════════════════════════════════════════════════════ */
@@ -260,157 +348,165 @@ export default function ProfileScreen() {
       </LinearGradient>
 
       {/* ── Body ──────────────────────────────────────────────────── */}
-      <ScrollView
-        contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 110 }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-
-        {/* ── Logo ── */}
-        <View style={s.logoOuter}>
-          <TouchableOpacity onPress={pickLogo} activeOpacity={0.8} style={s.logoTouch}>
-            {logoUri ? (
-              <Image source={{ uri: logoUri }} style={s.logoImg} />
-            ) : (
-              <LinearGradient colors={['#F8FAFC', '#F1F5F9']} style={s.logoPlaceholder}>
-                <Feather name="image" size={28} color={PLACEHOLDER} />
-                <Text style={s.logoPlaceholderText}>Garage Logo</Text>
-              </LinearGradient>
-            )}
-            {/* camera badge */}
-            <View style={s.cameraBadge}>
-              <LinearGradient colors={[INDIGO, PRIMARY]} style={s.cameraBadgeGrad}>
-                <Feather name="camera" size={12} color="#fff" />
-              </LinearGradient>
-            </View>
-          </TouchableOpacity>
-          <Text style={s.logoHint}>{logoUri ? 'Tap to change logo' : 'Upload your garage logo'}</Text>
+      {isLoading ? (
+        <View style={s.loadingWrap}>
+          <ActivityIndicator size="large" color={PRIMARY} />
+          <Text style={s.loadingText}>Loading profile…</Text>
         </View>
-
-        {/* ── Garage Info ── */}
-        <Section icon="home" title="Garage Information">
-          <Field label="GARAGE NAME" value={garageName} onChange={setGarageName}
-            placeholder="e.g. AutoCare Garage" autoCapitalize="words" icon="briefcase" />
-          <Field label="ADDRESS" value={address} onChange={setAddress}
-            placeholder="Street, locality" autoCapitalize="words" icon="map-pin" />
-          <View style={s.twoCol}>
-            <Field label="CITY" value={city} onChange={setCity}
-              placeholder="City" autoCapitalize="words" half />
-            <View style={{ width: 10 }} />
-            <Field label="PINCODE" value={pincode}
-              onChange={v => setPincode(v.replace(/\D/g, '').slice(0, 6))}
-              placeholder="560001" keyboardType="number-pad" half />
-          </View>
-        </Section>
-
-        {/* ── Owner Contact ── */}
-        <Section icon="user" title="Owner & Contact">
-          <Field label="OWNER NAME" value={ownerName} onChange={setOwnerName}
-            placeholder="Full name" autoCapitalize="words" icon="user" />
-          <Field label="EMAIL" value={email} onChange={setEmail}
-            placeholder="owner@garage.com" keyboardType="email-address" autoCapitalize="none" icon="mail" />
-          <Field label="PHONE NUMBER" value={phone}
-            onChange={v => setPhone(v.replace(/\D/g, '').slice(0, 10))}
-            placeholder="10-digit mobile" keyboardType="phone-pad" icon="phone" prefix="+91" />
-        </Section>
-
-        {/* ── Working Hours ── */}
-        <Section icon="clock" iconBg="#FFF7ED" iconFg="#F97316" title="Working Hours">
-          {/* Day toggles */}
-          <Text style={s.subLabel}>WORKING DAYS</Text>
-          <View style={s.daysRow}>
-            {DAYS.map(d => {
-              const on = workDays.includes(d);
-              return (
-                <TouchableOpacity
-                  key={d}
-                  style={[s.dayChip, on && s.dayChipOn]}
-                  onPress={() => toggleDay(d)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[s.dayText, on && s.dayTextOn]}>{d}</Text>
-                </TouchableOpacity>
-              );
-            })}
+      ) : (
+        <ScrollView
+          contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 110 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ── Logo ── */}
+          <View style={s.logoOuter}>
+            <TouchableOpacity onPress={pickLogo} activeOpacity={0.8} style={s.logoTouch}>
+              {logoUri ? (
+                <Image source={{ uri: logoUri }} style={s.logoImg} />
+              ) : (
+                <LinearGradient colors={['#F8FAFC', '#F1F5F9']} style={s.logoPlaceholder}>
+                  <Feather name="image" size={28} color={PLACEHOLDER} />
+                  <Text style={s.logoPlaceholderText}>Garage Logo</Text>
+                </LinearGradient>
+              )}
+              <View style={s.cameraBadge}>
+                <LinearGradient colors={[INDIGO, PRIMARY]} style={s.cameraBadgeGrad}>
+                  <Feather name="camera" size={12} color="#fff" />
+                </LinearGradient>
+              </View>
+            </TouchableOpacity>
+            <Text style={s.logoHint}>{logoUri ? 'Tap to change logo' : 'Upload your garage logo'}</Text>
           </View>
 
-          {/* Time range */}
-          <Text style={[s.subLabel, { marginTop: 16 }]}>HOURS OF OPERATION</Text>
-          <View style={s.timesRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.timeCaption}>Opens at</Text>
-              <TimeBtn value={openTime} onChange={setOpenTime} />
+          {/* ── Garage Info ── */}
+          <Section icon="home" title="Garage Information">
+            <Field label="GARAGE NAME" value={garageName} onChange={setGarageName}
+              placeholder="e.g. AutoCare Garage" autoCapitalize="words" icon="briefcase" />
+            <Field label="ADDRESS" value={address} onChange={setAddress}
+              placeholder="Street, locality" autoCapitalize="words" icon="map-pin" />
+            <View style={s.twoCol}>
+              <Field label="CITY" value={city} onChange={setCity}
+                placeholder="City" autoCapitalize="words" half />
+              <View style={{ width: 10 }} />
+              <Field label="PINCODE" value={pincode}
+                onChange={v => setPincode(v.replace(/\D/g, '').slice(0, 6))}
+                placeholder="560001" keyboardType="number-pad" half />
             </View>
-            <View style={s.timeDivider}>
-              <View style={s.timeDividerLine} />
-              <Text style={s.timeDividerText}>to</Text>
-              <View style={s.timeDividerLine} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.timeCaption}>Closes at</Text>
-              <TimeBtn value={closeTime} onChange={setCloseTime} />
-            </View>
-          </View>
+          </Section>
 
-          {/* Summary pill */}
-          {workDays.length > 0 && (
-            <View style={s.hoursSummary}>
-              <Feather name="info" size={12} color={PRIMARY} />
-              <Text style={s.hoursSummaryText}>
-                {workDays.join(', ')} · {hhmm(openTime)} – {hhmm(closeTime)}
+          {/* ── Owner Contact ── */}
+          <Section icon="user" title="Owner & Contact">
+            <Field label="OWNER NAME" value={ownerName} onChange={setOwnerName}
+              placeholder="Full name" autoCapitalize="words" icon="user" />
+            <Field label="EMAIL" value={email} onChange={setEmail}
+              placeholder="owner@garage.com" keyboardType="email-address" autoCapitalize="none" icon="mail" />
+            <Field
+              label="PHONE NUMBER" value={phone}
+              onChange={() => {}}
+              placeholder="Mobile number" keyboardType="phone-pad"
+              icon="phone" prefix="+91"
+              editable={false}
+            />
+          </Section>
+
+          {/* ── Working Hours ── */}
+          <Section icon="clock" iconBg="#FFF7ED" iconFg="#F97316" title="Working Hours">
+            <Text style={s.subLabel}>WORKING DAYS</Text>
+            <View style={s.daysRow}>
+              {DAYS.map(d => {
+                const on = workDays.includes(d);
+                return (
+                  <TouchableOpacity
+                    key={d}
+                    style={[s.dayChip, on && s.dayChipOn]}
+                    onPress={() => toggleDay(d)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[s.dayText, on && s.dayTextOn]}>{d}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={[s.subLabel, { marginTop: 16 }]}>HOURS OF OPERATION</Text>
+            <View style={s.timesRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.timeCaption}>Opens at</Text>
+                <TimeBtn value={openTime} onChange={setOpenTime} />
+              </View>
+              <View style={s.timeDivider}>
+                <View style={s.timeDividerLine} />
+                <Text style={s.timeDividerText}>to</Text>
+                <View style={s.timeDividerLine} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.timeCaption}>Closes at</Text>
+                <TimeBtn value={closeTime} onChange={setCloseTime} />
+              </View>
+            </View>
+
+            {workDays.length > 0 && (
+              <View style={s.hoursSummary}>
+                <Feather name="info" size={12} color={PRIMARY} />
+                <Text style={s.hoursSummaryText}>
+                  {workDays.join(', ')} · {hhmm(openTime)} – {hhmm(closeTime)}
+                </Text>
+              </View>
+            )}
+          </Section>
+
+          {/* ── Services ── */}
+          <Section icon="tool" iconBg="#F0FDF4" iconFg="#16A34A" title="Services Offered">
+            <Text style={s.servicesHint}>
+              Tap to select the services your garage provides. Customers will see these when searching.
+            </Text>
+            <View style={s.chipsGrid}>
+              {ALL_SERVICES.map(svc => {
+                const on = services.includes(svc);
+                return (
+                  <TouchableOpacity
+                    key={svc}
+                    style={[s.chip, on && s.chipOn]}
+                    onPress={() => toggleService(svc)}
+                    activeOpacity={0.75}
+                  >
+                    {on && <Feather name="check" size={11} color={PRIMARY} style={{ marginRight: 4 }} />}
+                    <Text style={[s.chipText, on && s.chipTextOn]}>{svc}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={s.selectedCount}>
+              <Text style={s.selectedCountText}>
+                {services.length} service{services.length !== 1 ? 's' : ''} selected
               </Text>
             </View>
-          )}
-        </Section>
+          </Section>
 
-        {/* ── Services ── */}
-        <Section icon="tool" iconBg="#F0FDF4" iconFg="#16A34A" title="Services Offered">
-          <Text style={s.servicesHint}>
-            Tap to select the services your garage provides. Customers will see these when searching.
-          </Text>
-          <View style={s.chipsGrid}>
-            {ALL_SERVICES.map(svc => {
-              const on = services.includes(svc);
-              return (
-                <TouchableOpacity
-                  key={svc}
-                  style={[s.chip, on && s.chipOn]}
-                  onPress={() => toggleService(svc)}
-                  activeOpacity={0.75}
-                >
-                  {on && <Feather name="check" size={11} color={PRIMARY} style={{ marginRight: 4 }} />}
-                  <Text style={[s.chipText, on && s.chipTextOn]}>{svc}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <View style={s.selectedCount}>
-            <Text style={s.selectedCountText}>
-              {services.length} service{services.length !== 1 ? 's' : ''} selected
-            </Text>
-          </View>
-        </Section>
-
-      </ScrollView>
+        </ScrollView>
+      )}
 
       {/* ── Save ── */}
-      <View style={[s.footer, { paddingBottom: insets.bottom + 14 }]}>
-        <TouchableOpacity
-          style={[s.saveBtn, saving && { opacity: 0.65 }]}
-          onPress={save}
-          disabled={saving}
-          activeOpacity={0.85}
-        >
-          {saving ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Feather name="check-circle" size={18} color="#fff" />
-              <Text style={s.saveBtnText}>Save Profile</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
+      {!isLoading && (
+        <View style={[s.footer, { paddingBottom: insets.bottom + 14 }]}>
+          <TouchableOpacity
+            style={[s.saveBtn, saving && { opacity: 0.65 }]}
+            onPress={save}
+            disabled={saving}
+            activeOpacity={0.85}
+          >
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Feather name="check-circle" size={18} color="#fff" />
+                <Text style={s.saveBtnText}>Save Profile</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -431,6 +527,10 @@ const s = StyleSheet.create({
   },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
   headerSub:   { fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 2 },
+
+  /* Loading */
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { fontSize: 14, color: MUTED, fontWeight: '500' },
 
   /* Body */
   body: { paddingHorizontal: 16, paddingTop: 20 },

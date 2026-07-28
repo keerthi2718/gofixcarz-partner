@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal,
   Platform, ScrollView, StatusBar, StyleSheet,
@@ -10,6 +10,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/src/context/AuthContext';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/src/constants/api';
+import GarageService from '@/src/services/garage.service';
+import ProfileService from '@/src/services/profile.service';
+import type { WorkingHours } from '@/src/types';
 
 /* ── tokens ── */
 const BG      = '#F4F4F8';
@@ -39,18 +44,22 @@ function fmt(d: Date) {
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 function t(h: number, m = 0) { const d = new Date(); d.setHours(h,m,0,0); return d; }
+function dateFromHHMM(s: string): Date {
+  const [h = 9, m = 0] = (s || '').split(':').map(Number);
+  const d = new Date(); d.setHours(h, m, 0, 0); return d;
+}
 
 /* ── simple text row inside a group card ── */
 function Row({
   icon, label, value, onChange, placeholder,
-  keyboard, cap = 'sentences', prefix, last = false,
+  keyboard, cap = 'sentences', prefix, last = false, editable = true,
 }: {
-  icon: keyof typeof Feather.glyphMap;
+  icon: string;
   label: string; value: string; onChange: (v: string) => void;
   placeholder?: string;
   keyboard?: React.ComponentProps<typeof TextInput>['keyboardType'];
   cap?: React.ComponentProps<typeof TextInput>['autoCapitalize'];
-  prefix?: string; last?: boolean;
+  prefix?: string; last?: boolean; editable?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
   return (
@@ -63,13 +72,14 @@ function Row({
         <View style={row.inputRow}>
           {prefix ? <Text style={row.prefix}>{prefix} </Text> : null}
           <TextInput
-            style={row.input}
+            style={[row.input, !editable && { color: MUTED }]}
             value={value}
             onChangeText={onChange}
             placeholder={placeholder}
             placeholderTextColor={PH}
             keyboardType={keyboard}
             autoCapitalize={cap}
+            editable={editable}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
           />
@@ -121,10 +131,7 @@ function TimePickerModal({
   visible: boolean; label: string; value: Date;
   onConfirm: (d: Date) => void; onCancel: () => void;
 }) {
-  // draft tracks scroll position; only committed on Done
   const [draft, setDraft] = useState(value);
-
-  // reset draft whenever modal opens with a new value
   React.useEffect(() => { if (visible) setDraft(value); }, [visible]);
 
   function onPick(event: DateTimePickerEvent, sel?: Date) {
@@ -136,12 +143,8 @@ function TimePickerModal({
       <TouchableWithoutFeedback onPress={onCancel}>
         <View style={pm.backdrop} />
       </TouchableWithoutFeedback>
-
       <View style={pm.sheet}>
-        {/* handle */}
         <View style={pm.handle} />
-
-        {/* toolbar */}
         <View style={pm.toolbar}>
           <TouchableOpacity onPress={onCancel} style={pm.toolbarBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Text style={pm.cancel}>Cancel</Text>
@@ -151,8 +154,6 @@ function TimePickerModal({
             <Text style={pm.done}>Done</Text>
           </TouchableOpacity>
         </View>
-
-        {/* spinner — always mounted inside modal, no teardown glitch */}
         <DateTimePicker
           value={draft}
           mode="time"
@@ -195,7 +196,7 @@ const pm = StyleSheet.create({
 });
 
 /* ── working hours card ── */
-function WorkingHours({
+function WorkingHoursCard({
   workDays, toggleDay,
   openTime, setOpenTime,
   closeTime, setCloseTime,
@@ -208,7 +209,6 @@ function WorkingHours({
 
   return (
     <View style={wh.card}>
-      {/* ── Day selector ── */}
       <View style={wh.daysRow}>
         {DAYS.map(d => {
           const on = workDays.includes(d);
@@ -228,33 +228,22 @@ function WorkingHours({
 
       <View style={wh.divider} />
 
-      {/* ── Opens at ── */}
       <TouchableOpacity style={wh.timeRow} onPress={() => setPickerFor('open')} activeOpacity={0.75}>
-        <View style={wh.timeIcon}>
-          <Feather name="sun" size={16} color="#F97316" />
-        </View>
+        <View style={wh.timeIcon}><Feather name="sun" size={16} color="#F97316" /></View>
         <Text style={wh.timeLabel}>Opens at</Text>
-        <View style={wh.timeBadge}>
-          <Text style={wh.timeValue}>{fmt(openTime)}</Text>
-        </View>
+        <View style={wh.timeBadge}><Text style={wh.timeValue}>{fmt(openTime)}</Text></View>
         <Feather name="chevron-right" size={15} color={MUTED} style={{ marginLeft: 4 }} />
       </TouchableOpacity>
 
       <View style={wh.innerDivider} />
 
-      {/* ── Closes at ── */}
       <TouchableOpacity style={wh.timeRow} onPress={() => setPickerFor('close')} activeOpacity={0.75}>
-        <View style={wh.timeIcon}>
-          <Feather name="moon" size={16} color="#6366F1" />
-        </View>
+        <View style={wh.timeIcon}><Feather name="moon" size={16} color="#6366F1" /></View>
         <Text style={wh.timeLabel}>Closes at</Text>
-        <View style={wh.timeBadge}>
-          <Text style={wh.timeValue}>{fmt(closeTime)}</Text>
-        </View>
+        <View style={wh.timeBadge}><Text style={wh.timeValue}>{fmt(closeTime)}</Text></View>
         <Feather name="chevron-right" size={15} color={MUTED} style={{ marginLeft: 4 }} />
       </TouchableOpacity>
 
-      {/* ── Summary pill ── */}
       {workDays.length > 0 && (
         <View style={wh.summary}>
           <Feather name="check-circle" size={13} color={PRIMARY} />
@@ -266,7 +255,6 @@ function WorkingHours({
         </View>
       )}
 
-      {/* ── Pickers (modal, mounted outside card so no ScrollView clipping) ── */}
       <TimePickerModal
         visible={pickerFor === 'open'}
         label="Opening Time"
@@ -296,8 +284,6 @@ const wh = StyleSheet.create({
       default: {},
     }),
   },
-
-  /* days */
   daysRow: {
     flexDirection: 'row', paddingHorizontal: 12,
     paddingTop: 14, paddingBottom: 12, gap: 4,
@@ -307,16 +293,13 @@ const wh = StyleSheet.create({
     borderRadius: 12, backgroundColor: BG,
     borderWidth: 1, borderColor: BORDER,
   },
-  dayBtnOn: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  dayTxt:   { fontSize: 13, fontWeight: '800', color: MUTED, lineHeight: 16 },
-  dayTxtOn: { color: '#fff' },
-  dayFull:  { fontSize: 9,  fontWeight: '500', color: MUTED, lineHeight: 13 },
-  dayFullOn:{ color: 'rgba(255,255,255,0.8)' },
-
+  dayBtnOn:  { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  dayTxt:    { fontSize: 13, fontWeight: '800', color: MUTED, lineHeight: 16 },
+  dayTxtOn:  { color: '#fff' },
+  dayFull:   { fontSize: 9,  fontWeight: '500', color: MUTED, lineHeight: 13 },
+  dayFullOn: { color: 'rgba(255,255,255,0.8)' },
   divider:      { height: 1, backgroundColor: BORDER },
   innerDivider: { height: 1, backgroundColor: BORDER, marginHorizontal: 16 },
-
-  /* time rows */
   timeRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 14, gap: 12,
@@ -332,11 +315,7 @@ const wh = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 7,
     borderWidth: 1, borderColor: BORDER,
   },
-  timeBadgeActive: { backgroundColor: TINT, borderColor: 'rgba(196,30,58,0.3)' },
-  timeValue:       { fontSize: 16, fontWeight: '700', color: TEXT },
-  timeValueActive: { color: PRIMARY },
-
-  /* summary */
+  timeValue: { fontSize: 16, fontWeight: '700', color: TEXT },
   summary: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
     backgroundColor: TINT, margin: 12, marginTop: 0,
@@ -350,20 +329,81 @@ const wh = StyleSheet.create({
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
+  const qc = useQueryClient();
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
+  /* ── State ── */
   const [logoUri,    setLogoUri]    = useState<string | null>(null);
-  const [garageName, setGarageName] = useState('AutoCare Garage');
-  const [ownerName,  setOwnerName]  = useState('Ramesh Patel');
-  const [email,      setEmail]      = useState('ramesh@autocare.com');
-  const [phone,      setPhone]      = useState('9876543210');
-  const [address,    setAddress]    = useState('123 MG Road, Bangalore');
+  const [garageName, setGarageName] = useState('');
+  const [ownerName,  setOwnerName]  = useState('');
+  const [email,      setEmail]      = useState('');
+  const [phone,      setPhone]      = useState('');
+  const [address,    setAddress]    = useState('');
   const [openTime,   setOpenTime]   = useState(t(9));
   const [closeTime,  setCloseTime]  = useState(t(19));
-  const [workDays,   setWorkDays]   = useState<string[]>(['Mon','Tue','Wed','Thu','Fri','Sat']);
-  const [services,   setServices]   = useState<string[]>(['Oil Change','Brake Service','AC Service','Full Service','Tyre Rotation']);
+  const [workDays,   setWorkDays]   = useState<string[]>([]);
+  const [services,   setServices]   = useState<string[]>([]);
   const [saving,     setSaving]     = useState(false);
 
+  // track whether we've done initial population to avoid overwriting user edits
+  const populated = useRef(false);
+
+  /* ── Queries ── */
+  const { data: garage, isLoading: garageLoading } = useQuery({
+    queryKey: QUERY_KEYS.GARAGE,
+    queryFn: GarageService.get,
+  });
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: QUERY_KEYS.PROFILE,
+    queryFn: ProfileService.get,
+  });
+
+  const isLoading = garageLoading || profileLoading;
+
+  /* ── Populate form from API data ── */
+  useEffect(() => {
+    if (populated.current) return;
+    if (!garage && !profile) return;
+
+    if (garage) {
+      setGarageName(garage.name ?? '');
+      setOwnerName(garage.owner ?? '');
+      setAddress(garage.address ?? '');
+
+      if (garage.working_hours) {
+        const activeDays = Object.entries(garage.working_hours)
+          .filter(([, v]) => !v.closed)
+          .map(([day]) => day);
+        setWorkDays(activeDays);
+
+        const firstActive = Object.values(garage.working_hours).find(v => !v.closed);
+        if (firstActive) {
+          setOpenTime(dateFromHHMM(firstActive.open));
+          setCloseTime(dateFromHHMM(firstActive.close));
+        }
+      }
+    }
+    if (profile) {
+      setEmail(profile.email ?? '');
+      setPhone(profile.mobile ?? '');
+      // Use profile name as fallback for ownerName if garage.owner is empty
+      if (!garage?.owner && profile.name) setOwnerName(profile.name);
+    }
+
+    populated.current = true;
+  }, [garage, profile]);
+
+  /* ── Mutations ── */
+  const garageMut = useMutation({
+    mutationFn: GarageService.update,
+    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.GARAGE }),
+  });
+  const profileMut = useMutation({
+    mutationFn: ProfileService.update,
+    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.PROFILE }),
+  });
+
+  /* ── Logo picker ── */
   async function pickLogo() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission needed', 'Allow photo library access to upload your logo.'); return; }
@@ -378,13 +418,42 @@ export default function ProfileScreen() {
     setServices(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s]);
   }
 
-  function save() {
+  async function save() {
     if (!garageName.trim()) { Alert.alert('Required', 'Please enter your garage name.'); return; }
     setSaving(true);
-    setTimeout(() => { setSaving(false); Alert.alert('✓ Saved', 'Profile updated successfully!'); }, 1000);
+    try {
+      // Build working_hours from current state
+      const working_hours: WorkingHours = {};
+      DAYS.forEach(day => {
+        working_hours[day] = {
+          open: fmt(openTime),
+          close: fmt(closeTime),
+          closed: !workDays.includes(day),
+        };
+      });
+
+      await Promise.all([
+        garageMut.mutateAsync({
+          name:          garageName.trim(),
+          owner:         ownerName.trim() || null,
+          address:       address.trim()   || null,
+          working_hours,
+        }),
+        profileMut.mutateAsync({
+          name:  ownerName.trim() || null,
+          email: email.trim()     || null,
+        }),
+      ]);
+
+      Alert.alert('✓ Saved', 'Profile updated successfully!');
+    } catch {
+      Alert.alert('Error', 'Failed to save profile. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   }
 
-  /* ═══════════════════════════════════════════════════════════════════ */
+  /* ════════════════════════════════════════════════════════════════════ */
   return (
     <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar barStyle="light-content" backgroundColor={INDIGO} />
@@ -399,113 +468,126 @@ export default function ProfileScreen() {
         <Text style={s.headerSub}>Manage your garage details</Text>
       </LinearGradient>
 
-      <ScrollView
-        contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 100 }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-
-        {/* ── Logo ── */}
-        <View style={s.logoSection}>
-          <TouchableOpacity onPress={pickLogo} activeOpacity={0.8} style={s.logoBtn}>
-            {logoUri
-              ? <Image source={{ uri: logoUri }} style={s.logoImg} />
-              : (
-                <View style={s.logoEmpty}>
-                  <Feather name="camera" size={26} color={MUTED} />
-                  <Text style={s.logoEmptyText}>Upload Logo</Text>
-                </View>
-              )
-            }
-            {/* overlay badge when image exists */}
-            {logoUri && (
-              <View style={s.logoBadge}>
-                <Feather name="camera" size={13} color="#fff" />
-              </View>
-            )}
-          </TouchableOpacity>
-          <Text style={s.logoName}>{garageName}</Text>
-          <Text style={s.logoSub}>{ownerName}</Text>
+      {isLoading ? (
+        <View style={s.loadingWrap}>
+          <ActivityIndicator size="large" color={PRIMARY} />
+          <Text style={s.loadingText}>Loading profile…</Text>
         </View>
-
-        {/* ── Garage info ── */}
-        <SectionTitle label="GARAGE INFO" />
-        <Group>
-          <Row icon="briefcase" label="Garage Name" value={garageName} onChange={setGarageName} placeholder="e.g. AutoCare Garage" cap="words" />
-          <Row icon="user" label="Owner Name" value={ownerName} onChange={setOwnerName} placeholder="Full name" cap="words" />
-          <Row icon="map-pin" label="Address" value={address} onChange={setAddress} placeholder="Street, city" cap="words" last />
-        </Group>
-
-        {/* ── Contact ── */}
-        <SectionTitle label="CONTACT" />
-        <Group>
-          <Row icon="mail" label="Email" value={email} onChange={setEmail} placeholder="you@garage.com" keyboard="email-address" cap="none" />
-          <Row icon="phone" label="Phone" value={phone} onChange={v => setPhone(v.replace(/\D/g,'').slice(0,10))} placeholder="10-digit mobile" keyboard="phone-pad" prefix="+91" last />
-        </Group>
-
-        {/* ── Working hours ── */}
-        <SectionTitle label="WORKING HOURS" />
-        <WorkingHours
-          workDays={workDays}  toggleDay={toggleDay}
-          openTime={openTime}  setOpenTime={setOpenTime}
-          closeTime={closeTime} setCloseTime={setCloseTime}
-        />
-
-        {/* ── Services ── */}
-        <SectionTitle label="SERVICES OFFERED" />
-        <Group>
-          <View style={s.svcWrap}>
-            <Text style={s.svcHint}>Select all services your garage provides</Text>
-            <View style={s.svcGrid}>
-              {ALL_SERVICES.map(svc => {
-                const on = services.includes(svc);
-                return (
-                  <TouchableOpacity key={svc} style={[s.svcChip, on && s.svcOn]} onPress={() => toggleService(svc)} activeOpacity={0.7}>
-                    {on && <Feather name="check" size={11} color={PRIMARY} style={{ marginRight: 3 }} />}
-                    <Text style={[s.svcText, on && s.svcTextOn]}>{svc}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            <Text style={s.svcCount}>{services.length} selected</Text>
-          </View>
-        </Group>
-
-        {/* ── App links ── */}
-        <SectionTitle label="MORE" />
-        <Group>
-          {[
-            { icon: 'bell'        as const, label: 'Notifications' },
-            { icon: 'help-circle' as const, label: 'Help & Support' },
-            { icon: 'shield'      as const, label: 'Privacy Policy' },
-          ].map((item, i, arr) => (
-            <TouchableOpacity key={item.label} style={[s.menuRow, i < arr.length - 1 && s.menuDivider]} activeOpacity={0.7}>
-              <View style={s.menuIcon}>
-                <Feather name={item.icon} size={17} color={MUTED} />
-              </View>
-              <Text style={s.menuLabel}>{item.label}</Text>
-              <Feather name="chevron-right" size={16} color={BORDER} />
+      ) : (
+        <ScrollView
+          contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 100 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ── Logo ── */}
+          <View style={s.logoSection}>
+            <TouchableOpacity onPress={pickLogo} activeOpacity={0.8} style={s.logoBtn}>
+              {logoUri
+                ? <Image source={{ uri: logoUri }} style={s.logoImg} />
+                : (
+                  <View style={s.logoEmpty}>
+                    <Feather name="camera" size={26} color={MUTED} />
+                    <Text style={s.logoEmptyText}>Upload Logo</Text>
+                  </View>
+                )
+              }
+              {logoUri && (
+                <View style={s.logoBadge}>
+                  <Feather name="camera" size={13} color="#fff" />
+                </View>
+              )}
             </TouchableOpacity>
-          ))}
-        </Group>
+            <Text style={s.logoName}>{garageName || 'Your Garage'}</Text>
+            <Text style={s.logoSub}>{ownerName || profile?.mobile || ''}</Text>
+          </View>
 
-        {/* ── Sign out ── */}
-        <TouchableOpacity style={s.logoutBtn} onPress={logout} activeOpacity={0.8}>
-          <Feather name="log-out" size={17} color={DANGER} />
-          <Text style={s.logoutText}>Sign Out</Text>
-        </TouchableOpacity>
+          {/* ── Garage info ── */}
+          <SectionTitle label="GARAGE INFO" />
+          <Group>
+            <Row icon="briefcase" label="Garage Name" value={garageName} onChange={setGarageName} placeholder="e.g. AutoCare Garage" cap="words" />
+            <Row icon="user" label="Owner Name" value={ownerName} onChange={setOwnerName} placeholder="Full name" cap="words" />
+            <Row icon="map-pin" label="Address" value={address} onChange={setAddress} placeholder="Street, city" cap="words" last />
+          </Group>
 
-      </ScrollView>
+          {/* ── Contact ── */}
+          <SectionTitle label="CONTACT" />
+          <Group>
+            <Row icon="mail" label="Email" value={email} onChange={setEmail} placeholder="you@garage.com" keyboard="email-address" cap="none" />
+            <Row
+              icon="phone" label="Phone" value={phone}
+              onChange={() => {}}
+              placeholder="Mobile number"
+              keyboard="phone-pad" prefix="+91" last
+              editable={false}
+            />
+          </Group>
+
+          {/* ── Working hours ── */}
+          <SectionTitle label="WORKING HOURS" />
+          <WorkingHoursCard
+            workDays={workDays}  toggleDay={toggleDay}
+            openTime={openTime}  setOpenTime={setOpenTime}
+            closeTime={closeTime} setCloseTime={setCloseTime}
+          />
+
+          {/* ── Services ── */}
+          <SectionTitle label="SERVICES OFFERED" />
+          <Group>
+            <View style={s.svcWrap}>
+              <Text style={s.svcHint}>Select all services your garage provides</Text>
+              <View style={s.svcGrid}>
+                {ALL_SERVICES.map(svc => {
+                  const on = services.includes(svc);
+                  return (
+                    <TouchableOpacity key={svc} style={[s.svcChip, on && s.svcOn]} onPress={() => toggleService(svc)} activeOpacity={0.7}>
+                      {on && <Feather name="check" size={11} color={PRIMARY} style={{ marginRight: 3 }} />}
+                      <Text style={[s.svcText, on && s.svcTextOn]}>{svc}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={s.svcCount}>{services.length} selected</Text>
+            </View>
+          </Group>
+
+          {/* ── App links ── */}
+          <SectionTitle label="MORE" />
+          <Group>
+            {[
+              { icon: 'bell'        as const, label: 'Notifications' },
+              { icon: 'help-circle' as const, label: 'Help & Support' },
+              { icon: 'shield'      as const, label: 'Privacy Policy' },
+            ].map((item, i, arr) => (
+              <TouchableOpacity key={item.label} style={[s.menuRow, i < arr.length - 1 && s.menuDivider]} activeOpacity={0.7}>
+                <View style={s.menuIcon}>
+                  <Feather name={item.icon} size={17} color={MUTED} />
+                </View>
+                <Text style={s.menuLabel}>{item.label}</Text>
+                <Feather name="chevron-right" size={16} color={BORDER} />
+              </TouchableOpacity>
+            ))}
+          </Group>
+
+          {/* ── Sign out ── */}
+          <TouchableOpacity style={s.logoutBtn} onPress={logout} activeOpacity={0.8}>
+            <Feather name="log-out" size={17} color={DANGER} />
+            <Text style={s.logoutText}>Sign Out</Text>
+          </TouchableOpacity>
+
+        </ScrollView>
+      )}
 
       {/* ── Save ── */}
-      <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>
-        <TouchableOpacity style={[s.saveBtn, saving && { opacity: 0.65 }]} onPress={save} disabled={saving} activeOpacity={0.85}>
-          {saving
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={s.saveTxt}>Save Profile</Text>
-          }
-        </TouchableOpacity>
-      </View>
+      {!isLoading && (
+        <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>
+          <TouchableOpacity style={[s.saveBtn, saving && { opacity: 0.65 }]} onPress={save} disabled={saving} activeOpacity={0.85}>
+            {saving
+              ? <ActivityIndicator color="#fff" />
+              : <Text style={s.saveTxt}>Save Profile</Text>
+            }
+          </TouchableOpacity>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -519,6 +601,9 @@ const s = StyleSheet.create({
   headerSub:   { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 3 },
 
   body: { paddingHorizontal: 16, paddingTop: 20 },
+
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { fontSize: 14, color: MUTED, fontWeight: '500' },
 
   /* Logo */
   logoSection: { alignItems: 'center', marginBottom: 28 },

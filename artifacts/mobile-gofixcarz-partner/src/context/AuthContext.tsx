@@ -24,7 +24,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const {
     isAuthenticated, isLoading, error, pendingMobile,
-    setTokens, setLoading, setError, setPendingMobile,
+    setUser, setTokens, setLoading, setError, setPendingMobile,
     logout: storeLogout, initialize,
   } = useAuthStore();
 
@@ -55,6 +55,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ]);
       if (tokenData.user) {
         await StorageService.setJson(STORAGE_KEYS.USER, tokenData.user);
+        // Hydrate the Zustand store immediately so screens see the user
+        // without waiting for a full app restart + initialize() re-run.
+        setUser(tokenData.user);
       }
       setTokens(tokenData);
       setPendingMobile(null);
@@ -64,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [setError, setLoading, setPendingMobile, setTokens]);
+  }, [setError, setLoading, setPendingMobile, setTokens, setUser]);
 
   const signUp = useCallback(async (payload: SignUpPayload) => {
     try {
