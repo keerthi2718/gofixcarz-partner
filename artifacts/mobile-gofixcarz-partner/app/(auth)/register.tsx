@@ -525,15 +525,17 @@ export default function RegisterScreen() {
           />
           <View style={s.gap} />
 
-          <View style={[s.twoCol, { zIndex: 20 }]}>
-            <UnderlineInput
-              label="Email"
-              value={form.email}
-              onChange={v => set('email', v)}
-              onBlur={() => { touch('email'); }}
-              keyboard="email-address" capitalize="none"
-              half error={errors.email}
-            />
+          <UnderlineInput
+            label="Email"
+            value={form.email}
+            onChange={v => set('email', v)}
+            onBlur={() => { touch('email'); }}
+            keyboard="email-address" capitalize="none"
+            error={errors.email}
+          />
+          <View style={s.gap} />
+
+          <View style={{ zIndex: 20 }}>
             <AddressInput
               value={form.address}
               onChange={v => set('address', v)}
@@ -563,38 +565,39 @@ export default function RegisterScreen() {
 
           {/* ── Contact ── */}
           <SectionLabel title="Contact" />
-          <View style={s.twoCol}>
-            {/* Phone 1 */}
-            <View style={{ flex: 1, paddingVertical: 4 }}>
-              <View style={[ui.row, { borderBottomColor: errors.phone ? DANGER : LINE }]}>
-                <FlagPrefix />
-                <TextInput
-                  style={ui.input}
-                  value={form.phone}
-                  onChangeText={v => set('phone', v.replace(/\D/g,'').slice(0,10))}
-                  onBlur={() => touch('phone')}
-                  placeholder="Phone Number"
-                  placeholderTextColor={MUTED}
-                  keyboardType="number-pad"
-                />
-                {errors.phone ? <AlertTriangle size={13} color={DANGER} strokeWidth={2} style={{ marginBottom: 8 }} /> : null}
-              </View>
-              {errors.phone ? <InlineError msg={errors.phone} /> : null}
-            </View>
 
-            {/* Phone 2 */}
-            <View style={{ flex: 1, paddingVertical: 4 }}>
-              <View style={[ui.row, { borderBottomColor: LINE }]}>
-                <FlagPrefix />
-                <TextInput
-                  style={ui.input}
-                  value={form.phone2}
-                  onChangeText={v => set('phone2', v.replace(/\D/g,'').slice(0,10))}
-                  placeholder="Phone Number 2"
-                  placeholderTextColor={MUTED}
-                  keyboardType="number-pad"
-                />
-              </View>
+          {/* Phone 1 */}
+          <View style={{ paddingVertical: 4, marginBottom: 4 }}>
+            <View style={[ui.row, { borderBottomColor: errors.phone ? DANGER : LINE }]}>
+              <FlagPrefix />
+              <TextInput
+                style={ui.input}
+                value={form.phone}
+                onChangeText={v => set('phone', v.replace(/\D/g,'').slice(0,10))}
+                onBlur={() => touch('phone')}
+                placeholder="Primary Phone Number *"
+                placeholderTextColor={MUTED}
+                keyboardType="number-pad"
+              />
+              {errors.phone ? <AlertTriangle size={13} color={DANGER} strokeWidth={2} style={{ marginBottom: 8 }} /> : null}
+            </View>
+            {errors.phone ? <InlineError msg={errors.phone} /> : null}
+          </View>
+
+          <View style={s.gap} />
+
+          {/* Phone 2 */}
+          <View style={{ paddingVertical: 4 }}>
+            <View style={[ui.row, { borderBottomColor: LINE }]}>
+              <FlagPrefix />
+              <TextInput
+                style={ui.input}
+                value={form.phone2}
+                onChangeText={v => set('phone2', v.replace(/\D/g,'').slice(0,10))}
+                placeholder="Alternate Phone Number (optional)"
+                placeholderTextColor={MUTED}
+                keyboardType="number-pad"
+              />
             </View>
           </View>
 
@@ -641,7 +644,7 @@ export default function RegisterScreen() {
       </KeyboardAvoidingView>
 
       {/* Success overlay */}
-      {showSuccess && <SuccessOverlay onContinue={() => setShowSuccess(false)} />}
+      {showSuccess && <SuccessOverlay onContinue={() => router.replace('/(auth)/login' as never)} />}
 
       {/* Snackbar */}
       {snackbar && <Snackbar msg={snackbar} onDismiss={() => setSnackbar(null)} />}
