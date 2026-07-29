@@ -20,16 +20,17 @@ import { VEHICLE_BRANDS, getModelsForBrand } from '@/src/data/vehicleData';
 import { formatCurrency } from '@/src/utils/helpers';
 
 /* ── Design tokens ── */
-const BG      = '#F5F6F8';
+const BG      = '#F0F2F5';
 const CARD    = '#FFFFFF';
 const PRIMARY = '#C41E3A';
 const INDIGO  = '#6366F1';
-const TEXT    = '#111827';
+const TEXT    = '#0D1117';
 const MUTED   = '#6B7280';
 const BORDER  = '#E5E7EB';
 const SUCCESS = '#059669';
 const DANGER  = '#DC2626';
 const WARN    = '#D97706';
+const HEADER_BG = '#FFFFFF';
 
 const STEPS = [
   { label: 'Customer' },
@@ -58,9 +59,7 @@ function StepCard({ icon, title, children, iconBg = '#FEE2E2', iconFg = PRIMARY 
   return (
     <View style={cardStyles.card}>
       <View style={cardStyles.header}>
-        <View style={[cardStyles.iconWrap, { backgroundColor: iconBg }]}>
-          <Feather name={icon} size={14} color={iconFg} />
-        </View>
+        <View style={[cardStyles.accent, { backgroundColor: iconFg }]} />
         <Text style={cardStyles.title}>{title}</Text>
       </View>
       <View style={cardStyles.body}>{children}</View>
@@ -70,29 +69,29 @@ function StepCard({ icon, title, children, iconBg = '#FEE2E2', iconFg = PRIMARY 
 const cardStyles = StyleSheet.create({
   card: {
     backgroundColor: CARD,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: BORDER,
     overflow: 'hidden',
     marginBottom: 12,
     ...Platform.select({
-      ios: { shadowColor: '#101828', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
-      android: { elevation: 1 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6 },
+      android: { elevation: 2 },
       default: {},
     }),
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
+    gap: 10,
     paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E7EB',
+    paddingVertical: 13,
+    backgroundColor: '#FAFAFA',
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
   },
-  iconWrap: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 13, fontWeight: '700', color: TEXT, letterSpacing: -0.1 },
+  accent: { width: 3, height: 16, borderRadius: 2 },
+  title: { fontSize: 12, fontWeight: '700', color: TEXT, letterSpacing: 0.4, textTransform: 'uppercase' },
   body:  { padding: 16 },
 });
 
@@ -586,43 +585,33 @@ export default function CreateJobScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: BG }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={BG} />
+      <StatusBar barStyle="dark-content" backgroundColor={HEADER_BG} />
 
       {/* ── Header ── */}
-      <View style={[styles.topBar, { paddingTop: topPad + 12 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={handleBack}>
+      <View style={[styles.topBar, { paddingTop: topPad + 10 }]}>
+        <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
           <Feather name="arrow-left" size={18} color={TEXT} />
         </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.stepMeta}>Step {step + 1} of {STEPS.length}</Text>
-          <Text style={styles.stepHeading}>{STEPS[step].label}</Text>
+        <View style={styles.topBarCenter}>
+          <Text style={styles.topBarTitle}>New Job Card</Text>
+          <Text style={styles.topBarSub}>{STEPS[step].label}</Text>
         </View>
-        {/* Progress bar */}
-        <View style={styles.progressPill}>
-          <View style={[styles.progressFill, { width: `${((step + 1) / STEPS.length) * 100}%` }]} />
+        <View style={styles.stepBadge}>
+          <Text style={styles.stepBadgeText}>{step + 1}<Text style={styles.stepBadgeOf}>/{STEPS.length}</Text></Text>
         </View>
       </View>
 
-      {/* ── Numbered stepper ── */}
-      <View style={styles.stepper}>
-        {STEPS.map((s, i) => (
-          <React.Fragment key={s.label}>
-            {i > 0 && (
-              <View style={[styles.stepLine, i <= step && styles.stepLineDone]} />
-            )}
-            <View style={styles.stepNode}>
-              <View style={[
-                styles.stepCircle,
-                i < step  && styles.stepCircleDone,
-                i === step && styles.stepCircleActive,
-              ]}>
-                {i < step
-                  ? <Feather name="check" size={11} color="#fff" />
-                  : <Text style={[styles.stepNum, i === step && { color: '#fff' }]}>{i + 1}</Text>
-                }
-              </View>
-            </View>
-          </React.Fragment>
+      {/* ── Segmented progress bar ── */}
+      <View style={styles.segmentBar}>
+        {STEPS.map((_, i) => (
+          <View
+            key={i}
+            style={[
+              styles.segment,
+              i < step  && styles.segmentDone,
+              i === step && styles.segmentActive,
+            ]}
+          />
         ))}
       </View>
 
@@ -646,9 +635,7 @@ export default function CreateJobScreen() {
             {/* Customer picker card */}
             <View style={cardStyles.card}>
               <View style={cardStyles.header}>
-                <View style={[cardStyles.iconWrap, { backgroundColor: '#FEE2E2' }]}>
-                  <Feather name="user" size={16} color={PRIMARY} />
-                </View>
+                <View style={[cardStyles.accent, { backgroundColor: PRIMARY }]} />
                 <Text style={cardStyles.title}>Customer</Text>
               </View>
               <View style={cardStyles.body}>
@@ -1406,65 +1393,66 @@ export default function CreateJobScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
 
-  /* Header */
+  /* ── Header ───────────────────────────────────────────── */
   topBar: {
-    paddingHorizontal: 18,
-    paddingBottom: 14,
+    backgroundColor: HEADER_BG,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: CARD,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: BORDER,
   },
   backBtn: {
-    width: 38, height: 38, borderRadius: 10,
+    width: 36, height: 36, borderRadius: 9,
     backgroundColor: '#F3F4F6',
     alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
   },
-  stepMeta:    { fontSize: 11, color: MUTED, fontWeight: '500', letterSpacing: 0.3, marginBottom: 2 },
-  stepHeading: { fontSize: 18, fontWeight: '700', color: TEXT, letterSpacing: -0.3 },
-  progressPill: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    height: 2, backgroundColor: '#F3F4F6', overflow: 'hidden',
+  topBarCenter: { flex: 1, alignItems: 'center' },
+  topBarTitle: { fontSize: 15, fontWeight: '700', color: TEXT, letterSpacing: -0.2 },
+  topBarSub:   { fontSize: 11, color: MUTED, marginTop: 1 },
+  stepBadge: {
+    minWidth: 36, height: 24,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 8, flexShrink: 0,
   },
-  progressFill: { height: '100%', backgroundColor: PRIMARY },
+  stepBadgeText: { fontSize: 12, fontWeight: '700', color: TEXT },
+  stepBadgeOf:   { fontSize: 10, fontWeight: '500', color: MUTED },
 
-  /* Stepper */
-  stepper: {
+  /* ── Segmented progress bar ───────────────────────────── */
+  segmentBar: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: CARD,
+    gap: 3,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: HEADER_BG,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: BORDER,
   },
-  stepLine:     { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
-  stepLineDone: { backgroundColor: SUCCESS },
-  stepNode:     { alignItems: 'center' },
-  stepCircle: {
-    width: 24, height: 24, borderRadius: 12,
-    borderWidth: 1.5, borderColor: '#D1D5DB',
-    backgroundColor: CARD,
-    alignItems: 'center', justifyContent: 'center',
+  segment: {
+    flex: 1, height: 3, borderRadius: 2,
+    backgroundColor: '#E5E7EB',
   },
-  stepCircleDone:   { backgroundColor: SUCCESS, borderColor: SUCCESS },
-  stepCircleActive: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  stepNum: { fontSize: 10, fontWeight: '700', color: '#9CA3AF' },
+  segmentDone:   { backgroundColor: SUCCESS },
+  segmentActive: { backgroundColor: PRIMARY },
 
-  /* Body */
-  body: { padding: 16 },
+  /* ── Body ─────────────────────────────────────────────── */
+  body: { padding: 14 },
 
-  /* Field label / error */
+  /* ── Field label / error ──────────────────────────────── */
   fieldLabel: {
     fontSize: 11, fontWeight: '700', color: MUTED,
-    letterSpacing: 0.6, marginBottom: 7,
+    letterSpacing: 0.5, marginBottom: 6, textTransform: 'uppercase',
   },
-  fieldError: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: -4, marginBottom: 10 },
+  fieldError: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    marginTop: -4, marginBottom: 10,
+  },
   fieldErrorText: { fontSize: 11.5, color: DANGER, flex: 1 },
 
-  /* Step-level error banner */
+  /* ── Step-level error banner ──────────────────────────── */
   stepErrorBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: '#FEF2F2', borderRadius: 10,
@@ -1473,47 +1461,47 @@ const styles = StyleSheet.create({
   },
   stepErrorText: { fontSize: 12.5, color: DANGER, fontWeight: '500', flex: 1 },
 
-  /* Row */
+  /* ── Row ──────────────────────────────────────────────── */
   row: { flexDirection: 'row', gap: 10 },
 
-  /* Date / Time picker buttons */
+  /* ── Date / Time picker buttons ───────────────────────── */
   pickerBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: CARD, borderRadius: 10,
     borderWidth: 1, borderColor: BORDER,
-    paddingHorizontal: 12, paddingVertical: 11, marginBottom: 12,
+    paddingHorizontal: 12, paddingVertical: 12, marginBottom: 12,
   },
   pickerBtnIcon: {
-    width: 32, height: 32, borderRadius: 8,
-    backgroundColor: '#FEE2E2',
+    width: 34, height: 34, borderRadius: 9,
+    backgroundColor: '#FEF2F2',
     alignItems: 'center', justifyContent: 'center',
   },
   pickerBtnLabel:       { fontSize: 10, color: MUTED, fontWeight: '600', marginBottom: 2, letterSpacing: 0.3 },
   pickerBtnValue:       { fontSize: 13, fontWeight: '600', color: TEXT },
   pickerBtnPlaceholder: { color: '#9CA3AF', fontWeight: '400' },
 
-  /* iOS picker modal */
+  /* ── iOS picker modal ─────────────────────────────────── */
   pickerModal: {
     flex: 1, justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   pickerModalSheet: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
     paddingBottom: 32, overflow: 'hidden',
   },
   pickerModalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingVertical: 16,
-    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER,
   },
-  pickerModalTitle: { fontSize: 16, fontWeight: '700', color: TEXT },
+  pickerModalTitle: { fontSize: 15, fontWeight: '700', color: TEXT },
   pickerModalDone:  { fontSize: 15, fontWeight: '700', color: PRIMARY },
 
-  /* Chips */
-  chipRow: { gap: 8 },
+  /* ── Fuel-type chips ──────────────────────────────────── */
+  chipRow: { gap: 7 },
   chip: {
-    paddingHorizontal: 13, paddingVertical: 7,
+    paddingHorizontal: 14, paddingVertical: 8,
     borderRadius: 8, borderWidth: 1, borderColor: BORDER,
     backgroundColor: CARD,
   },
@@ -1521,7 +1509,7 @@ const styles = StyleSheet.create({
   chipText:       { fontSize: 12, fontWeight: '600', color: MUTED },
   chipTextActive: { color: '#fff' },
 
-  /* Textarea */
+  /* ── Textarea ─────────────────────────────────────────── */
   textAreaWrap: {
     backgroundColor: CARD,
     borderRadius: 10, borderWidth: 1, borderColor: BORDER,
@@ -1533,10 +1521,10 @@ const styles = StyleSheet.create({
     minHeight: 96, textAlignVertical: 'top',
   },
 
-  /* Fuel level */
-  fuelRow:   { flexDirection: 'row', gap: 7, marginBottom: 12 },
+  /* ── Fuel gauge ───────────────────────────────────────── */
+  fuelRow: { flexDirection: 'row', gap: 6, marginBottom: 12 },
   fuelBtn: {
-    flex: 1, paddingVertical: 10, borderRadius: 8,
+    flex: 1, paddingVertical: 11, borderRadius: 8,
     borderWidth: 1, borderColor: BORDER,
     backgroundColor: '#F9FAFB', alignItems: 'center',
   },
@@ -1544,42 +1532,41 @@ const styles = StyleSheet.create({
   fuelText:       { fontSize: 12, fontWeight: '600', color: MUTED },
   fuelTextActive: { color: '#fff' },
   gaugeTrack: {
-    height: 5, borderRadius: 3,
+    height: 6, borderRadius: 3,
     backgroundColor: '#F3F4F6', overflow: 'hidden',
   },
   gaugeFill: { height: '100%', borderRadius: 3 },
 
-  /* Photo picker */
+  /* ── Photo picker ─────────────────────────────────────── */
   photoActionsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   photoActionBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 11, borderRadius: 9,
+    paddingVertical: 12, borderRadius: 9,
     borderWidth: 1, borderColor: PRIMARY + '33',
     backgroundColor: '#FEF2F2',
   },
   photoActionText: { fontSize: 12.5, fontWeight: '600', color: PRIMARY },
-  thumbRow: { gap: 8, paddingBottom: 4 },
-  thumbWrap: { position: 'relative' },
-  thumb: { width: 84, height: 84, borderRadius: 9 },
+  thumbRow:   { gap: 8, paddingBottom: 4 },
+  thumbWrap:  { position: 'relative' },
+  thumb:      { width: 88, height: 88, borderRadius: 10 },
   thumbDelete: {
     position: 'absolute', top: 4, right: 4,
-    width: 20, height: 20, borderRadius: 10,
-    backgroundColor: DANGER,
-    alignItems: 'center', justifyContent: 'center',
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: DANGER, alignItems: 'center', justifyContent: 'center',
   },
   photoEmptyHint: {
-    alignItems: 'center', paddingVertical: 18, gap: 6,
+    alignItems: 'center', paddingVertical: 20, gap: 6,
     borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB',
     borderStyle: 'dashed', backgroundColor: '#F9FAFB',
   },
   photoEmptyText: { fontSize: 12.5, color: MUTED },
-  photoCount: { fontSize: 11.5, color: MUTED, marginTop: 7, textAlign: 'center' },
+  photoCount:     { fontSize: 11.5, color: MUTED, marginTop: 7, textAlign: 'center' },
 
-  /* Documents */
+  /* ── Documents ────────────────────────────────────────── */
   docHint: { fontSize: 11.5, color: MUTED, marginBottom: 10 },
   docPickBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 11, borderRadius: 9,
+    paddingVertical: 12, borderRadius: 9,
     borderWidth: 1, borderColor: PRIMARY + '33',
     backgroundColor: '#FEF2F2', marginBottom: 10,
   },
@@ -1592,22 +1579,22 @@ const styles = StyleSheet.create({
   },
   docIcon: {
     width: 30, height: 30, borderRadius: 8,
-    backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center',
   },
   docName:  { flex: 1, fontSize: 12.5, color: TEXT, fontWeight: '500' },
   docEmpty: { fontSize: 12, color: MUTED, textAlign: 'center', paddingVertical: 6 },
 
-  /* Service search */
+  /* ── Service search ───────────────────────────────────── */
   serviceSearchRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12 },
   serviceSearchInput: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: CARD, borderRadius: 10,
+    backgroundColor: '#F9FAFB', borderRadius: 10,
     borderWidth: 1, borderColor: BORDER,
-    paddingHorizontal: 12, height: 46,
+    paddingHorizontal: 13, height: 48,
   },
   serviceSearchText: { flex: 1, fontSize: 14, color: TEXT },
   addServiceBtn: {
-    width: 46, height: 46, borderRadius: 10,
+    width: 48, height: 48, borderRadius: 10,
     backgroundColor: PRIMARY,
     alignItems: 'center', justifyContent: 'center',
     ...Platform.select({
@@ -1616,76 +1603,79 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
-  suggestLabel: { fontSize: 10, fontWeight: '700', color: MUTED, letterSpacing: 0.6, marginBottom: 7, textTransform: 'uppercase' },
+  suggestLabel: {
+    fontSize: 10, fontWeight: '700', color: MUTED,
+    letterSpacing: 0.6, marginBottom: 7, textTransform: 'uppercase',
+  },
   suggestChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 11, paddingVertical: 6,
     borderRadius: 7, borderWidth: 1, borderColor: PRIMARY + '33',
     backgroundColor: '#FEF2F2',
   },
-  suggestChipText: { fontSize: 11.5, fontWeight: '600', color: PRIMARY },
+  suggestChipText: { fontSize: 12, fontWeight: '600', color: PRIMARY },
 
-  /* Service items */
+  /* ── Service line items ───────────────────────────────── */
   serviceItem: { marginBottom: 0 },
-  serviceTop: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 8 },
+  serviceTop:  { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 8 },
   serviceIconDot: {
-    width: 24, height: 24, borderRadius: 7,
+    width: 24, height: 24, borderRadius: 6,
     backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center',
   },
   serviceItemName: { flex: 1, fontSize: 13.5, fontWeight: '600', color: TEXT },
-  serviceBottom: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 33 },
+  serviceBottom:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 33 },
   priceInputWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     borderWidth: 1, borderColor: BORDER, borderRadius: 8,
     backgroundColor: '#F9FAFB',
-    paddingHorizontal: 9, paddingVertical: 6, flex: 1,
+    paddingHorizontal: 9, paddingVertical: 7, flex: 1,
   },
-  priceRupee: { fontSize: 13, color: MUTED, fontWeight: '600' },
-  priceInput: { flex: 1, fontSize: 13.5, fontWeight: '600', color: TEXT, paddingVertical: 0 },
-  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  priceRupee:      { fontSize: 13, color: MUTED, fontWeight: '600' },
+  priceInput:      { flex: 1, fontSize: 13.5, fontWeight: '600', color: TEXT, paddingVertical: 0 },
+  qtyRow:          { flexDirection: 'row', alignItems: 'center', gap: 7 },
   qtyBtn: {
-    width: 26, height: 26, borderRadius: 7,
+    width: 28, height: 28, borderRadius: 7,
     borderWidth: 1, borderColor: BORDER,
     backgroundColor: CARD, alignItems: 'center', justifyContent: 'center',
   },
-  qtyValue: { fontSize: 13, fontWeight: '700', color: TEXT, minWidth: 20, textAlign: 'center' },
-  serviceRowTotal: { fontSize: 13.5, fontWeight: '700', color: PRIMARY, minWidth: 60, textAlign: 'right' },
+  qtyValue:        { fontSize: 13, fontWeight: '700', color: TEXT, minWidth: 20, textAlign: 'center' },
+  serviceRowTotal: { fontSize: 13.5, fontWeight: '700', color: PRIMARY, minWidth: 62, textAlign: 'right' },
   serviceDivider:  { height: StyleSheet.hairlineWidth, backgroundColor: '#E5E7EB', marginVertical: 12 },
   servicesSummary: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginTop: 12, paddingTop: 12,
-    borderTopWidth: 1, borderTopColor: '#F3F4F6',
+    marginTop: 14, paddingTop: 12,
+    borderTopWidth: 1, borderTopColor: BORDER,
   },
   servicesSummaryLabel: { fontSize: 12, fontWeight: '700', color: MUTED, letterSpacing: 0.3 },
-  servicesSummaryValue: { fontSize: 17, fontWeight: '800', color: PRIMARY },
+  servicesSummaryValue: { fontSize: 18, fontWeight: '800', color: PRIMARY, letterSpacing: -0.4 },
 
-  /* Technician cards */
+  /* ── Technician cards ─────────────────────────────────── */
   techCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 11,
-    padding: 12, borderRadius: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 13, borderRadius: 10,
     borderWidth: 1, borderColor: BORDER,
     backgroundColor: '#F9FAFB', marginBottom: 8,
   },
   techCardActive: { borderColor: PRIMARY, backgroundColor: '#FEF2F2' },
   techCardError:  { borderColor: DANGER + '66' },
   techAvatar: {
-    width: 40, height: 40, borderRadius: 10,
+    width: 42, height: 42, borderRadius: 10,
     backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center',
   },
-  techAvatarText: { fontSize: 16, fontWeight: '700', color: TEXT },
-  techName:  { fontSize: 13.5, fontWeight: '600', color: TEXT, marginBottom: 1 },
-  techRole:  { fontSize: 11.5, color: MUTED },
+  techAvatarText: { fontSize: 17, fontWeight: '700', color: TEXT },
+  techName:       { fontSize: 13.5, fontWeight: '600', color: TEXT, marginBottom: 2 },
+  techRole:       { fontSize: 11.5, color: MUTED },
   availBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
+    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
   },
-  availDot:  { width: 5, height: 5, borderRadius: 3 },
-  availText: { fontSize: 10.5, fontWeight: '600' },
-  techCheckWrap: { marginLeft: 2 },
+  availDot:       { width: 5, height: 5, borderRadius: 3 },
+  availText:      { fontSize: 10.5, fontWeight: '600' },
+  techCheckWrap:  { marginLeft: 2 },
 
-  /* Timeline */
-  timelineRow: { flexDirection: 'row', gap: 12, marginBottom: 0 },
-  timelineLeft: { alignItems: 'center', width: 28 },
+  /* ── Timeline ─────────────────────────────────────────── */
+  timelineRow:    { flexDirection: 'row', gap: 12, marginBottom: 0 },
+  timelineLeft:   { alignItems: 'center', width: 28 },
   timelineCircle: {
     width: 28, height: 28, borderRadius: 14,
     borderWidth: 1.5, borderColor: '#D1D5DB',
@@ -1693,31 +1683,28 @@ const styles = StyleSheet.create({
   },
   timelineCircleDone:    { backgroundColor: SUCCESS, borderColor: SUCCESS },
   timelineCircleCurrent: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  timelinePulse: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#fff' },
-  timelineLine:     { width: 1, flex: 1, backgroundColor: '#E5E7EB', minHeight: 22 },
+  timelinePulse:    { width: 9, height: 9, borderRadius: 5, backgroundColor: '#fff' },
+  timelineLine:     { width: 1.5, flex: 1, backgroundColor: '#E5E7EB', minHeight: 22 },
   timelineLineDone: { backgroundColor: SUCCESS },
   timelineNum:      { fontSize: 10, fontWeight: '700', color: '#9CA3AF' },
   timelineContent:  { flex: 1, paddingBottom: 22, paddingTop: 5 },
   timelineLabel:    { fontSize: 13.5, fontWeight: '600', color: TEXT },
-  timelineDesc:     { fontSize: 11.5, color: MUTED, marginTop: 2 },
+  timelineDesc:     { fontSize: 12, color: MUTED, marginTop: 2 },
   currentBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     marginTop: 5, alignSelf: 'flex-start',
-    backgroundColor: '#FEF2F2',
-    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
+    backgroundColor: '#FEF2F2', borderRadius: 6,
+    paddingHorizontal: 8, paddingVertical: 3,
   },
   currentDot:       { width: 5, height: 5, borderRadius: 3, backgroundColor: PRIMARY },
   currentBadgeText: { fontSize: 10.5, fontWeight: '700', color: PRIMARY },
 
-  /* Stage grid */
-  stageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  stageBtn: {
-    paddingHorizontal: 13, paddingVertical: 8,
-    borderRadius: 8, borderWidth: 1,
-  },
-  stageBtnText: { fontSize: 12, fontWeight: '700' },
+  /* ── Stage grid ───────────────────────────────────────── */
+  stageGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  stageBtn:    { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
+  stageBtnText:{ fontSize: 12, fontWeight: '700' },
 
-  /* Invoice */
+  /* ── Invoice hero ─────────────────────────────────────── */
   invoiceHero: {
     borderRadius: 16, padding: 20, marginBottom: 12, overflow: 'hidden',
     ...Platform.select({
@@ -1727,36 +1714,36 @@ const styles = StyleSheet.create({
     }),
   },
   invoiceHeroCircle: {
-    position: 'absolute', top: -36, right: -36,
-    width: 130, height: 130, borderRadius: 65,
+    position: 'absolute', top: -40, right: -40,
+    width: 140, height: 140, borderRadius: 70,
     backgroundColor: 'rgba(255,255,255,0.07)',
   },
   invoiceHeroTop: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'flex-start', marginBottom: 18,
   },
-  invoiceBrand:    { fontSize: 19, fontWeight: '800', color: '#fff', letterSpacing: -0.4 },
+  invoiceBrand:    { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.4 },
   invoiceTagline:  { fontSize: 10.5, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
   invoiceNumWrap:  { alignItems: 'flex-end' },
   invoiceNumLabel: { fontSize: 9.5, color: 'rgba(255,255,255,0.6)', letterSpacing: 1.5, textTransform: 'uppercase' },
-  invoiceNum:      { fontSize: 14, fontWeight: '700', color: '#fff', marginTop: 2 },
+  invoiceNum:      { fontSize: 15, fontWeight: '700', color: '#fff', marginTop: 2 },
   invoiceMeta:     { gap: 5 },
   invoiceMetaRow:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
   invoiceMetaText: { fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
 
-  /* Line items */
-  lineItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  /* ── Invoice line items ───────────────────────────────── */
+  lineItem:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   lineItemName: { fontSize: 13, color: TEXT, flex: 1 },
   lineItemAmt:  { fontSize: 13, fontWeight: '600', color: PRIMARY },
 
-  /* Totals */
+  /* ── Totals card ──────────────────────────────────────── */
   totalsCard: {
-    backgroundColor: CARD, borderRadius: 14,
+    backgroundColor: CARD, borderRadius: 12,
     borderWidth: 1, borderColor: BORDER,
-    padding: 16, marginBottom: 12, gap: 9,
+    padding: 16, marginBottom: 12, gap: 10,
     ...Platform.select({
-      ios: { shadowColor: '#101828', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 },
-      android: { elevation: 1 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6 },
+      android: { elevation: 2 },
       default: {},
     }),
   },
@@ -1765,57 +1752,56 @@ const styles = StyleSheet.create({
   totalRowValue: { fontSize: 13, fontWeight: '500', color: TEXT },
   grandTotalRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E7EB',
-    paddingTop: 12, marginTop: 3,
+    borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 12, marginTop: 2,
   },
   grandTotalLabel: { fontSize: 14, fontWeight: '700', color: TEXT },
   grandTotalValue: { fontSize: 22, fontWeight: '800', color: PRIMARY, letterSpacing: -0.5 },
 
-  /* Invoice actions */
+  /* ── Invoice action buttons ───────────────────────────── */
   invoiceActions: { flexDirection: 'row', gap: 10, marginBottom: 6 },
   invoiceActionBtn: {
     flex: 1, backgroundColor: CARD,
     borderRadius: 12, padding: 14,
-    alignItems: 'center', gap: 7,
+    alignItems: 'center', gap: 8,
     borderWidth: 1, borderColor: BORDER,
     ...Platform.select({
-      ios: { shadowColor: '#101828', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4 },
       android: { elevation: 1 },
       default: {},
     }),
   },
-  invoiceActionIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  invoiceActionText: { fontSize: 11.5, fontWeight: '600', color: TEXT },
+  invoiceActionIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  invoiceActionText: { fontSize: 12, fontWeight: '600', color: TEXT },
 
-  /* Footer */
+  /* ── Sticky footer ────────────────────────────────────── */
   footer: {
     flexDirection: 'row', gap: 10,
     paddingHorizontal: 16, paddingTop: 12,
     backgroundColor: CARD,
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: BORDER,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.05, shadowRadius: 8 },
-      android: { elevation: 6 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.06, shadowRadius: 10 },
+      android: { elevation: 8 },
       default: {},
     }),
   },
   footerBack: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingVertical: 13, paddingHorizontal: 16,
-    borderRadius: 11, borderWidth: 1, borderColor: BORDER,
+    paddingVertical: 14, paddingHorizontal: 18,
+    borderRadius: 12, borderWidth: 1, borderColor: BORDER,
     backgroundColor: '#F3F4F6',
   },
   footerBackDisabled: { opacity: 0.35 },
-  footerBackText: { fontSize: 14, fontWeight: '600', color: TEXT },
+  footerBackText:     { fontSize: 14, fontWeight: '600', color: TEXT },
   footerNext: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 7, paddingVertical: 13, borderRadius: 11,
+    gap: 8, paddingVertical: 14, borderRadius: 12,
     backgroundColor: PRIMARY,
     ...Platform.select({
-      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8 },
-      android: { elevation: 5 },
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
+      android: { elevation: 6 },
       default: {},
     }),
   },
-  footerNextText: { fontSize: 14.5, fontWeight: '700', color: '#fff' },
+  footerNextText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });
