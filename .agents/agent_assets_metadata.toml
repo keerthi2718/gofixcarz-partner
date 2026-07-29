@@ -12,3 +12,9 @@ id = "NlViB5kUUkqjvia5oOoU1"
 uri = "file://GoFixCarz_Partner.postman_environment.json"
 type = "unspecified"
 title = "GoFixCarz Partner — Postman Environment"
+
+[[outputs]]
+id = "VhoaoQyjFy23BOthn6VD_"
+uri = "file://expo-qr.png"
+type = "image"
+title = "Expo Go QR Code"
