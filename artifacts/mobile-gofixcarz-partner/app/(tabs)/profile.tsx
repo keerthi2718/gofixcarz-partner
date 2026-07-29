@@ -1,11 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal,
-  Platform, ScrollView, StatusBar, StyleSheet,
-  Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View,
+  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform,
+  ScrollView, StatusBar, StyleSheet, Text, TextInput,
+  TouchableOpacity, TouchableWithoutFeedback, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Feather } from '@/src/components/ui/FeatherIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
@@ -15,187 +14,203 @@ import { QUERY_KEYS } from '@/src/constants/api';
 import GarageService from '@/src/services/garage.service';
 import ProfileService from '@/src/services/profile.service';
 import type { WorkingHours } from '@/src/types';
+import {
+  Camera, Mail, Phone, MapPin, Briefcase, User, Hash,
+  Clock, Sun, Moon, CheckCircle, Bell, HelpCircle, Shield,
+  LogOut, ChevronRight, Check, Pencil, Wrench, Star,
+  Navigation, Flag, Building2, Edit2, X,
+} from 'lucide-react-native';
 
-/* ── tokens ── */
-const BG      = '#F4F4F8';
+/* ─────────────────────────── Tokens ─────────────────────────── */
+const BG      = '#F2F4F7';
 const CARD    = '#FFFFFF';
 const PRIMARY = '#C41E3A';
-const INDIGO  = '#921527';
-const TEXT    = '#1E293B';
-const MUTED   = '#94A3B8';
-const BORDER  = '#E8EAF0';
-const TINT    = '#FEF2F2';
-const DANGER  = '#EF4444';
-const PH      = '#B0B8C4';
+const TEXT    = '#0D1117';
+const MUTED   = '#6B7280';
+const BORDER  = '#E5E7EB';
+const DANGER  = '#DC2626';
+const SUCCESS = '#059669';
+const WARN    = '#D97706';
 
-/* ── services list ── */
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
 const ALL_SERVICES = [
-  'Oil Change','Tyre Rotation','Wheel Alignment','Wheel Balancing',
-  'Battery Replacement','Brake Service','AC Service','AC Repair',
-  'Engine Tune-Up','Suspension Repair','Clutch Repair','Gearbox Service',
-  'Denting & Painting','Car Wash','Detailing','Insurance Repair',
-  'Electrical Repair','Windshield Repair','Exhaust Repair','Full Service',
+  'Oil Change', 'Tyre Rotation', 'Wheel Alignment', 'Wheel Balancing',
+  'Battery Replacement', 'Brake Service', 'AC Service', 'AC Repair',
+  'Engine Tune-Up', 'Suspension Repair', 'Clutch Repair', 'Gearbox Service',
+  'Denting & Painting', 'Car Wash', 'Detailing', 'Insurance Repair',
+  'Electrical Repair', 'Windshield Repair', 'Exhaust Repair', 'Full Service',
 ];
 
-const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-
-/* ── helpers ── */
+/* ─────────────────────────── Helpers ────────────────────────── */
 function fmt(d: Date) {
-  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
-function t(h: number, m = 0) { const d = new Date(); d.setHours(h,m,0,0); return d; }
+function makeTime(h: number, m = 0) {
+  const d = new Date(); d.setHours(h, m, 0, 0); return d;
+}
 function dateFromHHMM(s: string): Date {
   const [h = 9, m = 0] = (s || '').split(':').map(Number);
   const d = new Date(); d.setHours(h, m, 0, 0); return d;
 }
+function formatTime12(d: Date) {
+  let h = d.getHours();
+  const min = d.getMinutes();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${String(min).padStart(2, '0')} ${ampm}`;
+}
+function getInitials(name: string) {
+  return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || 'G';
+}
 
-/* ── simple text row inside a group card ── */
-function Row({
-  icon, label, value, onChange, placeholder,
-  keyboard, cap = 'sentences', prefix, last = false, editable = true,
-}: {
-  icon: string;
-  label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string;
-  keyboard?: React.ComponentProps<typeof TextInput>['keyboardType'];
-  cap?: React.ComponentProps<typeof TextInput>['autoCapitalize'];
-  prefix?: string; last?: boolean; editable?: boolean;
+/* ─────────────────────────── SectionCard ───────────────────── */
+function SectionCard({ title, Icon, iconBg, iconColor = PRIMARY, right, children }: {
+  title: string; Icon: any; iconBg: string; iconColor?: string;
+  right?: React.ReactNode; children: React.ReactNode;
 }) {
-  const [focused, setFocused] = useState(false);
   return (
-    <View style={[row.wrap, !last && row.divider]}>
-      <View style={[row.iconBox, focused && row.iconBoxOn]}>
-        <Feather name={icon} size={16} color={focused ? PRIMARY : MUTED} />
-      </View>
-      <View style={row.mid}>
-        <Text style={row.label}>{label}</Text>
-        <View style={row.inputRow}>
-          {prefix ? <Text style={row.prefix}>{prefix} </Text> : null}
-          <TextInput
-            style={[row.input, !editable && { color: MUTED }]}
-            value={value}
-            onChangeText={onChange}
-            placeholder={placeholder}
-            placeholderTextColor={PH}
-            keyboardType={keyboard}
-            autoCapitalize={cap}
-            editable={editable}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-          />
+    <View style={sc.card}>
+      <View style={sc.header}>
+        <View style={[sc.iconCircle, { backgroundColor: iconBg }]}>
+          <Icon size={16} color={iconColor} strokeWidth={2} />
         </View>
+        <Text style={sc.title}>{title}</Text>
+        {right && <View style={{ marginLeft: 'auto' }}>{right}</View>}
       </View>
-      <Feather name="chevron-right" size={16} color={BORDER} />
+      {children}
     </View>
   );
 }
-const row = StyleSheet.create({
-  wrap:      { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 16 },
-  divider:   { borderBottomWidth: 1, borderBottomColor: BORDER },
-  iconBox:   { width: 34, height: 34, borderRadius: 10, backgroundColor: BG, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  iconBoxOn: { backgroundColor: TINT },
-  mid:       { flex: 1 },
-  label:     { fontSize: 11, color: MUTED, fontWeight: '600', marginBottom: 2, letterSpacing: 0.3 },
-  inputRow:  { flexDirection: 'row', alignItems: 'center' },
-  prefix:    { fontSize: 14, fontWeight: '700', color: TEXT, marginRight: 2 },
-  input:     { flex: 1, fontSize: 15, color: TEXT, padding: 0 },
-});
-
-/* ── group card wrapper ── */
-function Group({ children }: { children: React.ReactNode }) {
-  return <View style={g.card}>{children}</View>;
-}
-const g = StyleSheet.create({
+const sc = StyleSheet.create({
   card: {
-    backgroundColor: CARD, borderRadius: 18,
-    borderWidth: 1, borderColor: BORDER,
-    marginBottom: 16, overflow: 'hidden',
+    backgroundColor: CARD, borderRadius: 16, borderWidth: 1, borderColor: BORDER,
+    overflow: 'hidden', marginBottom: 16,
     ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
       android: { elevation: 2 },
       default: {},
     }),
   },
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 18, paddingVertical: 15,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER,
+  },
+  iconCircle: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 14, fontWeight: '700', color: TEXT, letterSpacing: -0.2 },
 });
 
-/* ── section title ── */
-function SectionTitle({ label }: { label: string }) {
-  return <Text style={st.t}>{label}</Text>;
-}
-const st = StyleSheet.create({ t: { fontSize: 12, fontWeight: '700', color: MUTED, marginBottom: 8, marginLeft: 4, letterSpacing: 0.5 } });
-
-/* ── Time picker bottom-sheet modal ── */
-function TimePickerModal({
-  visible, label, value, onConfirm, onCancel,
+/* ─────────────────────────── FieldRow ──────────────────────── */
+function FieldRow({
+  Icon, iconBg = '#F3F4F6', iconColor = MUTED,
+  label, value, onChange, placeholder,
+  keyboard, capitalize = 'sentences',
+  prefix, readOnly = false, last = false,
 }: {
+  Icon: any; iconBg?: string; iconColor?: string;
+  label: string; value: string; onChange: (v: string) => void;
+  placeholder?: string;
+  keyboard?: any; capitalize?: any;
+  prefix?: string; readOnly?: boolean; last?: boolean;
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <View style={[fr.wrap, !last && fr.divider]}>
+      <View style={[fr.iconSlot, { backgroundColor: focused ? '#FEF2F2' : iconBg }]}>
+        <Icon size={15} color={focused ? PRIMARY : iconColor} strokeWidth={2} />
+      </View>
+      <View style={fr.mid}>
+        <Text style={fr.label}>{label}</Text>
+        <View style={fr.inputRow}>
+          {prefix ? <Text style={fr.prefix}>{prefix} </Text> : null}
+          <TextInput
+            style={[fr.input, readOnly && { color: MUTED }]}
+            value={value}
+            onChangeText={onChange}
+            placeholder={placeholder}
+            placeholderTextColor="#9CA3AF"
+            keyboardType={keyboard}
+            autoCapitalize={capitalize}
+            editable={!readOnly}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+          />
+        </View>
+        {focused && <View style={fr.focusLine} />}
+      </View>
+      {readOnly && <ChevronRight size={14} color="#D1D5DB" strokeWidth={2} />}
+    </View>
+  );
+}
+const fr = StyleSheet.create({
+  wrap: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 12 },
+  divider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER },
+  iconSlot: { width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  mid: { flex: 1 },
+  label: { fontSize: 10, fontWeight: '700', color: MUTED, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 3 },
+  inputRow: { flexDirection: 'row', alignItems: 'center' },
+  prefix: { fontSize: 15, fontWeight: '700', color: TEXT, marginRight: 4 },
+  input: { flex: 1, fontSize: 15, fontWeight: '500', color: TEXT, padding: 0 },
+  focusLine: { height: 1.5, backgroundColor: PRIMARY, marginTop: 4, borderRadius: 1 },
+});
+
+/* ─────────────────────────── TimePickerModal ───────────────── */
+function TimePickerModal({ visible, label, value, onConfirm, onCancel }: {
   visible: boolean; label: string; value: Date;
   onConfirm: (d: Date) => void; onCancel: () => void;
 }) {
   const [draft, setDraft] = useState(value);
-  React.useEffect(() => { if (visible) setDraft(value); }, [visible]);
-
-  function onPick(event: DateTimePickerEvent, sel?: Date) {
-    if (event.type === 'set' && sel) setDraft(sel);
-  }
+  useEffect(() => { if (visible) setDraft(value); }, [visible]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
       <TouchableWithoutFeedback onPress={onCancel}>
-        <View style={pm.backdrop} />
+        <View style={tp.backdrop} />
       </TouchableWithoutFeedback>
-      <View style={pm.sheet}>
-        <View style={pm.handle} />
-        <View style={pm.toolbar}>
-          <TouchableOpacity onPress={onCancel} style={pm.toolbarBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={pm.cancel}>Cancel</Text>
+      <View style={tp.sheet}>
+        <View style={tp.handle} />
+        <View style={tp.toolbar}>
+          <TouchableOpacity onPress={onCancel} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Text style={tp.cancel}>Cancel</Text>
           </TouchableOpacity>
-          <Text style={pm.toolbarTitle}>{label}</Text>
-          <TouchableOpacity onPress={() => onConfirm(draft)} style={pm.toolbarBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={pm.done}>Done</Text>
+          <Text style={tp.toolbarTitle}>{label}</Text>
+          <TouchableOpacity onPress={() => onConfirm(draft)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Text style={tp.done}>Done</Text>
           </TouchableOpacity>
         </View>
         <DateTimePicker
-          value={draft}
-          mode="time"
-          is24Hour
-          display="spinner"
-          onChange={onPick}
-          style={pm.picker}
-          textColor={TEXT}
+          value={draft} mode="time" is24Hour display="spinner"
+          onChange={(_: DateTimePickerEvent, sel?: Date) => { if (sel) setDraft(sel); }}
+          style={tp.picker} textColor={TEXT}
         />
       </View>
     </Modal>
   );
 }
-const pm = StyleSheet.create({
+const tp = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet: {
-    backgroundColor: CARD,
-    borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    paddingBottom: 30,
+    backgroundColor: CARD, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 32,
     ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 16 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 16 },
       android: { elevation: 24 },
       default: {},
     }),
   },
-  handle: {
-    width: 36, height: 4, borderRadius: 2,
-    backgroundColor: BORDER, alignSelf: 'center', marginTop: 10, marginBottom: 4,
-  },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: BORDER, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
   toolbar: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: BORDER,
+    paddingHorizontal: 22, paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER,
   },
-  toolbarBtn:   { minWidth: 60 },
-  toolbarTitle: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '700', color: TEXT },
-  cancel:       { fontSize: 15, color: MUTED, fontWeight: '500' },
-  done:         { fontSize: 15, color: PRIMARY, fontWeight: '700', textAlign: 'right' },
-  picker:       { width: '100%', height: 200 },
+  toolbarTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: TEXT },
+  cancel: { fontSize: 15, color: MUTED, fontWeight: '500', minWidth: 60 },
+  done:   { fontSize: 15, color: PRIMARY, fontWeight: '700', textAlign: 'right', minWidth: 60 },
+  picker: { width: '100%', height: 200 },
 });
 
-/* ── working hours card ── */
+/* ─────────────────────────── WorkingHoursCard ──────────────── */
 function WorkingHoursCard({
   workDays, toggleDay,
   openTime, setOpenTime,
@@ -208,124 +223,122 @@ function WorkingHoursCard({
   const [pickerFor, setPickerFor] = useState<'open' | 'close' | null>(null);
 
   return (
-    <View style={wh.card}>
-      <View style={wh.daysRow}>
-        {DAYS.map(d => {
-          const on = workDays.includes(d);
-          return (
-            <TouchableOpacity
-              key={d}
-              style={[wh.dayBtn, on && wh.dayBtnOn]}
-              onPress={() => toggleDay(d)}
-              activeOpacity={0.7}
-            >
-              <Text style={[wh.dayTxt, on && wh.dayTxtOn]}>{d[0]}</Text>
-              <Text style={[wh.dayFull, on && wh.dayFullOn]}>{d}</Text>
-            </TouchableOpacity>
-          );
-        })}
+    <SectionCard title="Working Hours" Icon={Clock} iconBg="#FEF3C7" iconColor={WARN}>
+      {/* Day selector */}
+      <View style={wh.daysWrap}>
+        <Text style={wh.daysLabel}>WORKING DAYS</Text>
+        <View style={wh.daysRow}>
+          {DAYS.map(d => {
+            const on = workDays.includes(d);
+            return (
+              <TouchableOpacity
+                key={d}
+                style={[wh.dayBtn, on && wh.dayBtnOn]}
+                onPress={() => toggleDay(d)}
+                activeOpacity={0.75}
+              >
+                <Text style={[wh.dayLetter, on && wh.dayLetterOn]}>{d[0]}</Text>
+                <Text style={[wh.dayFull, on && wh.dayFullOn]}>{d}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
-      <View style={wh.divider} />
+      <View style={wh.timesWrap}>
+        <Text style={wh.daysLabel}>BUSINESS HOURS</Text>
+        {/* Open row */}
+        <TouchableOpacity style={wh.timeRow} onPress={() => setPickerFor('open')} activeOpacity={0.8}>
+          <View style={[wh.timeIcon, { backgroundColor: '#FFF7ED' }]}>
+            <Sun size={16} color="#F97316" strokeWidth={2} />
+          </View>
+          <Text style={wh.timeLabel}>Opens at</Text>
+          <View style={wh.timePill}>
+            <Text style={wh.timePillText}>{formatTime12(openTime)}</Text>
+          </View>
+          <ChevronRight size={14} color="#D1D5DB" strokeWidth={2} />
+        </TouchableOpacity>
 
-      <TouchableOpacity style={wh.timeRow} onPress={() => setPickerFor('open')} activeOpacity={0.75}>
-        <View style={wh.timeIcon}><Feather name="sun" size={16} color="#F97316" /></View>
-        <Text style={wh.timeLabel}>Opens at</Text>
-        <View style={wh.timeBadge}><Text style={wh.timeValue}>{fmt(openTime)}</Text></View>
-        <Feather name="chevron-right" size={15} color={MUTED} style={{ marginLeft: 4 }} />
-      </TouchableOpacity>
+        <View style={wh.innerDivider} />
 
-      <View style={wh.innerDivider} />
+        {/* Close row */}
+        <TouchableOpacity style={[wh.timeRow, { paddingBottom: 4 }]} onPress={() => setPickerFor('close')} activeOpacity={0.8}>
+          <View style={[wh.timeIcon, { backgroundColor: '#EDE9FE' }]}>
+            <Moon size={16} color="#7C3AED" strokeWidth={2} />
+          </View>
+          <Text style={wh.timeLabel}>Closes at</Text>
+          <View style={wh.timePill}>
+            <Text style={wh.timePillText}>{formatTime12(closeTime)}</Text>
+          </View>
+          <ChevronRight size={14} color="#D1D5DB" strokeWidth={2} />
+        </TouchableOpacity>
+      </View>
 
-      <TouchableOpacity style={wh.timeRow} onPress={() => setPickerFor('close')} activeOpacity={0.75}>
-        <View style={wh.timeIcon}><Feather name="moon" size={16} color="#6366F1" /></View>
-        <Text style={wh.timeLabel}>Closes at</Text>
-        <View style={wh.timeBadge}><Text style={wh.timeValue}>{fmt(closeTime)}</Text></View>
-        <Feather name="chevron-right" size={15} color={MUTED} style={{ marginLeft: 4 }} />
-      </TouchableOpacity>
-
+      {/* Summary pill */}
       {workDays.length > 0 && (
-        <View style={wh.summary}>
-          <Feather name="check-circle" size={13} color={PRIMARY} />
-          <Text style={wh.summaryTxt}>
-            {workDays.length === 7 ? 'Every day' : workDays.join(' · ')}
-            {'  '}
-            <Text style={{ color: TEXT }}>{fmt(openTime)} – {fmt(closeTime)}</Text>
+        <View style={wh.summaryRow}>
+          <CheckCircle size={13} color={SUCCESS} strokeWidth={2} />
+          <Text style={wh.summaryText}>
+            <Text style={{ fontWeight: '700' }}>
+              {workDays.length === 7 ? 'Every day' : workDays.length === 5 && !workDays.includes('Sat') && !workDays.includes('Sun') ? 'Mon – Fri' : workDays.join(' · ')}
+            </Text>
+            {'  ·  '}
+            {formatTime12(openTime)} – {formatTime12(closeTime)}
           </Text>
         </View>
       )}
 
       <TimePickerModal
-        visible={pickerFor === 'open'}
-        label="Opening Time"
-        value={openTime}
+        visible={pickerFor === 'open'} label="Opening Time" value={openTime}
         onConfirm={d => { setOpenTime(d); setPickerFor(null); }}
         onCancel={() => setPickerFor(null)}
       />
       <TimePickerModal
-        visible={pickerFor === 'close'}
-        label="Closing Time"
-        value={closeTime}
+        visible={pickerFor === 'close'} label="Closing Time" value={closeTime}
         onConfirm={d => { setCloseTime(d); setPickerFor(null); }}
         onCancel={() => setPickerFor(null)}
       />
-    </View>
+    </SectionCard>
   );
 }
 
 const wh = StyleSheet.create({
-  card: {
-    backgroundColor: CARD, borderRadius: 18,
-    borderWidth: 1, borderColor: BORDER, marginBottom: 16,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6 },
-      android: { elevation: 2 },
-      default: {},
-    }),
-  },
-  daysRow: {
-    flexDirection: 'row', paddingHorizontal: 12,
-    paddingTop: 14, paddingBottom: 12, gap: 4,
-  },
+  daysWrap:  { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER },
+  daysLabel: { fontSize: 10, fontWeight: '800', color: MUTED, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 12 },
+  daysRow:   { flexDirection: 'row', gap: 5 },
   dayBtn: {
-    flex: 1, alignItems: 'center', paddingVertical: 8,
-    borderRadius: 12, backgroundColor: BG,
-    borderWidth: 1, borderColor: BORDER,
+    flex: 1, alignItems: 'center', paddingVertical: 9,
+    borderRadius: 10, backgroundColor: BG,
+    borderWidth: 1.5, borderColor: BORDER,
   },
-  dayBtnOn:  { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  dayTxt:    { fontSize: 13, fontWeight: '800', color: MUTED, lineHeight: 16 },
-  dayTxtOn:  { color: '#fff' },
-  dayFull:   { fontSize: 9,  fontWeight: '500', color: MUTED, lineHeight: 13 },
-  dayFullOn: { color: 'rgba(255,255,255,0.8)' },
-  divider:      { height: 1, backgroundColor: BORDER },
-  innerDivider: { height: 1, backgroundColor: BORDER, marginHorizontal: 16 },
-  timeRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 14, gap: 12,
-  },
-  timeIcon: {
-    width: 34, height: 34, borderRadius: 10,
-    backgroundColor: BG,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  dayBtnOn:    { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  dayLetter:   { fontSize: 13, fontWeight: '800', color: MUTED, lineHeight: 17 },
+  dayLetterOn: { color: '#fff' },
+  dayFull:     { fontSize: 8.5, fontWeight: '600', color: '#9CA3AF', lineHeight: 12 },
+  dayFullOn:   { color: 'rgba(255,255,255,0.75)' },
+
+  timesWrap:  { paddingHorizontal: 16, paddingTop: 16 },
+  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 14 },
+  timeIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   timeLabel: { flex: 1, fontSize: 15, fontWeight: '500', color: TEXT },
-  timeBadge: {
+  timePill: {
     backgroundColor: BG, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 7,
-    borderWidth: 1, borderColor: BORDER,
+    borderWidth: 1.5, borderColor: BORDER,
   },
-  timeValue: { fontSize: 16, fontWeight: '700', color: TEXT },
-  summary: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    backgroundColor: TINT, margin: 12, marginTop: 0,
-    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9,
-    borderWidth: 1, borderColor: 'rgba(196,30,58,0.15)',
+  timePillText: { fontSize: 15, fontWeight: '700', color: TEXT },
+  innerDivider: { height: StyleSheet.hairlineWidth, backgroundColor: BORDER, marginBottom: 14 },
+
+  summaryRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    margin: 16, marginTop: 0, padding: 12,
+    backgroundColor: '#F0FDF4', borderRadius: 10,
+    borderWidth: 1, borderColor: '#BBF7D0',
   },
-  summaryTxt: { flex: 1, fontSize: 12, color: PRIMARY, fontWeight: '600', flexWrap: 'wrap' },
+  summaryText: { flex: 1, fontSize: 12.5, color: '#166534', lineHeight: 18 },
 });
 
-/* ════════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════ Main Screen ══════════════════════════ */
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
@@ -339,13 +352,15 @@ export default function ProfileScreen() {
   const [email,      setEmail]      = useState('');
   const [phone,      setPhone]      = useState('');
   const [address,    setAddress]    = useState('');
-  const [openTime,   setOpenTime]   = useState(t(9));
-  const [closeTime,  setCloseTime]  = useState(t(19));
+  const [city,       setCity]       = useState('');
+  const [stateVal,   setStateVal]   = useState('');
+  const [zipcode,    setZipcode]    = useState('');
+  const [openTime,   setOpenTime]   = useState(makeTime(9));
+  const [closeTime,  setCloseTime]  = useState(makeTime(19));
   const [workDays,   setWorkDays]   = useState<string[]>([]);
   const [services,   setServices]   = useState<string[]>([]);
   const [saving,     setSaving]     = useState(false);
 
-  // track whether we've done initial population to avoid overwriting user edits
   const populated = useRef(false);
 
   /* ── Queries ── */
@@ -357,10 +372,9 @@ export default function ProfileScreen() {
     queryKey: QUERY_KEYS.PROFILE,
     queryFn: ProfileService.get,
   });
-
   const isLoading = garageLoading || profileLoading;
 
-  /* ── Populate form from API data ── */
+  /* ── Populate ── */
   useEffect(() => {
     if (populated.current) return;
     if (!garage && !profile) return;
@@ -369,13 +383,15 @@ export default function ProfileScreen() {
       setGarageName(garage.name ?? '');
       setOwnerName(garage.owner ?? '');
       setAddress(garage.address ?? '');
+      setCity(garage.city ?? '');
+      setStateVal((garage as any).state ?? '');
+      setZipcode(garage.zipcode ?? '');
 
       if (garage.working_hours) {
         const activeDays = Object.entries(garage.working_hours)
           .filter(([, v]) => !v.closed)
           .map(([day]) => day);
         setWorkDays(activeDays);
-
         const firstActive = Object.values(garage.working_hours).find(v => !v.closed);
         if (firstActive) {
           setOpenTime(dateFromHHMM(firstActive.open));
@@ -386,87 +402,77 @@ export default function ProfileScreen() {
     if (profile) {
       setEmail(profile.email ?? '');
       setPhone(profile.mobile ?? '');
-      // Use profile name as fallback for ownerName if garage.owner is empty
       if (!garage?.owner && profile.name) setOwnerName(profile.name);
     }
-
     populated.current = true;
   }, [garage, profile]);
 
   /* ── Mutations ── */
-  const garageMut = useMutation({
-    mutationFn: GarageService.update,
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.GARAGE }),
-  });
-  const profileMut = useMutation({
-    mutationFn: ProfileService.update,
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.PROFILE }),
-  });
+  const garageMut  = useMutation({ mutationFn: GarageService.update,  onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.GARAGE  }) });
+  const profileMut = useMutation({ mutationFn: ProfileService.update, onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.PROFILE }) });
 
   /* ── Logo picker ── */
   async function pickLogo() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission needed', 'Allow photo library access to upload your logo.'); return; }
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1,1], quality: 0.85 });
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85 });
     if (!res.canceled && res.assets[0]) setLogoUri(res.assets[0].uri);
   }
 
-  function toggleDay(d: string) {
-    setWorkDays(p => p.includes(d) ? p.filter(x => x !== d) : [...p, d]);
-  }
-  function toggleService(s: string) {
-    setServices(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s]);
-  }
+  function toggleDay(d: string) { setWorkDays(p => p.includes(d) ? p.filter(x => x !== d) : [...p, d]); }
+  function toggleService(s: string) { setServices(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s]); }
 
   async function save() {
     if (!garageName.trim()) { Alert.alert('Required', 'Please enter your garage name.'); return; }
     setSaving(true);
     try {
-      // Build working_hours from current state
       const working_hours: WorkingHours = {};
       DAYS.forEach(day => {
-        working_hours[day] = {
-          open: fmt(openTime),
-          close: fmt(closeTime),
-          closed: !workDays.includes(day),
-        };
+        working_hours[day] = { open: fmt(openTime), close: fmt(closeTime), closed: !workDays.includes(day) };
       });
-
       await Promise.all([
         garageMut.mutateAsync({
-          name:          garageName.trim(),
-          owner:         ownerName.trim() || null,
-          address:       address.trim()   || null,
-          working_hours,
+          name: garageName.trim(), owner: ownerName.trim() || null,
+          address: address.trim() || null, city: city.trim() || null,
+          zipcode: zipcode.trim() || null, working_hours,
         }),
-        profileMut.mutateAsync({
-          name:  ownerName.trim() || null,
-          email: email.trim()     || null,
-        }),
+        profileMut.mutateAsync({ name: ownerName.trim() || null, email: email.trim() || null }),
       ]);
-
-      Alert.alert('✓ Saved', 'Profile updated successfully!');
+      Alert.alert('Saved ✓', 'Your profile has been updated.');
     } catch {
-      Alert.alert('Error', 'Failed to save profile. Please try again.');
+      Alert.alert('Error', 'Failed to save. Please try again.');
     } finally {
       setSaving(false);
     }
   }
 
-  /* ════════════════════════════════════════════════════════════════════ */
+  /* ── Derived ── */
+  const initials = getInitials(garageName);
+  const location = [city, stateVal].filter(Boolean).join(', ');
+  const isOpenNow = (() => {
+    if (!workDays.length) return false;
+    const now = new Date();
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const today = dayNames[now.getDay()];
+    if (!workDays.includes(today)) return false;
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const oMin = openTime.getHours() * 60 + openTime.getMinutes();
+    const cMin = closeTime.getHours() * 60 + closeTime.getMinutes();
+    return nowMin >= oMin && nowMin < cMin;
+  })();
+
+  /* ══════════════════════════════════════════════════════════════ */
   return (
     <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <StatusBar barStyle="light-content" backgroundColor={INDIGO} />
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      {/* ── Header bar ── */}
-      <LinearGradient
-        colors={[INDIGO, PRIMARY]}
-        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-        style={[s.header, { paddingTop: topPad + 12 }]}
-      >
-        <Text style={s.headerTitle}>My Profile</Text>
-        <Text style={s.headerSub}>Manage your garage details</Text>
-      </LinearGradient>
+      {/* ── Top bar ── */}
+      <View style={[s.topBar, { paddingTop: topPad + 10 }]}>
+        <Text style={s.topBarTitle}>My Profile</Text>
+        <TouchableOpacity style={s.editBtn} onPress={pickLogo} activeOpacity={0.8}>
+          <Edit2 size={15} color={PRIMARY} strokeWidth={2} />
+        </TouchableOpacity>
+      </View>
 
       {isLoading ? (
         <View style={s.loadingWrap}>
@@ -475,116 +481,184 @@ export default function ProfileScreen() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 100 }]}
+          contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 90 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Logo ── */}
-          <View style={s.logoSection}>
-            <TouchableOpacity onPress={pickLogo} activeOpacity={0.8} style={s.logoBtn}>
-              {logoUri
-                ? <Image source={{ uri: logoUri }} style={s.logoImg} />
-                : (
-                  <View style={s.logoEmpty}>
-                    <Feather name="camera" size={26} color={MUTED} />
-                    <Text style={s.logoEmptyText}>Upload Logo</Text>
-                  </View>
-                )
-              }
-              {logoUri && (
-                <View style={s.logoBadge}>
-                  <Feather name="camera" size={13} color="#fff" />
-                </View>
+
+          {/* ── Hero Card ── */}
+          <View style={s.heroCard}>
+            {/* Avatar */}
+            <TouchableOpacity style={s.avatarWrap} onPress={pickLogo} activeOpacity={0.85}>
+              {logoUri ? (
+                <Image source={{ uri: logoUri }} style={s.avatarImg} />
+              ) : (
+                <LinearGradient
+                  colors={['#921527', '#C41E3A']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={s.avatarGrad}
+                >
+                  <Text style={s.avatarInitials}>{initials}</Text>
+                </LinearGradient>
               )}
+              <View style={s.cameraBadge}>
+                <Camera size={11} color="#fff" strokeWidth={2.5} />
+              </View>
             </TouchableOpacity>
-            <Text style={s.logoName}>{garageName || 'Your Garage'}</Text>
-            <Text style={s.logoSub}>{ownerName || profile?.mobile || ''}</Text>
+
+            {/* Identity */}
+            <View style={s.heroMeta}>
+              <Text style={s.heroName} numberOfLines={1}>{garageName || 'Your Garage'}</Text>
+              {ownerName ? <Text style={s.heroOwner}>{ownerName}</Text> : null}
+              {location ? (
+                <View style={s.heroLocation}>
+                  <MapPin size={11} color={MUTED} strokeWidth={2} />
+                  <Text style={s.heroLocationText}>{location}</Text>
+                </View>
+              ) : null}
+            </View>
+
+            {/* Status badge */}
+            <View style={[s.statusBadge, { backgroundColor: isOpenNow ? '#F0FDF4' : '#FEF2F2' }]}>
+              <View style={[s.statusDot, { backgroundColor: isOpenNow ? SUCCESS : DANGER }]} />
+              <Text style={[s.statusText, { color: isOpenNow ? SUCCESS : DANGER }]}>
+                {isOpenNow ? 'Open' : 'Closed'}
+              </Text>
+            </View>
           </View>
 
-          {/* ── Garage info ── */}
-          <SectionTitle label="GARAGE INFO" />
-          <Group>
-            <Row icon="briefcase" label="Garage Name" value={garageName} onChange={setGarageName} placeholder="e.g. AutoCare Garage" cap="words" />
-            <Row icon="user" label="Owner Name" value={ownerName} onChange={setOwnerName} placeholder="Full name" cap="words" />
-            <Row icon="map-pin" label="Address" value={address} onChange={setAddress} placeholder="Street, city" cap="words" last />
-          </Group>
+          {/* ── Stats row ── */}
+          <View style={s.statsRow}>
+            {[
+              { label: 'Services', value: String(services.length || '—') },
+              { label: 'Work Days', value: workDays.length === 7 ? 'All' : workDays.length > 0 ? `${workDays.length}d` : '—' },
+              { label: 'Hours', value: workDays.length > 0 ? `${formatTime12(openTime).replace(' ', '')}` : '—' },
+            ].map((stat, i) => (
+              <View key={i} style={[s.statCell, i < 2 && s.statDivider]}>
+                <Text style={s.statValue}>{stat.value}</Text>
+                <Text style={s.statLabel}>{stat.label}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* ── Garage Info ── */}
+          <SectionCard title="Business Details" Icon={Briefcase} iconBg="#FEE2E2" iconColor={PRIMARY}>
+            <FieldRow Icon={Building2} iconBg="#FEE2E2" iconColor={PRIMARY}
+              label="Garage Name" value={garageName} onChange={setGarageName}
+              placeholder="e.g. Sharma Auto Works" capitalize="words" />
+            <FieldRow Icon={User} iconBg="#F3F4F6" iconColor={MUTED}
+              label="Owner Name" value={ownerName} onChange={setOwnerName}
+              placeholder="Full name" capitalize="words" last />
+          </SectionCard>
 
           {/* ── Contact ── */}
-          <SectionTitle label="CONTACT" />
-          <Group>
-            <Row icon="mail" label="Email" value={email} onChange={setEmail} placeholder="you@garage.com" keyboard="email-address" cap="none" />
-            <Row
-              icon="phone" label="Phone" value={phone}
-              onChange={() => {}}
-              placeholder="Mobile number"
-              keyboard="phone-pad" prefix="+91" last
-              editable={false}
-            />
-          </Group>
+          <SectionCard title="Contact" Icon={Phone} iconBg="#F0FDF4" iconColor={SUCCESS}>
+            <FieldRow Icon={Mail} iconBg="#F0FDF4" iconColor={SUCCESS}
+              label="Email Address" value={email} onChange={setEmail}
+              placeholder="you@garage.com" keyboard="email-address" capitalize="none" />
+            <FieldRow Icon={Phone} iconBg="#F3F4F6" iconColor={MUTED}
+              label="Phone Number" value={phone} onChange={() => {}}
+              placeholder="Mobile number" keyboard="phone-pad" prefix="+91"
+              readOnly last />
+          </SectionCard>
 
-          {/* ── Working hours ── */}
-          <SectionTitle label="WORKING HOURS" />
+          {/* ── Location ── */}
+          <SectionCard title="Location" Icon={MapPin} iconBg="#EDE9FE" iconColor="#7C3AED">
+            <FieldRow Icon={MapPin} iconBg="#EDE9FE" iconColor="#7C3AED"
+              label="Street Address" value={address} onChange={setAddress}
+              placeholder="Plot / Door no, Street name" capitalize="words" />
+            <FieldRow Icon={Navigation} iconBg="#F3F4F6" iconColor={MUTED}
+              label="City" value={city} onChange={setCity}
+              placeholder="City" capitalize="words" />
+            <FieldRow Icon={Flag} iconBg="#F3F4F6" iconColor={MUTED}
+              label="State" value={stateVal} onChange={setStateVal}
+              placeholder="State" capitalize="words" />
+            <FieldRow Icon={Hash} iconBg="#F3F4F6" iconColor={MUTED}
+              label="PIN Code" value={zipcode}
+              onChange={v => setZipcode(v.replace(/\D/g, '').slice(0, 6))}
+              placeholder="6-digit PIN" keyboard="number-pad" last />
+          </SectionCard>
+
+          {/* ── Working Hours ── */}
           <WorkingHoursCard
-            workDays={workDays}  toggleDay={toggleDay}
-            openTime={openTime}  setOpenTime={setOpenTime}
+            workDays={workDays} toggleDay={toggleDay}
+            openTime={openTime} setOpenTime={setOpenTime}
             closeTime={closeTime} setCloseTime={setCloseTime}
           />
 
           {/* ── Services ── */}
-          <SectionTitle label="SERVICES OFFERED" />
-          <Group>
-            <View style={s.svcWrap}>
-              <Text style={s.svcHint}>Select all services your garage provides</Text>
-              <View style={s.svcGrid}>
-                {ALL_SERVICES.map(svc => {
-                  const on = services.includes(svc);
-                  return (
-                    <TouchableOpacity key={svc} style={[s.svcChip, on && s.svcOn]} onPress={() => toggleService(svc)} activeOpacity={0.7}>
-                      {on && <Feather name="check" size={11} color={PRIMARY} style={{ marginRight: 3 }} />}
-                      <Text style={[s.svcText, on && s.svcTextOn]}>{svc}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
+          <SectionCard
+            title="Services Offered"
+            Icon={Wrench} iconBg="#FEE2E2" iconColor={PRIMARY}
+            right={
+              <View style={s.svcCounter}>
+                <Text style={s.svcCounterText}>{services.length} selected</Text>
               </View>
-              <Text style={s.svcCount}>{services.length} selected</Text>
+            }
+          >
+            <View style={s.svcGrid}>
+              {ALL_SERVICES.map(svc => {
+                const on = services.includes(svc);
+                return (
+                  <TouchableOpacity
+                    key={svc}
+                    style={[s.svcChip, on && s.svcChipOn]}
+                    onPress={() => toggleService(svc)}
+                    activeOpacity={0.75}
+                  >
+                    {on && <Check size={11} color={PRIMARY} strokeWidth={3} />}
+                    <Text style={[s.svcText, on && s.svcTextOn]}>{svc}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          </Group>
+          </SectionCard>
 
-          {/* ── App links ── */}
-          <SectionTitle label="MORE" />
-          <Group>
+          {/* ── App Links ── */}
+          <SectionCard title="More" Icon={Star} iconBg="#FFFBEB" iconColor={WARN}>
             {[
-              { icon: 'bell'        as const, label: 'Notifications' },
-              { icon: 'help-circle' as const, label: 'Help & Support' },
-              { icon: 'shield'      as const, label: 'Privacy Policy' },
-            ].map((item, i, arr) => (
-              <TouchableOpacity key={item.label} style={[s.menuRow, i < arr.length - 1 && s.menuDivider]} activeOpacity={0.7}>
-                <View style={s.menuIcon}>
-                  <Feather name={item.icon} size={17} color={MUTED} />
+              { Icon: Bell,        label: 'Notifications',   iconBg: '#FFFBEB', iconColor: WARN    },
+              { Icon: HelpCircle,  label: 'Help & Support',  iconBg: '#EDE9FE', iconColor: '#7C3AED' },
+              { Icon: Shield,      label: 'Privacy Policy',  iconBg: '#F0FDF4', iconColor: SUCCESS  },
+            ].map(({ Icon, label, iconBg, iconColor }, i, arr) => (
+              <TouchableOpacity
+                key={label}
+                style={[s.menuRow, i < arr.length - 1 && s.menuDivider]}
+                activeOpacity={0.75}
+              >
+                <View style={[s.menuIcon, { backgroundColor: iconBg }]}>
+                  <Icon size={16} color={iconColor} strokeWidth={2} />
                 </View>
-                <Text style={s.menuLabel}>{item.label}</Text>
-                <Feather name="chevron-right" size={16} color={BORDER} />
+                <Text style={s.menuLabel}>{label}</Text>
+                <ChevronRight size={16} color="#D1D5DB" strokeWidth={2} />
               </TouchableOpacity>
             ))}
-          </Group>
+          </SectionCard>
 
           {/* ── Sign out ── */}
           <TouchableOpacity style={s.logoutBtn} onPress={logout} activeOpacity={0.8}>
-            <Feather name="log-out" size={17} color={DANGER} />
+            <View style={s.logoutIcon}>
+              <LogOut size={16} color={DANGER} strokeWidth={2} />
+            </View>
             <Text style={s.logoutText}>Sign Out</Text>
+            <ChevronRight size={16} color={DANGER + '66'} strokeWidth={2} />
           </TouchableOpacity>
 
         </ScrollView>
       )}
 
-      {/* ── Save ── */}
+      {/* ── Footer ── */}
       {!isLoading && (
-        <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>
-          <TouchableOpacity style={[s.saveBtn, saving && { opacity: 0.65 }]} onPress={save} disabled={saving} activeOpacity={0.85}>
-            {saving
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={s.saveTxt}>Save Profile</Text>
-            }
+        <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <TouchableOpacity
+            style={[s.saveBtn, saving && { opacity: 0.65 }]}
+            onPress={save} disabled={saving} activeOpacity={0.85}
+          >
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={s.saveTxt}>Save Profile</Text>
+            )}
           </TouchableOpacity>
         </View>
       )}
@@ -592,87 +666,133 @@ export default function ProfileScreen() {
   );
 }
 
-/* ── styles ── */
+/* ─────────────────────────── Styles ─────────────────────────── */
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: BG },
 
-  header: { paddingHorizontal: 20, paddingBottom: 18 },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.4 },
-  headerSub:   { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 3 },
-
-  body: { paddingHorizontal: 16, paddingTop: 20 },
+  /* Top bar */
+  topBar: {
+    backgroundColor: CARD, paddingHorizontal: 20, paddingBottom: 14,
+    flexDirection: 'row', alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER,
+  },
+  topBarTitle: { flex: 1, fontSize: 20, fontWeight: '800', color: TEXT, letterSpacing: -0.4 },
+  editBtn: {
+    width: 38, height: 38, borderRadius: 10,
+    backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center',
+  },
 
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { fontSize: 14, color: MUTED, fontWeight: '500' },
 
-  /* Logo */
-  logoSection: { alignItems: 'center', marginBottom: 28 },
-  logoBtn:     { position: 'relative', marginBottom: 10 },
-  logoImg: {
-    width: 90, height: 90, borderRadius: 22,
-    borderWidth: 3, borderColor: CARD,
+  body: { paddingHorizontal: 16, paddingTop: 16 },
+
+  /* Hero */
+  heroCard: {
+    backgroundColor: CARD, borderRadius: 20, borderWidth: 1, borderColor: BORDER,
+    padding: 20, marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 14,
     ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 10 },
-      android: { elevation: 5 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 10 },
+      android: { elevation: 3 },
       default: {},
     }),
   },
-  logoEmpty: {
-    width: 90, height: 90, borderRadius: 22,
-    backgroundColor: CARD, borderWidth: 2,
-    borderColor: BORDER, borderStyle: 'dashed',
-    alignItems: 'center', justifyContent: 'center', gap: 4,
-  },
-  logoEmptyText: { fontSize: 11, color: MUTED, fontWeight: '600' },
-  logoBadge: {
-    position: 'absolute', bottom: -4, right: -4,
-    width: 26, height: 26, borderRadius: 13,
+  avatarWrap:    { position: 'relative', flexShrink: 0 },
+  avatarGrad:    { width: 66, height: 66, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  avatarImg:     { width: 66, height: 66, borderRadius: 18 },
+  avatarInitials:{ fontSize: 24, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
+  cameraBadge: {
+    position: 'absolute', bottom: -3, right: -3,
+    width: 22, height: 22, borderRadius: 11,
     backgroundColor: PRIMARY, borderWidth: 2, borderColor: CARD,
     alignItems: 'center', justifyContent: 'center',
   },
-  logoName: { fontSize: 18, fontWeight: '800', color: TEXT, letterSpacing: -0.3 },
-  logoSub:  { fontSize: 13, color: MUTED, marginTop: 2 },
+  heroMeta:         { flex: 1 },
+  heroName:         { fontSize: 17, fontWeight: '800', color: TEXT, letterSpacing: -0.3, marginBottom: 2 },
+  heroOwner:        { fontSize: 13, color: MUTED, marginBottom: 4 },
+  heroLocation:     { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  heroLocationText: { fontSize: 12, color: MUTED },
+  statusBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10,
+    flexShrink: 0, alignSelf: 'flex-start',
+  },
+  statusDot:  { width: 7, height: 7, borderRadius: 4 },
+  statusText: { fontSize: 12, fontWeight: '700' },
+
+  /* Stats */
+  statsRow: {
+    backgroundColor: CARD, borderRadius: 14, borderWidth: 1, borderColor: BORDER,
+    flexDirection: 'row', marginBottom: 16,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 5 },
+      android: { elevation: 1 },
+      default: {},
+    }),
+  },
+  statCell:    { flex: 1, alignItems: 'center', paddingVertical: 14 },
+  statDivider: { borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: BORDER },
+  statValue:   { fontSize: 18, fontWeight: '800', color: TEXT, letterSpacing: -0.4, marginBottom: 3 },
+  statLabel:   { fontSize: 11, color: MUTED, fontWeight: '600' },
 
   /* Services */
-  svcWrap:  { padding: 16 },
-  svcHint:  { fontSize: 12, color: MUTED, marginBottom: 12 },
-  svcGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  svcChip:  { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: BG, borderWidth: 1, borderColor: BORDER },
-  svcOn:    { backgroundColor: TINT, borderColor: 'rgba(196,30,58,0.3)' },
-  svcText:  { fontSize: 13, color: MUTED, fontWeight: '500' },
-  svcTextOn:{ color: PRIMARY, fontWeight: '600' },
-  svcCount: { marginTop: 12, fontSize: 12, color: MUTED, fontWeight: '600', textAlign: 'center' },
+  svcCounter: {
+    backgroundColor: '#FEE2E2', borderRadius: 8,
+    paddingHorizontal: 9, paddingVertical: 3,
+  },
+  svcCounterText: { fontSize: 11, fontWeight: '700', color: PRIMARY },
+  svcGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
+    padding: 16,
+  },
+  svcChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
+    backgroundColor: '#F9FAFB', borderWidth: 1.5, borderColor: BORDER,
+  },
+  svcChipOn: { backgroundColor: '#FEF2F2', borderColor: PRIMARY + '66' },
+  svcText:   { fontSize: 12.5, color: MUTED, fontWeight: '500' },
+  svcTextOn: { color: PRIMARY, fontWeight: '600' },
 
   /* Menu */
-  menuRow:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
-  menuDivider: { borderBottomWidth: 1, borderBottomColor: BORDER },
-  menuIcon:    { width: 32, height: 32, borderRadius: 8, backgroundColor: BG, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  menuRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 14,
+  },
+  menuDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER },
+  menuIcon:    { width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   menuLabel:   { flex: 1, fontSize: 15, fontWeight: '500', color: TEXT },
 
   /* Logout */
   logoutBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#FEF2F2', borderRadius: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#FEF2F2', borderRadius: 14,
     borderWidth: 1, borderColor: '#FECACA',
-    paddingHorizontal: 18, paddingVertical: 14, marginBottom: 8,
+    paddingHorizontal: 16, paddingVertical: 14, marginBottom: 8,
   },
-  logoutText: { fontSize: 15, fontWeight: '600', color: DANGER },
+  logoutIcon: {
+    width: 34, height: 34, borderRadius: 9,
+    backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center',
+  },
+  logoutText: { flex: 1, fontSize: 15, fontWeight: '600', color: DANGER },
 
   /* Footer */
   footer: {
     paddingHorizontal: 16, paddingTop: 12,
-    backgroundColor: CARD, borderTopWidth: 1, borderTopColor: BORDER,
+    backgroundColor: CARD,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: BORDER,
     ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 8 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.06, shadowRadius: 10 },
       android: { elevation: 8 },
       default: {},
     }),
   },
   saveBtn: {
-    backgroundColor: PRIMARY, borderRadius: 14,
-    height: 52, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: PRIMARY, borderRadius: 14, height: 54,
+    alignItems: 'center', justifyContent: 'center',
     ...Platform.select({
-      ios:     { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
       android: { elevation: 6 },
       default: {},
     }),
