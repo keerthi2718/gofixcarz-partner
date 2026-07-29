@@ -1,388 +1,610 @@
 import React, { useState } from 'react';
 import {
-  FlatList, Platform, Pressable, RefreshControl,
-  ScrollView, StatusBar, StyleSheet, Text,
-  TextInput, TouchableOpacity, View,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Feather } from '@/src/components/ui/FeatherIcon';
 import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import JobService from '@/src/services/job.service';
-import { formatCurrency } from '@/src/utils/helpers';
-import { SkeletonList } from '@/src/components/ui/SkeletonCard';
-import type { JobStatus } from '@/src/types';
+import { Filter, Plus, Wrench } from 'lucide-react-native';
 
-/* ── Design tokens ── */
-const BG      = '#EEEEF6';
-const CARD    = '#FFFFFF';
-const PRIMARY = '#C41E3A';
-const TEXT    = '#1E293B';
-const MUTED   = '#64748B';
-const BORDER  = 'rgba(226,232,240,0.7)';
-
-const FILTERS: { label: string; value: JobStatus | '' }[] = [
-  { label: 'All',         value: '' },
-  { label: 'Open',        value: 'OPEN' },
-  { label: 'In Progress', value: 'IN_PROGRESS' },
-  { label: 'QC',          value: 'QUALITY_CHECK' },
-  { label: 'Ready',       value: 'READY' },
-  { label: 'Done',        value: 'COMPLETED' },
-];
-
+/* ─────────────── Status config ─────────────── */
 const JOB_STATUS: Record<string, { label: string; color: string; bg: string }> = {
-  OPEN:              { label: 'Open',        color: '#3B82F6', bg: '#EFF6FF' },
-  IN_PROGRESS:       { label: 'In Progress', color: '#8B5CF6', bg: '#F5F3FF' },
-  WAITING_FOR_PARTS: { label: 'Waiting',     color: '#F59E0B', bg: '#FFFBEB' },
-  QUALITY_CHECK:     { label: 'QC Check',    color: '#6366F1', bg: '#FEE2E2' },
-  READY:             { label: 'Ready',       color: '#10B981', bg: '#ECFDF5' },
-  COMPLETED:         { label: 'Completed',   color: '#059669', bg: '#D1FAE5' },
-  CANCELLED:         { label: 'Cancelled',   color: '#EF4444', bg: '#FEF2F2' },
+  OPEN:             { label: 'Open',        color: '#3B82F6', bg: '#EFF6FF' },
+  IN_PROGRESS:      { label: 'In Progress', color: '#0284C7', bg: '#F0F9FF' },
+  QUALITY_CHECK:    { label: 'QC Check',    color: '#6366F1', bg: '#F5F3FF' },
+  READY:            { label: 'Ready',       color: '#059669', bg: '#ECFDF5' },
+  COMPLETED:        { label: 'Done',        color: '#059669', bg: '#D1FAE5' },
+  DELIVERED:        { label: 'Done',        color: '#059669', bg: '#D1FAE5' },
 };
 
-/* Pipeline stages for the workflow strip */
-const PIPELINE = [
-  { label: 'Open',    color: '#3B82F6' },
-  { label: 'In Prog', color: '#8B5CF6' },
-  { label: 'QC',      color: '#6366F1' },
-  { label: 'Ready',   color: '#10B981' },
-  { label: 'Done',    color: '#059669' },
-];
+/* Stage id → status values it matches */
+const STAGE_STATUS_MAP: Record<string, string[]> = {
+  Open:           ['OPEN'],
+  'In Progress':  ['IN_PROGRESS'],
+  'Quality Check':['QUALITY_CHECK'],
+  Ready:          ['READY'],
+  Delivered:      ['COMPLETED', 'DELIVERED'],
+};
 
+const STAGES = ['Open', 'In Progress', 'Quality Check', 'Ready', 'Delivered'];
+
+/* ─────────────── Shadow ─────────────── */
+const SHADOW_CARD = Platform.select({
+  ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3 },
+  android: { elevation: 2 },
+  default: {},
+});
+
+const FAB_SHADOW = Platform.select({
+  ios:     { shadowColor: '#C41E3A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12 },
+  android: { elevation: 8 },
+  default: {},
+});
+
+/* ─────────────── Helpers ─────────────── */
+function getInitials(name?: string): string {
+  if (!name) return '?';
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .substring(0, 2);
+}
+
+/* ─────────────── Component ─────────────── */
 export default function JobsScreen() {
-  const insets  = useSafeAreaInsets();
-  const [filter, setFilter] = useState<JobStatus | ''>('');
-  const [search, setSearch] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
-  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const insets = useSafeAreaInsets();
+  const [activeStage, setActiveStage] = useState('In Progress');
+  const [activeTech, setActiveTech] = useState('All Techs');
 
-  const { data, isLoading, isRefetching, refetch, error } = useQuery({
-    queryKey: QUERY_KEYS.JOBS({ status: filter || undefined }),
-    queryFn:  () => JobService.list({ status: filter || undefined, page_size: 30 }),
+  const { data, isLoading, isRefetching, refetch } = useQuery({
+    queryKey: QUERY_KEYS.JOBS({}),
+    queryFn: () => JobService.list({}),
   });
 
-  const jobs = (data?.items ?? []).filter(j =>
-    !search ||
-    (j.customer_name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    (j.registration_number ?? '').toLowerCase().includes(search.toLowerCase()),
-  );
+  const allItems = data?.items ?? [];
 
-  const activeCount = (data?.items ?? []).filter(j => j.status === 'IN_PROGRESS').length;
+  /* Count per stage */
+  const stageCount = (stage: string) => {
+    const statuses = STAGE_STATUS_MAP[stage] ?? [];
+    return allItems.filter(j => statuses.includes(j.status)).length;
+  };
+
+  /* Unique tech names — there's no assigned_technician field in the API,
+     so we derive from customer_name as a stand-in for demo purposes */
+  const techNames: string[] = ['All Techs'];
+
+  /* Filtered jobs */
+  const activeStatuses = STAGE_STATUS_MAP[activeStage] ?? [];
+  const filteredJobs = allItems.filter(j => activeStatuses.includes(j.status));
 
   return (
-    <View style={[styles.root, { backgroundColor: BG }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={BG} />
+    <View style={styles.root}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
 
-      {/* ── Page header ── */}
-      <View style={[styles.topBar, { paddingTop: topPad + 16 }]}>
-        <View>
-          <Text style={styles.pageTitle}>Job Cards</Text>
-          <Text style={styles.pageSubtitle}>
-            {data?.total ?? 0} total{activeCount > 0 ? ` • ${activeCount} active` : ''}
-          </Text>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() => setSearchOpen(v => !v)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Feather name={searchOpen ? 'x' : 'search'} size={18} color={TEXT} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Feather name="sliders" size={18} color={TEXT} />
+      {/* ── Header ── */}
+      <View style={[styles.header, { paddingTop: 40 + insets.top }]}>
+        <Text style={styles.headerTitle}>Workshop</Text>
+        <View style={styles.headerRight}>
+          <Text style={styles.headerSub}>Today, {allItems.length} jobs</Text>
+          <TouchableOpacity style={styles.filterBtn} activeOpacity={0.7}>
+            <Filter size={16} color="#64748B" strokeWidth={2} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* ── Search ── */}
-      {searchOpen && (
-        <View style={styles.searchWrap}>
-          <View style={styles.searchBox}>
-            <Feather name="search" size={15} color={MUTED} />
-            <TextInput
-              style={styles.searchInput}
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search by name or plate…"
-              placeholderTextColor="#94A3B8"
-              autoFocus
-            />
-            {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Feather name="x-circle" size={15} color={MUTED} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      )}
-
-      {/* ── Filter chips ── */}
+      {/* ── Scrollable body ── */}
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRow}
-        style={styles.chipBar}
+        style={styles.body}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            tintColor="#C41E3A"
+          />
+        }
+        contentContainerStyle={[
+          styles.bodyContent,
+          { paddingBottom: insets.bottom + 140 },
+        ]}
       >
-        {FILTERS.map(f => (
-          <Pressable
-            key={f.value}
-            style={[styles.chip, filter === f.value && styles.chipActive]}
-            onPress={() => setFilter(f.value)}
-          >
-            <Text style={[styles.chipText, filter === f.value && styles.chipTextActive]}>
-              {f.label}
-            </Text>
-          </Pressable>
-        ))}
+        {/* ── Pipeline strip ── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.stageScroll}
+          contentContainerStyle={styles.stageRow}
+        >
+          {STAGES.map(stage => {
+            const isActive = activeStage === stage;
+            const count = stageCount(stage);
+            return (
+              <TouchableOpacity
+                key={stage}
+                activeOpacity={0.7}
+                style={[
+                  styles.stagePill,
+                  isActive ? styles.stagePillActive : styles.stagePillInactive,
+                ]}
+                onPress={() => setActiveStage(stage)}
+              >
+                <Text
+                  style={[
+                    styles.stagePillText,
+                    isActive ? styles.stagePillTextActive : styles.stagePillTextInactive,
+                  ]}
+                >
+                  {stage}
+                </Text>
+                <View
+                  style={[
+                    styles.stageBadge,
+                    isActive ? styles.stageBadgeActive : styles.stageBadgeInactive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.stageBadgeText,
+                      isActive ? styles.stageBadgeTextActive : styles.stageBadgeTextInactive,
+                    ]}
+                  >
+                    {count}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* ── Tech filter row ── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.techScroll}
+          contentContainerStyle={styles.techRow}
+        >
+          {techNames.map(tech => {
+            const isActive = activeTech === tech;
+            return (
+              <TouchableOpacity
+                key={tech}
+                activeOpacity={0.7}
+                style={[
+                  styles.techPill,
+                  isActive ? styles.techPillActive : styles.techPillInactive,
+                ]}
+                onPress={() => setActiveTech(tech)}
+              >
+                <Text
+                  style={[
+                    styles.techPillText,
+                    isActive ? styles.techPillTextActive : styles.techPillTextInactive,
+                  ]}
+                >
+                  {tech}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* ── Job Cards ── */}
+        <View style={styles.cardList}>
+          {isLoading ? (
+            /* Skeleton cards */
+            [0, 1, 2, 3].map(i => (
+              <View key={i} style={styles.skeleton} />
+            ))
+          ) : filteredJobs.length === 0 ? (
+            /* Empty state */
+            <View style={styles.empty}>
+              <View style={styles.emptyIconWrap}>
+                <Wrench size={28} color="#C41E3A" strokeWidth={2} />
+              </View>
+              <Text style={styles.emptyTitle}>No jobs here</Text>
+              <Text style={styles.emptySubtitle}>
+                No jobs found for the selected filters
+              </Text>
+            </View>
+          ) : (
+            filteredJobs.map(item => {
+              const st = JOB_STATUS[item.status] ?? { label: item.status, color: '#64748B', bg: '#F3F4F6' };
+              const vehicleLine = [item.brand, item.vehicle_model].filter(Boolean).join(' ');
+              const serviceNames = item.services?.map(s => s.name).join(', ') ?? '';
+              const techName = item.customer_name ?? '—';
+
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  activeOpacity={0.7}
+                  style={styles.card}
+                  onPress={() => router.push(`/(tabs)/jobs/${item.id}` as any)}
+                >
+                  {/* Left red accent bar */}
+                  <View style={styles.cardAccentBar} />
+
+                  {/* Card content */}
+                  <View style={styles.cardInner}>
+                    {/* Row 1: Job number + status */}
+                    <View style={styles.cardRow1}>
+                      <View style={styles.jobNumWrap}>
+                        <Text style={styles.jobNum}>{item.job_number ?? `JC-${item.id.substring(0, 3)}`}</Text>
+                      </View>
+                      <View style={[styles.statusPill, { backgroundColor: st.bg }]}>
+                        <Text style={[styles.statusPillText, { color: st.color }]}>{st.label}</Text>
+                      </View>
+                    </View>
+
+                    {/* Row 2: Vehicle */}
+                    <View style={styles.cardRow2}>
+                      <Text style={styles.vehicleName} numberOfLines={1}>{vehicleLine || '—'}</Text>
+                      <Text style={styles.vehicleNumber}>{item.registration_number ?? ''}</Text>
+                    </View>
+
+                    {/* Row 3: Service type */}
+                    <View style={styles.cardRow3}>
+                      <Text style={styles.serviceType} numberOfLines={1}>{serviceNames}</Text>
+                    </View>
+
+                    {/* Row 4: Tech + Est time */}
+                    <View style={styles.cardRow4}>
+                      <View style={styles.techInfo}>
+                        <View style={styles.techAvatar}>
+                          <Text style={styles.techInitials}>{getInitials(techName)}</Text>
+                        </View>
+                        <Text style={styles.techNameText}>{techName}</Text>
+                      </View>
+                      <Text style={styles.estTime}>Est. —</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </View>
       </ScrollView>
 
-      {/* ── Pipeline progress strip ── */}
-      <View style={styles.pipeline}>
-        {PIPELINE.map((stage, i) => (
-          <React.Fragment key={stage.label}>
-            <View style={[styles.pipelineDot, { backgroundColor: stage.color }]} />
-            <Text style={styles.pipelineLabel}>{stage.label}</Text>
-            {i < PIPELINE.length - 1 && (
-              <Feather name="chevron-right" size={10} color="#CBD5E1" style={{ marginHorizontal: 2 }} />
-            )}
-          </React.Fragment>
-        ))}
-      </View>
-
-      {/* ── Error banner ── */}
-      {error && !isLoading && (
-        <View style={styles.errorBanner}>
-          <Feather name="wifi-off" size={13} color="#92400E" />
-          <Text style={styles.errorBannerText}>Couldn't load job cards.</Text>
-          <TouchableOpacity onPress={() => refetch()} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-            <Text style={styles.errorBannerRetry}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {isLoading ? (
-        <ScrollView
-          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 130 }]}
-          showsVerticalScrollIndicator={false}
-        >
-          <SkeletonList count={6} />
-        </ScrollView>
-      ) : (
-      <FlatList
-        data={jobs}
-        keyExtractor={item => item.id}
-        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 130 }]}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={PRIMARY} />}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item, index }) => {
-          const st = JOB_STATUS[item.status] ?? { label: item.status, color: MUTED, bg: '#F3F4F6' };
-          const amount = item.final_amount ?? item.estimated_amount ?? 0;
-          const carLine = [item.brand, item.vehicle_model].filter(Boolean).join(' ');
-          const carInfo = [carLine, item.registration_number].filter(Boolean).join(' • ');
-          const serviceNames = item.services?.map(s => s.name).join(', ') ?? '';
-          const dateStr = item.created_at
-            ? new Date(item.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
-            : null;
-
-          return (
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => router.push(`/(tabs)/jobs/${item.id}` as any)}
-              activeOpacity={0.86}
-            >
-              {/* Top row: job number + status + amount */}
-              <View style={styles.cardTop}>
-                <Text style={styles.jobNumber}>JC-{String(index + 1).padStart(3, '0')}</Text>
-                <View style={{ flex: 1 }} />
-                <View style={[styles.statusPill, { backgroundColor: st.bg }]}>
-                  <View style={[styles.dot, { backgroundColor: st.color }]} />
-                  <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
-                </View>
-                <Text style={styles.cardAmount}>{formatCurrency(amount)}</Text>
-              </View>
-
-              {/* Customer name */}
-              <Text style={styles.cardName} numberOfLines={1}>
-                {item.customer_name ?? '—'}
-              </Text>
-
-              {/* Car info */}
-              {carInfo ? (
-                <View style={styles.cardInfoRow}>
-                  <Feather name="truck" size={11} color={MUTED} />
-                  <Text style={styles.cardSub} numberOfLines={1}>{carInfo}</Text>
-                </View>
-              ) : null}
-
-              {/* Services */}
-              {serviceNames ? (
-                <View style={styles.cardInfoRow}>
-                  <Feather name="tool" size={11} color={MUTED} />
-                  <Text style={styles.cardSub} numberOfLines={1}>{serviceNames}</Text>
-                </View>
-              ) : null}
-
-              {/* Bottom row: date */}
-              {dateStr ? (
-                <View style={styles.cardBottom}>
-                  <View />
-                  <View style={styles.cardInfoRow}>
-                    <Feather name="clock" size={11} color={MUTED} />
-                    <Text style={styles.cardSub}>{dateStr}</Text>
-                  </View>
-                </View>
-              ) : null}
-            </TouchableOpacity>
-          );
-        }}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <View style={styles.emptyIcon}>
-              <Feather name="briefcase" size={28} color={PRIMARY} />
-            </View>
-            <Text style={styles.emptyTitle}>No job cards</Text>
-            <Text style={styles.emptySubtitle}>Tap + New Job Card to create your first</Text>
-          </View>
-        }
-      />
-      )}
-
       {/* ── FAB ── */}
-      <Pressable
-        style={[styles.fab, { bottom: Platform.OS === 'web' ? 90 + 68 : insets.bottom + 90 }]}
-        onPress={() => router.push('/(tabs)/jobs/create')}
-        android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: false }}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        style={[styles.fab, { bottom: insets.bottom + 76 }, FAB_SHADOW]}
+        onPress={() => router.push('/jobs/create' as any)}
       >
-        <Feather name="plus" size={18} color="#fff" />
-        <Text style={styles.fabText}>New Job Card</Text>
-      </Pressable>
+        <Plus size={24} color="#FFFFFF" strokeWidth={2.5} />
+      </TouchableOpacity>
     </View>
   );
 }
 
+/* ─────────────── Styles ─────────────── */
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
 
-  topBar: {
-    flexDirection: 'row', alignItems: 'flex-end',
+  /* Header */
+  header: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingBottom: 16,
+    flexShrink: 0,
   },
-  pageTitle:    { fontSize: 26, fontWeight: '800', color: TEXT, letterSpacing: -0.5 },
-  pageSubtitle: { fontSize: 13, color: MUTED, marginTop: 2 },
-  iconBtn: {
-    width: 42, height: 42, borderRadius: 21,
-    backgroundColor: CARD, borderWidth: 1, borderColor: BORDER,
-    alignItems: 'center', justifyContent: 'center',
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
-      android: { elevation: 2 },
-      default: {},
-    }),
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerSub: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  filterBtn: {
+    padding: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
 
-  searchWrap: { paddingHorizontal: 20, paddingBottom: 12 },
-  searchBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: CARD, borderRadius: 14,
-    borderWidth: 1, borderColor: BORDER,
-    paddingHorizontal: 14, height: 46,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
-      android: { elevation: 2 },
-      default: {},
-    }),
+  /* Body */
+  body: {
+    flex: 1,
   },
-  searchInput: { flex: 1, fontSize: 15, color: TEXT },
-
-  chipBar: { flexGrow: 0, flexShrink: 0 },
-  chipRow: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12, gap: 8 },
-  chip: {
-    paddingHorizontal: 16, paddingVertical: 7,
-    borderRadius: 20, borderWidth: 1.5, borderColor: BORDER,
-    backgroundColor: CARD,
+  bodyContent: {
+    // paddingBottom set dynamically
   },
-  chipActive:     { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  chipText:       { fontSize: 12, fontWeight: '600', color: MUTED },
-  chipTextActive: { color: '#fff' },
 
   /* Pipeline strip */
-  pipeline: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 8,
-    backgroundColor: CARD,
-    borderTopWidth: 1, borderBottomWidth: 1, borderColor: BORDER,
-    marginBottom: 12,
+  stageScroll: {
+    marginTop: 12,
+    flexGrow: 0,
+    flexShrink: 0,
   },
-  pipelineDot:   { width: 7, height: 7, borderRadius: 4 },
-  pipelineLabel: { fontSize: 11, color: MUTED, fontWeight: '500', marginLeft: 4 },
-
-  list: { paddingHorizontal: 20, gap: 10 },
-
-  card: {
-    backgroundColor: CARD,
-    borderRadius: 16, borderWidth: 1, borderColor: BORDER,
-    padding: 14, gap: 6,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
-      android: { elevation: 2 },
-      default: {},
-    }),
+  stageRow: {
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+    gap: 8,
+    flexDirection: 'row',
   },
-  cardTop: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2,
+  stagePill: {
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
   },
-  jobNumber: { fontSize: 11, color: MUTED, fontWeight: '600', letterSpacing: 0.3 },
-  cardName:  { fontSize: 15, fontWeight: '700', color: TEXT },
-  cardAmount:{ fontSize: 14, fontWeight: '700', color: PRIMARY },
-
-  cardInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  cardSub:   { fontSize: 12, color: MUTED, flex: 1 },
-  cardBottom: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
-
-  statusPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
+  stagePillActive: {
+    backgroundColor: '#C41E3A',
+    borderColor: '#C41E3A',
   },
-  dot:        { width: 5, height: 5, borderRadius: 3 },
-  statusText: { fontSize: 11, fontWeight: '600' },
+  stagePillInactive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  stagePillText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  stagePillTextActive: {
+    color: '#FFFFFF',
+  },
+  stagePillTextInactive: {
+    color: '#64748B',
+  },
+  stageBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  stageBadgeActive: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  stageBadgeInactive: {
+    backgroundColor: '#F1F5F9',
+  },
+  stageBadgeText: {
+    fontSize: 10,
+  },
+  stageBadgeTextActive: {
+    color: '#FFFFFF',
+  },
+  stageBadgeTextInactive: {
+    color: '#64748B',
+  },
 
-  empty: { alignItems: 'center', paddingVertical: 60 },
-  emptyIcon: {
-    width: 64, height: 64, borderRadius: 20,
+  /* Tech filter */
+  techScroll: {
+    marginTop: 12,
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  techRow: {
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+    gap: 8,
+    flexDirection: 'row',
+  },
+  techPill: {
+    flexShrink: 0,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  techPillActive: {
+    backgroundColor: '#FFF1F3',
+    borderColor: '#C41E3A',
+  },
+  techPillInactive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  techPillText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  techPillTextActive: {
+    color: '#C41E3A',
+  },
+  techPillTextInactive: {
+    color: '#64748B',
+  },
+
+  /* Card list */
+  cardList: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+
+  /* Skeleton */
+  skeleton: {
+    height: 100,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 16,
+    marginHorizontal: 0,
+  },
+
+  /* Empty state */
+  empty: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
     backgroundColor: '#FEE2E2',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
-  emptyTitle:    { fontSize: 16, fontWeight: '700', color: TEXT, marginBottom: 6 },
-  emptySubtitle: { fontSize: 13, color: MUTED },
-
-  /* Error banner */
-  errorBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#FEF3C7',
-    marginHorizontal: 20, marginBottom: 10,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 1, borderColor: '#FDE68A',
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 6,
   },
-  errorBannerText:  { flex: 1, fontSize: 13, color: '#92400E', fontWeight: '500' },
-  errorBannerRetry: { fontSize: 13, color: '#D97706', fontWeight: '700' },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+  },
 
+  /* Job card */
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    ...SHADOW_CARD,
+  },
+  cardAccentBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3,
+    backgroundColor: '#C41E3A',
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+  },
+  cardInner: {
+    flex: 1,
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+
+  /* Card row 1 */
+  cardRow1: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingLeft: 4,
+  },
+  jobNumWrap: {
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  jobNum: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#94A3B8',
+    fontVariant: ['tabular-nums'],
+  },
+  statusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  statusPillText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+
+  /* Card row 2 */
+  cardRow2: {
+    marginTop: 12,
+    paddingLeft: 4,
+  },
+  vehicleName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  vehicleNumber: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+
+  /* Card row 3 */
+  cardRow3: {
+    marginTop: 8,
+    paddingLeft: 4,
+  },
+  serviceType: {
+    fontSize: 14,
+    color: '#64748B',
+  },
+
+  /* Card row 4 */
+  cardRow4: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 4,
+  },
+  techInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  techAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  techInitials: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  techNameText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#0F172A',
+  },
+  estTime: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#94A3B8',
+  },
+
+  /* FAB */
   fab: {
-    position: 'absolute', right: 20,
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: PRIMARY,
-    paddingHorizontal: 20, paddingVertical: 14,
+    position: 'absolute',
+    right: 20,
+    width: 56,
+    height: 56,
     borderRadius: 28,
-    ...Platform.select({
-      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 14 },
-      android: { elevation: 8 },
-      default: {},
-    }),
+    backgroundColor: '#C41E3A',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  fabText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });

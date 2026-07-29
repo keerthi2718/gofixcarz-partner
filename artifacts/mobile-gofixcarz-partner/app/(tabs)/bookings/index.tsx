@@ -1,287 +1,545 @@
 import React, { useState } from 'react';
 import {
-  FlatList, Platform, Pressable, ScrollView,
-  StatusBar, StyleSheet, Text,
-  TextInput, TouchableOpacity, View,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Feather } from '@/src/components/ui/FeatherIcon';
-import Avatar from '@/src/components/ui/Avatar';
+import { Search, Clock, Phone, CalendarClock } from 'lucide-react-native';
 import { MOCK_BOOKINGS } from '@/src/data/mockBookings';
 import type { BookingStatus } from '@/src/types';
 
-/* ── Design tokens ── */
-const BG      = '#EEEEF6';
-const CARD    = '#FFFFFF';
-const PRIMARY = '#C41E3A';
-const TEXT    = '#1E293B';
-const MUTED   = '#64748B';
-const BORDER  = 'rgba(226,232,240,0.7)';
-
+/* ── Filter definitions ── */
 const FILTERS: { label: string; value: BookingStatus | '' }[] = [
   { label: 'All',       value: ''          },
   { label: 'Pending',   value: 'PENDING'   },
   { label: 'Confirmed', value: 'ACCEPTED'  },
-  { label: 'Converted', value: 'CONVERTED' },
-  { label: 'Rejected',  value: 'REJECTED'  },
+  { label: 'Completed', value: 'CONVERTED' },
+  { label: 'Cancelled', value: 'REJECTED'  },
 ];
 
-const STATUS: Record<string, { label: string; color: string; bg: string }> = {
-  PENDING:   { label: 'Pending',   color: '#F59E0B', bg: '#FFFBEB' },
-  ACCEPTED:  { label: 'Confirmed', color: '#10B981', bg: '#ECFDF5' },
-  REJECTED:  { label: 'Rejected',  color: '#EF4444', bg: '#FEF2F2' },
-  CONVERTED: { label: 'Converted', color: '#8B5CF6', bg: '#F5F3FF' },
+/* ── Status display config ── */
+const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
+  PENDING:   { label: 'Pending',   color: '#D97706', bg: '#FFFBEB' },
+  ACCEPTED:  { label: 'Confirmed', color: '#2563EB', bg: '#EFF6FF' },
+  CONVERTED: { label: 'Completed', color: '#059669', bg: '#ECFDF5' },
+  REJECTED:  { label: 'Cancelled', color: '#DC2626', bg: '#FEF2F2' },
 };
 
+/* ── Shadow ── */
+const SHADOW_CARD = Platform.select({
+  ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3 },
+  android: { elevation: 2 },
+  default: {},
+});
+
+/* ── Helpers ── */
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+function formatTodayHeader(): string {
+  const d = new Date();
+  return d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+function isToday(iso: string): boolean {
+  const d = new Date(iso);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+function isTomorrow(iso: string): boolean {
+  const d = new Date(iso);
+  const tom = new Date();
+  tom.setDate(tom.getDate() + 1);
+  return (
+    d.getFullYear() === tom.getFullYear() &&
+    d.getMonth() === tom.getMonth() &&
+    d.getDate() === tom.getDate()
+  );
+}
+
+/* ── Booking Card ── */
+type Booking = (typeof MOCK_BOOKINGS)[number];
+
+function BookingCard({ item }: { item: Booking }) {
+  const st = STATUS_MAP[item.status] ?? { label: item.status, color: '#64748B', bg: '#F3F4F6' };
+  const initials = getInitials(item.customer_name ?? '?');
+  const timeStr = item.booking_date ? formatDate(item.booking_date) : '';
+
+  return (
+    <TouchableOpacity
+      style={[styles.card, SHADOW_CARD]}
+      onPress={() => router.push(`/(tabs)/bookings/${item.id}` as any)}
+      activeOpacity={0.7}
+    >
+      {/* Top row: avatar + name + status */}
+      <View style={styles.cardTopRow}>
+        <View style={styles.cardLeft}>
+          {/* Avatar */}
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials}</Text>
+          </View>
+          {/* Name */}
+          <Text style={styles.cardName} numberOfLines={1}>{item.customer_name ?? '—'}</Text>
+        </View>
+        {/* Status pill */}
+        <View style={[styles.statusPill, { backgroundColor: st.bg }]}>
+          <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
+        </View>
+      </View>
+
+      {/* Vehicle + service row */}
+      <View style={styles.cardVehicleRow}>
+        <Text style={styles.cardVehicleText} numberOfLines={1}>
+          {item.service_requested ?? 'Service'}
+        </Text>
+      </View>
+
+      {/* Bottom row: time + phone + view */}
+      <View style={styles.cardBottomRow}>
+        <View style={styles.cardMetaGroup}>
+          {timeStr ? (
+            <View style={styles.metaItem}>
+              <Clock size={14} color="#94A3B8" strokeWidth={2} />
+              <Text style={styles.metaText}>{timeStr}</Text>
+            </View>
+          ) : null}
+          <View style={styles.metaItem}>
+            <Phone size={14} color="#94A3B8" strokeWidth={2} />
+            <Text style={styles.metaText}>
+              {item.customer_mobile ? item.customer_mobile : 'Call'}
+            </Text>
+          </View>
+        </View>
+        <TouchableOpacity
+          onPress={() => router.push(`/(tabs)/bookings/${item.id}` as any)}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.viewLink}>View</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+/* ── Section with label ── */
+function Section({ label, bookings }: { label: string; bookings: Booking[] }) {
+  if (bookings.length === 0) return null;
+  return (
+    <View>
+      <Text style={styles.sectionLabel}>{label}</Text>
+      <View style={styles.sectionCards}>
+        {bookings.map(item => (
+          <BookingCard key={item.id} item={item} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/* ── Screen ── */
 export default function BookingsScreen() {
   const insets = useSafeAreaInsets();
-  const [filter,      setFilter]      = useState<BookingStatus | ''>('');
-  const [search,      setSearch]      = useState('');
-  const [searchOpen,  setSearchOpen]  = useState(false);
-  const [, forceUpdate] = useState(0);          // re-render when returning from detail
-  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const [filter, setFilter] = useState<BookingStatus | ''>('');
+  const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
+  /* Counts per status */
+  const counts: Record<string, number> = {};
+  for (const b of MOCK_BOOKINGS) {
+    counts[b.status] = (counts[b.status] ?? 0) + 1;
+  }
+
+  /* Filtered list */
   const filtered = MOCK_BOOKINGS
     .filter(b => !filter || b.status === filter)
     .filter(b =>
       !search ||
-      (b.customer_name  ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (b.customer_name ?? '').toLowerCase().includes(search.toLowerCase()) ||
       (b.customer_mobile ?? '').includes(search),
     );
 
-  const counts: Record<string, number> = {};
-  for (const b of MOCK_BOOKINGS) counts[b.status] = (counts[b.status] ?? 0) + 1;
+  /* Group by date */
+  const todayBookings     = filtered.filter(b => b.booking_date && isToday(b.booking_date));
+  const tomorrowBookings  = filtered.filter(b => b.booking_date && isTomorrow(b.booking_date));
+  const otherBookings     = filtered.filter(b => !b.booking_date || (!isToday(b.booking_date) && !isTomorrow(b.booking_date)));
+
+  /* If nothing has a booking_date, show all under "TODAY" */
+  const showAllAsToday = filtered.every(b => !b.booking_date);
+  const displayToday    = showAllAsToday ? filtered : todayBookings;
+  const displayTomorrow = showAllAsToday ? [] : tomorrowBookings;
+  const displayOther    = showAllAsToday ? [] : otherBookings;
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 600);
+  };
 
   return (
-    <View style={[styles.root, { backgroundColor: BG }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={BG} />
+    <View style={styles.root}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
 
-      {/* ── Page header ── */}
-      <View style={[styles.topBar, { paddingTop: topPad + 16 }]}>
+      {/* ── Header ── */}
+      <View style={[styles.header, { paddingTop: 40 + insets.top }]}>
         <View>
-          <Text style={styles.pageTitle}>Bookings</Text>
-          <Text style={styles.pageSubtitle}>{MOCK_BOOKINGS.length} total requests</Text>
+          <Text style={styles.headerTitle}>Bookings</Text>
+          <Text style={styles.headerDate}>{formatTodayHeader()}</Text>
         </View>
         <TouchableOpacity
-          style={styles.iconBtn}
           onPress={() => { setSearchOpen(v => !v); setSearch(''); }}
+          activeOpacity={0.7}
+          style={styles.searchToggleBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Feather name={searchOpen ? 'x' : 'search'} size={18} color={TEXT} />
+          <Search size={20} color="#0F172A" strokeWidth={2} />
         </TouchableOpacity>
       </View>
 
-      {/* ── Search bar ── */}
-      {searchOpen && (
-        <View style={styles.searchWrap}>
-          <View style={styles.searchBox}>
-            <Feather name="search" size={15} color={MUTED} />
-            <TextInput
-              style={styles.searchInput}
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search by name or phone…"
-              placeholderTextColor="#94A3B8"
-              autoFocus
-            />
-            {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Feather name="x-circle" size={15} color={MUTED} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      )}
-
-      {/* ── Filter chips ── */}
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRow}
-        style={styles.chipBar}
-      >
-        {FILTERS.map(f => {
-          const count = f.value ? (counts[f.value] ?? 0) : MOCK_BOOKINGS.length;
-          return (
-            <Pressable
-              key={f.value}
-              style={[styles.chip, filter === f.value && styles.chipActive]}
-              onPress={() => setFilter(f.value)}
-            >
-              <Text style={[styles.chipText, filter === f.value && styles.chipTextActive]}>
-                {f.label}
-              </Text>
-              <View style={[styles.chipBadge, filter === f.value && styles.chipBadgeActive]}>
-                <Text style={[styles.chipBadgeText, filter === f.value && styles.chipBadgeTextActive]}>
-                  {count}
-                </Text>
-              </View>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-
-      <FlatList
-        data={filtered}
-        keyExtractor={item => item.id}
-        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 110 }]}
         showsVerticalScrollIndicator={false}
-        onLayout={() => forceUpdate(n => n + 1)}   // sync status changes from detail screen
-        renderItem={({ item }) => {
-          const st = STATUS[item.status] ?? { label: item.status, color: MUTED, bg: '#F3F4F6' };
-          return (
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => router.push(`/(tabs)/bookings/${item.id}` as any)}
-              activeOpacity={0.86}
-            >
-              {/* Top row */}
-              <View style={styles.cardTop}>
-                <Avatar name={item.customer_name} size={46} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.cardName} numberOfLines={1}>
-                    {item.customer_name ?? '—'}
-                  </Text>
-                  <Text style={styles.cardPhone} numberOfLines={1}>
-                    {item.customer_mobile ?? ''}
-                  </Text>
-                </View>
-                <View style={[styles.statusPill, { backgroundColor: st.bg }]}>
-                  <View style={[styles.dot, { backgroundColor: st.color }]} />
-                  <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
-                </View>
-              </View>
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#C41E3A" />}
+      >
+        {/* ── Search bar ── */}
+        {searchOpen && (
+          <View style={styles.searchWrap}>
+            <View style={styles.searchBox}>
+              <Search size={16} color="#94A3B8" strokeWidth={2} />
+              <TextInput
+                style={styles.searchInput}
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search bookings, vehicles..."
+                placeholderTextColor="#94A3B8"
+                autoFocus
+              />
+            </View>
+          </View>
+        )}
 
-              {/* Bottom meta */}
-              {(item.service_requested || item.booking_date) ? (
-                <View style={styles.cardMeta}>
-                  {item.service_requested ? (
-                    <View style={styles.metaRow}>
-                      <View style={styles.metaIconWrap}>
-                        <Feather name="tool" size={11} color={PRIMARY} />
-                      </View>
-                      <Text style={styles.metaText} numberOfLines={1}>{item.service_requested}</Text>
-                    </View>
-                  ) : null}
-                  {item.booking_date ? (
-                    <View style={styles.metaRow}>
-                      <View style={[styles.metaIconWrap, { backgroundColor: '#F1F5F9' }]}>
-                        <Feather name="calendar" size={11} color={MUTED} />
-                      </View>
-                      <Text style={styles.metaText}>
-                        {new Date(item.booking_date).toLocaleDateString('en-IN', {
-                          day: '2-digit', month: 'short', year: 'numeric',
-                        })}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
-            </TouchableOpacity>
-          );
-        }}
-        ListEmptyComponent={
+        {/* ── Filter chips ── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipRow}
+          style={styles.chipScrollView}
+        >
+          {FILTERS.map(f => {
+            const count = f.value ? (counts[f.value] ?? 0) : MOCK_BOOKINGS.length;
+            const isActive = filter === f.value;
+            return (
+              <TouchableOpacity
+                key={f.value}
+                onPress={() => setFilter(f.value)}
+                activeOpacity={0.7}
+                style={[styles.chip, isActive && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                  {f.label} {count}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* ── TODAY section ── */}
+        {displayToday.length > 0 && (
+          <Section label="TODAY" bookings={displayToday} />
+        )}
+
+        {/* ── TOMORROW section ── */}
+        {displayTomorrow.length > 0 && (
+          <Section label="TOMORROW" bookings={displayTomorrow} />
+        )}
+
+        {/* ── OTHER section ── */}
+        {displayOther.length > 0 && (
+          <Section label="UPCOMING" bookings={displayOther} />
+        )}
+
+        {/* ── Empty state ── */}
+        {filtered.length === 0 && (
           <View style={styles.empty}>
             <View style={styles.emptyIcon}>
-              <Feather name="calendar" size={28} color={PRIMARY} />
+              <CalendarClock size={28} color="#C41E3A" strokeWidth={2} />
             </View>
             <Text style={styles.emptyTitle}>No bookings found</Text>
             <Text style={styles.emptySubtitle}>
               {search ? 'Try a different search.' : 'No requests match this filter.'}
             </Text>
           </View>
-        }
-      />
+        )}
+      </ScrollView>
     </View>
   );
 }
 
+/* ── Styles ── */
+const SHADOW_HEADER = Platform.select({
+  ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
+  android: { elevation: 2 },
+  default: {},
+});
+
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
 
-  topBar: {
-    flexDirection: 'row', alignItems: 'flex-end',
+  /* Header */
+  header: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingBottom: 16,
+    alignItems: 'flex-end',
+    flexShrink: 0,
+    ...SHADOW_HEADER,
   },
-  pageTitle:    { fontSize: 26, fontWeight: '800', color: TEXT, letterSpacing: -0.5 },
-  pageSubtitle: { fontSize: 13, color: MUTED, marginTop: 2 },
-  iconBtn: {
-    width: 42, height: 42, borderRadius: 21,
-    backgroundColor: CARD, borderWidth: 1, borderColor: BORDER,
-    alignItems: 'center', justifyContent: 'center',
-    ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
-      android: { elevation: 2 },
-      default: {},
-    }),
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  headerDate: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  searchToggleBtn: {
+    padding: 8,
+    marginRight: -8,
   },
 
-  searchWrap: { paddingHorizontal: 20, paddingBottom: 12 },
+  /* Scroll content */
+  scrollContent: {
+    paddingTop: 0,
+  },
+
+  /* Search bar */
+  searchWrap: {
+    marginHorizontal: 16,
+    marginTop: 16,
+  },
   searchBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: CARD, borderRadius: 14,
-    borderWidth: 1, borderColor: BORDER,
-    paddingHorizontal: 14, height: 46,
-    ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
-      android: { elevation: 2 },
-      default: {},
-    }),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    height: 40,
+    paddingHorizontal: 12,
   },
-  searchInput: { flex: 1, fontSize: 15, color: TEXT },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+  },
 
-  chipBar: { flexGrow: 0, flexShrink: 0 },
-  chipRow: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 14, gap: 8 },
+  /* Filter chips */
+  chipScrollView: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  chipRow: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 4,
+    gap: 8,
+  },
   chip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 7,
-    borderRadius: 20, borderWidth: 1.5, borderColor: BORDER,
-    backgroundColor: CARD,
+    flexShrink: 0,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  chipActive:         { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  chipText:           { fontSize: 12, fontWeight: '600', color: MUTED },
-  chipTextActive:     { color: '#fff' },
-  chipBadge:          { backgroundColor: '#F1F5F9', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1 },
-  chipBadgeActive:    { backgroundColor: 'rgba(255,255,255,0.25)' },
-  chipBadgeText:      { fontSize: 10, fontWeight: '700', color: MUTED },
-  chipBadgeTextActive:{ color: '#fff' },
+  chipActive: {
+    backgroundColor: '#C41E3A',
+    borderColor: '#C41E3A',
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+  chipTextActive: {
+    color: '#FFFFFF',
+  },
 
-  list: { paddingHorizontal: 20, gap: 10 },
+  /* Section */
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginTop: 20,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+  },
+  sectionCards: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
 
+  /* Booking card */
   card: {
-    backgroundColor: CARD,
-    borderRadius: 18, borderWidth: 1, borderColor: BORDER,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
-      android: { elevation: 2 },
-      default: {},
-    }),
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
   },
-  cardTop:   { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-  cardName:  { fontSize: 15, fontWeight: '600', color: TEXT, marginBottom: 3 },
-  cardPhone: { fontSize: 12, color: MUTED },
 
-  cardMeta: {
-    flexDirection: 'row', gap: 12,
-    paddingHorizontal: 14, paddingBottom: 12, flexWrap: 'wrap',
+  /* Card top row */
+  cardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  metaRow:     { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  metaIconWrap:{ width: 20, height: 20, borderRadius: 6, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' },
-  metaText:    { fontSize: 12, color: MUTED },
+  cardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
 
-  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  dot:        { width: 5, height: 5, borderRadius: 3 },
-  statusText: { fontSize: 11, fontWeight: '600' },
+  /* Avatar */
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  avatarText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#C41E3A',
+  },
 
-  empty: { alignItems: 'center', paddingVertical: 60 },
+  /* Card name */
+  cardName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0F172A',
+    flex: 1,
+  },
+
+  /* Status pill */
+  statusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 999,
+    flexShrink: 0,
+    marginLeft: 8,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+
+  /* Vehicle/service row */
+  cardVehicleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    paddingLeft: 44,
+  },
+  cardVehicleText: {
+    fontSize: 14,
+    color: '#64748B',
+  },
+
+  /* Bottom row */
+  cardBottomRow: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 44,
+  },
+  cardMetaGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  metaText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  viewLink: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#C41E3A',
+  },
+
+  /* Empty state */
+  empty: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
   emptyIcon: {
-    width: 64, height: 64, borderRadius: 20,
+    width: 64,
+    height: 64,
+    borderRadius: 20,
     backgroundColor: '#FEE2E2',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
-  emptyTitle:    { fontSize: 16, fontWeight: '700', color: TEXT, marginBottom: 6 },
-  emptySubtitle: { fontSize: 13, color: MUTED },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 6,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+  },
 });
