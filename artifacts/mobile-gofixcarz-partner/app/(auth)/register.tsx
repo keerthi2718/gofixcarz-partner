@@ -342,7 +342,8 @@ export default function RegisterScreen() {
   const { signUp, isLoading, error, clearError } = useAuth();
   const scrollRef = useRef<ScrollView>(null);
 
-  const [snackbar, setSnackbar] = useState<string | null>(null);
+  const [snackbar,     setSnackbar]     = useState<string | null>(null);
+  const [phoneExists,  setPhoneExists]  = useState(false);
 
   const [form, setForm] = useState({
     firstName:    '',
@@ -364,6 +365,7 @@ export default function RegisterScreen() {
 
   function set<K extends keyof typeof form>(key: K, val: typeof form[K]) {
     setForm(f => ({ ...f, [key]: val }));
+    if (key === 'phone') setPhoneExists(false);
     clearError();
   }
   function touch(key: string) { setTouched(t => ({ ...t, [key]: true })); }
@@ -408,10 +410,15 @@ export default function RegisterScreen() {
     (!form.zipcode || form.zipcode.length === 6)
   );
 
-  /* ── Show API error in snackbar ── */
+  /* ── Route API errors: phone-exists → inline; others → snackbar ── */
   useEffect(() => {
-    if (error) {
-      const isNetwork = error.toLowerCase().includes('network') || error.toLowerCase().includes('connection');
+    if (!error) return;
+    const msg = error.toLowerCase();
+    const isExisting = msg.includes('already exist') || msg.includes('already registered') || msg.includes('already use') || msg.includes('duplicate');
+    if (isExisting) {
+      setPhoneExists(true);
+    } else {
+      const isNetwork = msg.includes('network') || msg.includes('connection');
       setSnackbar(isNetwork ? 'Something went wrong. Please check your connection and retry.' : error);
     }
   }, [error]);
@@ -533,7 +540,7 @@ export default function RegisterScreen() {
 
           {/* Phone 1 */}
           <View style={{ paddingVertical: 4, marginBottom: 4 }}>
-            <View style={[ui.row, { borderBottomColor: errors.phone ? DANGER : LINE }]}>
+            <View style={[ui.row, { borderBottomColor: (errors.phone || phoneExists) ? DANGER : LINE }]}>
               <FlagPrefix />
               <TextInput
                 style={ui.input}
@@ -544,9 +551,20 @@ export default function RegisterScreen() {
                 placeholderTextColor={MUTED}
                 keyboardType="number-pad"
               />
-              {errors.phone ? <AlertTriangle size={13} color={DANGER} strokeWidth={2} style={{ marginBottom: 8 }} /> : null}
+              {(errors.phone || phoneExists) ? <AlertTriangle size={13} color={DANGER} strokeWidth={2} style={{ marginBottom: 8 }} /> : null}
             </View>
             {errors.phone ? <InlineError msg={errors.phone} /> : null}
+            {phoneExists && !errors.phone && (
+              <View style={s.phoneExistsBanner}>
+                <AlertTriangle size={13} color={DANGER} strokeWidth={2} />
+                <Text style={s.phoneExistsTxt}>
+                  This number is already registered.{' '}
+                </Text>
+                <TouchableOpacity onPress={() => router.replace('/(auth)/login' as never)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Text style={s.phoneExistsLink}>Sign in instead →</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           <View style={s.gap} />
@@ -632,4 +650,8 @@ const s = StyleSheet.create({
 
   loginLink:    { paddingVertical: 4 },
   loginLinkTxt: { fontSize: 14, color: PRIMARY, fontWeight: '600', textDecorationLine: 'underline' },
+
+  phoneExistsBanner: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4, marginTop: 6 },
+  phoneExistsTxt:    { fontSize: 12, color: DANGER, fontWeight: '500' },
+  phoneExistsLink:   { fontSize: 12, color: PRIMARY, fontWeight: '700', textDecorationLine: 'underline' },
 });
