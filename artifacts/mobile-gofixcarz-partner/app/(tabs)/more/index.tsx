@@ -145,11 +145,6 @@ export default function MoreScreen() {
         {/* ── Account ── */}
         <MenuGroup title="Account" items={[
           {
-            label: 'My Profile', sub: 'Name, email, contact',
-            icon: 'user', iconBg: '#F5F3FF', iconFg: '#C41E3A',
-            route: '/(tabs)/profile',
-          },
-          {
             label: 'Notifications', sub: 'Booking & job alerts',
             icon: 'bell', iconBg: '#FFF7ED', iconFg: '#F97316',
             route: '/(tabs)/more/notifications',
