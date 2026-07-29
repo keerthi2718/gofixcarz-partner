@@ -376,8 +376,7 @@ export default function RegisterScreen() {
   const { signUp, isLoading, error, clearError } = useAuth();
   const scrollRef = useRef<ScrollView>(null);
 
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [snackbar,    setSnackbar]    = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     firstName:    '',
@@ -470,8 +469,7 @@ export default function RegisterScreen() {
         wheelers:       form.wheelers.length > 0 ? form.wheelers : null,
         terms_accepted: true,
       });
-      setShowSuccess(true);
-      setTimeout(() => router.replace('/(auth)/login' as never), 2000);
+      // AuthContext.signUp() navigates to /(auth)/otp automatically on success
     } catch {
       // error handled by useEffect above
     }
@@ -643,9 +641,6 @@ export default function RegisterScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      {/* Success overlay */}
-      {showSuccess && <SuccessOverlay onContinue={() => router.replace('/(auth)/login' as never)} />}
 
       {/* Snackbar */}
       {snackbar && <Snackbar msg={snackbar} onDismiss={() => setSnackbar(null)} />}
