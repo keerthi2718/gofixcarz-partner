@@ -407,9 +407,10 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   headerGreeting: {
-    fontSize: 12,
-    color: '#64748B',
-    fontWeight: '400',
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
   headerGarage: {
     fontSize: 18,
