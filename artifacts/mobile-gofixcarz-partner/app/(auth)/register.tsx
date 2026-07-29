@@ -519,13 +519,14 @@ export default function RegisterScreen() {
           <View style={s.gap} />
 
           <UnderlineInput
-            label="Email"
+            label="Email *"
             value={form.email}
             onChange={v => set('email', v)}
             onBlur={() => { touch('email'); }}
             keyboard="email-address" capitalize="none"
             error={errors.email}
           />
+          <Text style={s.emailHint}>OTP will be sent to your mobile number only</Text>
           <View style={s.gap} />
 
           <View style={{ zIndex: 20 }}>
@@ -668,6 +669,7 @@ const s = StyleSheet.create({
   sendBtn:   { backgroundColor: PRIMARY, borderRadius: 8, paddingVertical: 14, paddingHorizontal: 28, alignItems: 'center', justifyContent: 'center', minWidth: 140 },
   sendTxt:   { color: '#fff', fontSize: 15, fontWeight: '700' },
 
+  emailHint:    { fontSize: 11, color: '#6B7280', marginTop: 6, fontStyle: 'italic' },
   loginLink:    { paddingVertical: 4 },
   loginLinkTxt: { fontSize: 14, color: PRIMARY, fontWeight: '600', textDecorationLine: 'underline' },
 
