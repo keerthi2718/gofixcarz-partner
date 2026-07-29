@@ -389,7 +389,6 @@ export default function RegisterScreen() {
     state:        '',
     zipcode:      '',
     country:      'India',
-    rtoNumber:    '',
     phone:        '',
     phone2:       '',
     wheelers:     [] as string[],
@@ -427,7 +426,7 @@ export default function RegisterScreen() {
       ? 'Please enter a valid email address.'
       : '',
     zipcode: touched.zipcode && form.zipcode && form.zipcode.length !== 6
-      ? 'Pincode must contain 6 digits.'
+      ? 'PIN code must contain 6 digits.'
       : '',
     wheelers: touched.wheelers && form.wheelers.length === 0
       ? 'Select at least one vehicle service type.'
@@ -553,7 +552,7 @@ export default function RegisterScreen() {
 
           <View style={s.twoCol}>
             <UnderlineInput
-              label="Zipcode" value={form.zipcode}
+              label="PIN Code" value={form.zipcode}
               onChange={v => set('zipcode', v.replace(/\D/g,'').slice(0,6))}
               onBlur={() => { if (form.zipcode) touch('zipcode'); }}
               keyboard="number-pad" half
@@ -561,9 +560,6 @@ export default function RegisterScreen() {
             />
             <UnderlineInput label="Country" value={form.country} onChange={v => set('country', v)} capitalize="words" half />
           </View>
-          <View style={s.gap} />
-
-          <UnderlineInput label="RTO No." required value={form.rtoNumber} onChange={v => set('rtoNumber', v.toUpperCase())} capitalize="characters" />
 
           {/* ── Contact ── */}
           <SectionLabel title="Contact" />
