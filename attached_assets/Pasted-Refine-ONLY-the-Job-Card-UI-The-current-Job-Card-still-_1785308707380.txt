@@ -1,0 +1,105 @@
+Refine ONLY the Job Card UI.
+
+The current Job Card still looks AI-generated. I want it to feel like it was designed by an experienced product designer over multiple product iterations—not generated from a prompt.
+
+⚠️ Very Important
+- Do NOT change the user flow.
+- Do NOT change navigation.
+- Do NOT change business logic.
+- Do NOT change functionality.
+- Do NOT redesign the layout completely.
+- Only improve the visual quality and craftsmanship of the existing Job Card.
+
+The goal is to make the Job Card look authentic, human-designed, and production-ready.
+
+Design Principles:
+
+• Design for usability first, aesthetics second.
+• Avoid perfectly symmetrical layouts.
+• Avoid generic template cards.
+• Use natural spacing instead of equal spacing everywhere.
+• Let important information stand out through hierarchy, not color.
+• Create a realistic enterprise UI, not a concept UI.
+
+Visual Refinements:
+
+- Refine the spacing and alignment until every element feels intentionally placed.
+- Improve typography hierarchy with clear distinction between primary, secondary, and supporting information.
+- Use subtle shadows and soft elevation instead of heavy borders.
+- Use a consistent 16px border radius.
+- Keep the card clean with generous breathing space.
+- Use one neutral background and white cards.
+- Keep the brand red only for accents and important actions.
+- Remove anything that looks overly decorative or artificial.
+
+Information Hierarchy:
+
+The user's eye should naturally scan:
+
+Customer Name
+Vehicle Details
+Current Job Status
+Service Details
+Technician
+Estimated Delivery
+Amount
+
+The information should feel effortless to read.
+
+Status Chips:
+
+Use muted colors with soft backgrounds.
+
+Avoid saturated colors.
+
+Status chips should feel integrated into the card instead of floating elements.
+
+Icons:
+
+Use a single icon family throughout.
+
+Icons should be subtle, properly aligned, and visually balanced.
+
+Buttons:
+
+Keep the existing actions.
+
+Only refine their appearance.
+
+Buttons should feel tactile, with proper padding, radius, and subtle press feedback.
+
+Micro-interactions:
+
+- Gentle fade-in when cards appear.
+- Smooth state transitions.
+- Soft ripple on tap.
+- Skeleton loading.
+- Pull-to-refresh.
+
+Avoid flashy animations.
+
+Most Important:
+
+Do NOT make the card look like an AI-generated dashboard.
+
+Avoid:
+- Perfect grids
+- Identical spacing everywhere
+- Oversized badges
+- Large empty areas
+- Generic card templates
+- Random accent colors
+- Dribbble-style concepts
+- Overdesigned UI
+
+Instead, make it feel like a mature product that has evolved over years through real user feedback.
+
+Reference quality only:
+- Linear
+- Stripe Dashboard
+- Notion
+- GitHub Mobile
+- Uber Fleet
+- Google Workspace
+
+The final Job Card should be elegant, understated, highly usable, and indistinguishable from a professionally designed production application.

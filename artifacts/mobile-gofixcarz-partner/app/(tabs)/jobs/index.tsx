@@ -17,13 +17,14 @@ import JobService from '@/src/services/job.service';
 import { Filter, Plus, Wrench } from 'lucide-react-native';
 
 /* ─────────────── Status config ─────────────── */
-const JOB_STATUS: Record<string, { label: string; color: string; bg: string }> = {
-  OPEN:             { label: 'Open',        color: '#3B82F6', bg: '#EFF6FF' },
-  IN_PROGRESS:      { label: 'In Progress', color: '#0284C7', bg: '#F0F9FF' },
-  QUALITY_CHECK:    { label: 'QC Check',    color: '#6366F1', bg: '#F5F3FF' },
-  READY:            { label: 'Ready',       color: '#059669', bg: '#ECFDF5' },
-  COMPLETED:        { label: 'Done',        color: '#059669', bg: '#D1FAE5' },
-  DELIVERED:        { label: 'Done',        color: '#059669', bg: '#D1FAE5' },
+// Muted, desaturated — status communicates without shouting
+const JOB_STATUS: Record<string, { label: string; color: string; bg: string; dot: string }> = {
+  OPEN:             { label: 'Open',        color: '#3B5FA0', bg: '#EEF2FB', dot: '#5B8DEF' },
+  IN_PROGRESS:      { label: 'In Progress', color: '#0369A1', bg: '#F0F8FF', dot: '#38A0D4' },
+  QUALITY_CHECK:    { label: 'QC Check',    color: '#5B4FA0', bg: '#F2F0FB', dot: '#8B80D4' },
+  READY:            { label: 'Ready',       color: '#1A6E52', bg: '#EDFAF4', dot: '#34C987' },
+  COMPLETED:        { label: 'Done',        color: '#1A6E52', bg: '#EDFAF4', dot: '#34C987' },
+  DELIVERED:        { label: 'Done',        color: '#1A6E52', bg: '#EDFAF4', dot: '#34C987' },
 };
 
 /* Stage id → status values it matches */
@@ -219,54 +220,50 @@ export default function JobsScreen() {
             </View>
           ) : (
             filteredJobs.map(item => {
-              const st = JOB_STATUS[item.status] ?? { label: item.status, color: '#64748B', bg: '#F3F4F6' };
+              const st = JOB_STATUS[item.status] ?? { label: item.status, color: '#475569', bg: '#F3F4F6', dot: '#94A3B8' };
               const vehicleLine = [item.brand, item.vehicle_model].filter(Boolean).join(' ');
               const serviceNames = item.services?.map(s => s.name).join(', ') ?? '';
               const techName = item.customer_name ?? '—';
+              const jobRef = item.job_number ?? `#${item.id.substring(0, 8)}`;
 
               return (
                 <TouchableOpacity
                   key={item.id}
-                  activeOpacity={0.7}
+                  activeOpacity={0.75}
                   style={styles.card}
                   onPress={() => router.push(`/(tabs)/jobs/${item.id}` as any)}
                 >
-                  {/* Left red accent bar */}
-                  <View style={styles.cardAccentBar} />
+                  {/* Meta row: job ref (ghost) + status chip */}
+                  <View style={styles.cardMeta}>
+                    <Text style={styles.jobRef}>{jobRef}</Text>
+                    <View style={[styles.statusChip, { backgroundColor: st.bg }]}>
+                      <View style={[styles.statusDot, { backgroundColor: st.dot }]} />
+                      <Text style={[styles.statusLabel, { color: st.color }]}>{st.label}</Text>
+                    </View>
+                  </View>
 
-                  {/* Card content */}
-                  <View style={styles.cardInner}>
-                    {/* Row 1: Job number + status */}
-                    <View style={styles.cardRow1}>
-                      <View style={styles.jobNumWrap}>
-                        <Text style={styles.jobNum}>{item.job_number ?? `JC-${item.id.substring(0, 3)}`}</Text>
+                  {/* Primary: vehicle — the headline of the card */}
+                  <Text style={styles.vehicleName} numberOfLines={1}>
+                    {vehicleLine || 'Unknown Vehicle'}
+                  </Text>
+                  {!!item.registration_number && (
+                    <Text style={styles.vehicleReg}>{item.registration_number}</Text>
+                  )}
+
+                  {/* Secondary: service */}
+                  {!!serviceNames && (
+                    <Text style={styles.serviceText} numberOfLines={2}>{serviceNames}</Text>
+                  )}
+
+                  {/* Footer: tech + est time */}
+                  <View style={styles.cardFooter}>
+                    <View style={styles.cardTechRow}>
+                      <View style={styles.techAvatar}>
+                        <Text style={styles.techInitials}>{getInitials(techName)}</Text>
                       </View>
-                      <View style={[styles.statusPill, { backgroundColor: st.bg }]}>
-                        <Text style={[styles.statusPillText, { color: st.color }]}>{st.label}</Text>
-                      </View>
+                      <Text style={styles.techName} numberOfLines={1}>{techName}</Text>
                     </View>
-
-                    {/* Row 2: Vehicle */}
-                    <View style={styles.cardRow2}>
-                      <Text style={styles.vehicleName} numberOfLines={1}>{vehicleLine || '—'}</Text>
-                      <Text style={styles.vehicleNumber}>{item.registration_number ?? ''}</Text>
-                    </View>
-
-                    {/* Row 3: Service type */}
-                    <View style={styles.cardRow3}>
-                      <Text style={styles.serviceType} numberOfLines={1}>{serviceNames}</Text>
-                    </View>
-
-                    {/* Row 4: Tech + Est time */}
-                    <View style={styles.cardRow4}>
-                      <View style={styles.techInfo}>
-                        <View style={styles.techAvatar}>
-                          <Text style={styles.techInitials}>{getInitials(techName)}</Text>
-                        </View>
-                        <Text style={styles.techNameText}>{techName}</Text>
-                      </View>
-                      <Text style={styles.estTime}>Est. —</Text>
-                    </View>
+                    <Text style={styles.estTime}>2h est.</Text>
                   </View>
                 </TouchableOpacity>
               );
@@ -475,125 +472,117 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  /* Job card */
+  /* Job card — refined craft */
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    ...SHADOW_CARD,
-  },
-  cardAccentBar: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 3,
-    backgroundColor: '#C41E3A',
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
-  },
-  cardInner: {
-    flex: 1,
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingTop: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    paddingHorizontal: 16,
+    paddingTop: 14,
     paddingBottom: 16,
+    ...Platform.select({
+      ios:     { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
+      android: { elevation: 1 },
+      default: {},
+    }),
   },
 
-  /* Card row 1 */
-  cardRow1: {
+  /* Meta: job ref + status — smallest visual weight, top */
+  cardMeta: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingLeft: 4,
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  jobNumWrap: {
-    backgroundColor: '#F8FAFC',
+  jobRef: {
+    fontSize: 11,
+    color: '#94A3B8',
+    letterSpacing: 0.3,
+    fontVariant: ['tabular-nums'] as any,
+  },
+  statusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 6,
   },
-  jobNum: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#94A3B8',
-    fontVariant: ['tabular-nums'],
+  statusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
   },
-  statusPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    borderRadius: 999,
-  },
-  statusPillText: {
-    fontSize: 12,
+  statusLabel: {
+    fontSize: 11,
     fontWeight: '500',
+    letterSpacing: 0.1,
   },
 
-  /* Card row 2 */
-  cardRow2: {
-    marginTop: 12,
-    paddingLeft: 4,
-  },
+  /* Vehicle — the primary headline */
   vehicleName: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
+    letterSpacing: -0.2,
+    lineHeight: 20,
   },
-  vehicleNumber: {
+  vehicleReg: {
     fontSize: 12,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 3,
+    letterSpacing: 0.4,
   },
 
-  /* Card row 3 */
-  cardRow3: {
+  /* Service — secondary, toned down */
+  serviceText: {
+    fontSize: 13,
+    color: '#475569',
     marginTop: 8,
-    paddingLeft: 4,
-  },
-  serviceType: {
-    fontSize: 14,
-    color: '#64748B',
+    lineHeight: 18,
   },
 
-  /* Card row 4 */
-  cardRow4: {
-    marginTop: 12,
+  /* Footer: tech + est — supporting info, visually lightest */
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#F8FAFC',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingLeft: 4,
   },
-  techInfo: {
+  cardTechRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 7,
+    flex: 1,
   },
   techAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
   techInitials: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '600',
     color: '#64748B',
   },
-  techNameText: {
+  techName: {
     fontSize: 12,
-    fontWeight: '500',
-    color: '#0F172A',
+    color: '#64748B',
+    flex: 1,
   },
   estTime: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 11,
     color: '#94A3B8',
+    flexShrink: 0,
   },
 
   /* FAB */
