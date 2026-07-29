@@ -17,7 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/src/context/AuthContext';
-import { Check, AlertTriangle, CheckCircle, X, Wifi } from 'lucide-react-native';
+import { Check, AlertTriangle, X, Wifi } from 'lucide-react-native';
 
 /* ─────────────── Tokens ─────────────── */
 const BG      = '#FFFFFF';
@@ -116,40 +116,6 @@ const sb = StyleSheet.create({
   txt: { flex: 1, fontSize: 13, color: '#fff', lineHeight: 18 },
 });
 
-/* ─────────────── SuccessOverlay ─────── */
-function SuccessOverlay({ onContinue }: { onContinue: () => void }) {
-  const scale   = useRef(new Animated.Value(0.5)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, friction: 6, tension: 160, useNativeDriver: true }),
-    ]).start();
-  }, []);
-  return (
-    <Animated.View style={[so.backdrop, { opacity }]}>
-      <Animated.View style={[so.card, { transform: [{ scale }] }]}>
-        <View style={so.iconWrap}>
-          <CheckCircle size={52} color={SUCCESS} strokeWidth={1.5} />
-        </View>
-        <Text style={so.title}>Registration Successful</Text>
-        <Text style={so.sub}>Your garage account has been created successfully.</Text>
-        <TouchableOpacity style={so.btn} onPress={onContinue} activeOpacity={0.85}>
-          <Text style={so.btnTxt}>Continue</Text>
-        </TouchableOpacity>
-      </Animated.View>
-    </Animated.View>
-  );
-}
-const so = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', zIndex: 998 },
-  card: { backgroundColor: BG, borderRadius: 20, padding: 28, alignItems: 'center', marginHorizontal: 24, width: '85%' },
-  iconWrap: { width: 88, height: 88, borderRadius: 44, backgroundColor: '#F0FDF4', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  title: { fontSize: 22, fontWeight: '800', color: TEXT, letterSpacing: -0.4, marginBottom: 8, textAlign: 'center' },
-  sub:   { fontSize: 14, color: MUTED, textAlign: 'center', lineHeight: 21, marginBottom: 24 },
-  btn:   { backgroundColor: SUCCESS, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 40, alignItems: 'center' },
-  btnTxt:{ color: '#fff', fontSize: 16, fontWeight: '700' },
-});
 
 /* ─────────────── UnderlineInput ─────── */
 function UnderlineInput({
@@ -391,7 +357,7 @@ export default function RegisterScreen() {
     phone:        '',
     phone2:       '',
     wheelers:     [] as string[],
-    acceptTerms:  false,
+    acceptTerms:  true,
   });
 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
