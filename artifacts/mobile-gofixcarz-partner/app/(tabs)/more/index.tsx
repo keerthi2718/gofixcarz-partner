@@ -142,15 +142,6 @@ export default function MoreScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* ── Garage ── */}
-        <MenuGroup title="Garage" items={[
-          {
-            label: 'Garage Profile', sub: 'Workshop info & hours',
-            icon: 'home', iconBg: '#FEE2E2', iconFg: PRIMARY,
-            route: '/(tabs)/more/garage',
-          },
-        ]} />
-
         {/* ── Account ── */}
         <MenuGroup title="Account" items={[
           {
