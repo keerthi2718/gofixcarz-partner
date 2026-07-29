@@ -533,12 +533,6 @@ export default function ProfileScreen() {
           <ToggleRow label="Job Alerts" sub="New bookings & status changes" value={notifJobs} onChange={setNotifJobs} />
           <ToggleRow label="Promotions & Updates" sub="GoFixCarz news and offers" value={notifPromo} onChange={setNotifPromo} last />
 
-          {/* Sign out */}
-          <TouchableOpacity style={s.logout} onPress={logout} activeOpacity={0.8}>
-            <LogOut size={15} color="#fff" strokeWidth={2.5} />
-            <Text style={s.logoutTxt}>Sign Out</Text>
-          </TouchableOpacity>
-
         </ScrollView>
       )}
 
