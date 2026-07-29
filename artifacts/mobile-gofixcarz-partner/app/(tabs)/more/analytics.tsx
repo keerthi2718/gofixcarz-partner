@@ -25,9 +25,9 @@ const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
 
 const PERIODS: { label: string; value: AnalyticsPeriod }[] = [
-  { label: 'Week',  value: 'week'  },
-  { label: 'Month', value: 'month' },
-  { label: 'Year',  value: 'year'  },
+  { label: 'Daily',   value: 'week'  },
+  { label: 'Monthly', value: 'month' },
+  { label: 'Yearly',  value: 'year'  },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
