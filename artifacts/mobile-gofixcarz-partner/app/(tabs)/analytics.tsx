@@ -44,7 +44,7 @@ const SHADOW_CARD = Platform.select({
 }) ?? {};
 
 /* ─── Per-period data ─────────────────────────────────────── */
-type Period = '7D' | '30D' | '90D';
+type Period = 'Daily' | 'Monthly' | 'Yearly';
 
 const PERIOD_DATA: Record<Period, {
   revenue: string; revChange: number;
@@ -58,7 +58,7 @@ const PERIOD_DATA: Record<Period, {
   sparkJobs: number[];
   sparkAvg: number[];
 }> = {
-  '7D': {
+  'Daily': {
     revenue: '₹28,450', revChange: 18,
     jobs: 43,            jobChange: 12,
     avgTicket: '₹662',  avgChange: 5,
@@ -70,7 +70,7 @@ const PERIOD_DATA: Record<Period, {
     sparkJobs:    [5,  7,  5,  8,  7,  11, 9],
     sparkAvg:     [600, 640, 590, 680, 660, 720, 700],
   },
-  '30D': {
+  'Monthly': {
     revenue: '₹3.24L', revChange: 12,
     jobs: 186,          jobChange: 8,
     avgTicket: '₹1,742', avgChange: 4,
@@ -82,7 +82,7 @@ const PERIOD_DATA: Record<Period, {
     sparkJobs:    [30, 38, 35, 46, 42, 50, 48],
     sparkAvg:     [1600, 1680, 1650, 1720, 1700, 1750, 1780],
   },
-  '90D': {
+  'Yearly': {
     revenue: '₹9.84L', revChange: 22,
     jobs: 541,          jobChange: 15,
     avgTicket: '₹1,818', avgChange: 9,
@@ -402,16 +402,16 @@ function KpiCard({
 }
 
 /* ─── Screen ─────────────────────────────────────────────── */
-const PERIODS: Period[] = ['7D', '30D', '90D'];
+const PERIODS: Period[] = ['Daily', 'Monthly', 'Yearly'];
 const PERIOD_LABEL: Record<Period, string> = {
-  '7D':  'Last 7 days',
-  '30D': 'Last 30 days',
-  '90D': 'Last 90 days',
+  'Daily':   'Last 7 days',
+  'Monthly': 'This month',
+  'Yearly':  'This year',
 };
 
 export default function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
-  const [period, setPeriod] = useState<Period>('30D');
+  const [period, setPeriod] = useState<Period>('Monthly');
   const pd = PERIOD_DATA[period];
 
   return (
