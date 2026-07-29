@@ -195,15 +195,7 @@ export default function DashboardScreen() {
             </Text>
           </View>
 
-          {/* Rating */}
-          <View style={[styles.kpiCard, SHADOW_CARD]}>
-            <Text style={styles.kpiLabel}>Rating</Text>
-            <View style={styles.ratingRow}>
-              <Text style={[styles.kpiValue, { color: '#0F172A' }]}>4.8</Text>
-              <Star size={16} color="#D97706" fill="#D97706" strokeWidth={0} />
-            </View>
-            <Text style={[styles.kpiSubText, { color: '#64748B', marginTop: 6 }]}>this month</Text>
-          </View>
+
         </View>
 
         {/* ── Sparkline ── */}
