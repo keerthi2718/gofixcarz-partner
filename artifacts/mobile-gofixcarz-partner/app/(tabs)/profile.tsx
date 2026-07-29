@@ -16,7 +16,7 @@ import GarageService from '@/src/services/garage.service';
 import type { WorkingHours } from '@/src/types';
 import {
   ChevronRight, LogOut, HelpCircle, Shield, Info, Lock,
-  Camera, Sun, Moon, CheckCircle,
+  Camera, Sun, Moon, CheckCircle, AlertTriangle,
 } from 'lucide-react-native';
 
 /* ─────────────── Tokens ─────────────── */
@@ -59,13 +59,14 @@ const sh = StyleSheet.create({
 /* ─────────────── UnderlineInput ─────── */
 function UnderlineInput({
   label, value, onChange, keyboard, capitalize = 'sentences',
-  readOnly = false, prefix, onBlur,
+  readOnly = false, prefix, onBlur, error,
 }: {
   label: string; value: string; onChange: (v: string) => void;
   keyboard?: any; capitalize?: any; readOnly?: boolean; prefix?: string; onBlur?: () => void;
+  error?: string;
 }) {
   const [focused, setFocused] = useState(false);
-  const lineColor = focused && !readOnly ? PRIMARY : LINE;
+  const lineColor = error ? DANGER : focused && !readOnly ? PRIMARY : LINE;
   return (
     <View style={ui.wrap}>
       <View style={[ui.row, { borderBottomColor: lineColor }]}>
@@ -79,7 +80,9 @@ function UnderlineInput({
           onFocus={() => setFocused(true)}
           onBlur={() => { setFocused(false); onBlur?.(); }}
         />
+        {error ? <AlertTriangle size={15} color={DANGER} strokeWidth={2} /> : null}
       </View>
+      {error ? <Text style={ui.error}>{error}</Text> : null}
     </View>
   );
 }
@@ -89,6 +92,7 @@ const ui = StyleSheet.create({
   prefix:  { fontSize: 15, color: TEXT, marginRight: 6 },
   input:   { flex: 1, fontSize: 15, color: TEXT, padding: 0 },
   readOnly:{ color: MUTED },
+  error:   { fontSize: 11.5, color: DANGER, marginTop: 4 },
 });
 
 /* ─────────────── TwoCol ─────────────── */
@@ -103,10 +107,11 @@ interface Suggestion {
   structured_formatting: { main_text: string; secondary_text: string };
 }
 
-function AddressInput({ value, onChange, onSelect }: {
+function AddressInput({ value, onChange, onSelect, error }: {
   value: string;
   onChange: (v: string) => void;
   onSelect: (parts: { address: string; city: string; state: string; pincode: string; country: string }) => void;
+  error?: string;
 }) {
   const [focused,     setFocused]     = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -142,7 +147,7 @@ function AddressInput({ value, onChange, onSelect }: {
 
   return (
     <View style={addr.wrap}>
-      <View style={[ui.row, { borderBottomColor: focused ? PRIMARY : LINE }]}>
+      <View style={[ui.row, { borderBottomColor: error ? DANGER : focused ? PRIMARY : LINE }]}>
         <TextInput
           style={ui.input}
           value={value}
@@ -153,8 +158,11 @@ function AddressInput({ value, onChange, onSelect }: {
           onFocus={() => setFocused(true)}
           onBlur={() => { setFocused(false); setTimeout(() => setShow(false), 350); }}
         />
-        {loading && <ActivityIndicator size="small" color={PRIMARY} />}
+        {loading
+          ? <ActivityIndicator size="small" color={PRIMARY} />
+          : error ? <AlertTriangle size={15} color={DANGER} strokeWidth={2} /> : null}
       </View>
+      {error ? <Text style={ui.error}>{error}</Text> : null}
       {show && suggestions.length > 0 && (
         <View style={addr.list}>
           {suggestions.map((s, i) => (
@@ -310,6 +318,7 @@ export default function ProfileScreen() {
   const [pickerFor,   setPickerFor]   = useState<'open' | 'close' | null>(null);
 
   const [saving,      setSaving]      = useState(false);
+  const [errors,      setErrors]      = useState<Record<string, string>>({});
   const profilePopulated = useRef(false);
   const garagePopulated  = useRef(false);
 
@@ -371,8 +380,30 @@ export default function ProfileScreen() {
     if (!res.canceled && res.assets[0]) setLogoUri(res.assets[0].uri);
   }
 
+  /* ── Validate ── */
+  function validate(): boolean {
+    const e: Record<string, string> = {};
+    if (!garageName.trim())                         e.garageName  = 'Garage name is required.';
+    if (!garagePhone.trim())                        e.garagePhone = 'Phone number is required.';
+    else if (garagePhone.replace(/\D/g,'').length < 10) e.garagePhone = 'Enter a valid 10-digit phone number.';
+    if (garageEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(garageEmail)) e.garageEmail = 'Enter a valid email address.';
+    if (!address.trim())                            e.address     = 'Street address is required.';
+    if (!city.trim())                               e.city        = 'City is required.';
+    if (!stateVal.trim())                           e.state       = 'State is required.';
+    if (!zipcode.trim())                            e.zipcode     = 'PIN code is required.';
+    else if (zipcode.replace(/\D/g,'').length < 6) e.zipcode     = 'Enter a valid 6-digit PIN code.';
+    if (workDays.length === 0)                      e.workDays    = 'Select at least one working day.';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  function clearError(key: string) {
+    setErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
+  }
+
   /* ── Save both ── */
   async function save() {
+    if (!validate()) return;
     setSaving(true);
     try {
       const working_hours: WorkingHours = {};
@@ -446,43 +477,50 @@ export default function ProfileScreen() {
 
           {/* ── Garage Details ── */}
           <SectionHeader title="Garage Details" />
-          <UnderlineInput label="Garage Name" value={garageName} onChange={setGarageName} capitalize="words" />
+          <UnderlineInput label="Garage Name*" value={garageName}
+            onChange={v => { setGarageName(v); clearError('garageName'); }}
+            capitalize="words" error={errors.garageName} />
           <View style={s.gap} />
           <UnderlineInput label="Owner / Manager" value={owner} onChange={setOwner} capitalize="words" />
           <View style={s.gap} />
-          <UnderlineInput label="Phone Number" value={garagePhone}
-            onChange={v => setGaragePhone(v.replace(/\D/g,'').slice(0,10))}
-            keyboard="phone-pad" prefix="🇮🇳 +91" />
+          <UnderlineInput label="Phone Number*" value={garagePhone}
+            onChange={v => { setGaragePhone(v.replace(/\D/g,'').slice(0,10)); clearError('garagePhone'); }}
+            keyboard="phone-pad" prefix="🇮🇳 +91" error={errors.garagePhone} />
           <View style={s.gap} />
           <UnderlineInput label="Garage Email ID" value={garageEmail}
-            onChange={setGarageEmail} keyboard="email-address" capitalize="none" />
+            onChange={v => { setGarageEmail(v); clearError('garageEmail'); }}
+            keyboard="email-address" capitalize="none" error={errors.garageEmail} />
 
           {/* ── Location ── */}
           <SectionHeader title="Location" />
-          {/* Address with Google Places */}
           <AddressInput
             value={address}
-            onChange={setAddress}
-            onSelect={({ address: a, city: c, state: st, pincode: p, country: co }) => {
-              setAddress(a);
-              if (c)  setCity(c);
-              if (st) setStateVal(st);
-              if (p)  setZipcode(p);
+            onChange={v => { setAddress(v); clearError('address'); }}
+            onSelect={({ address: a, city: c, state: st, pincode: p }) => {
+              setAddress(a); clearError('address');
+              if (c)  { setCity(c);     clearError('city'); }
+              if (st) { setStateVal(st); clearError('state'); }
+              if (p)  { setZipcode(p);  clearError('zipcode'); }
             }}
+            error={errors.address}
           />
           <View style={s.gap} />
           <TwoCol>
             <View style={{ flex: 1 }}>
-              <UnderlineInput label="City" value={city} onChange={setCity} capitalize="words" />
+              <UnderlineInput label="City*" value={city}
+                onChange={v => { setCity(v); clearError('city'); }}
+                capitalize="words" error={errors.city} />
             </View>
             <View style={{ flex: 1 }}>
-              <UnderlineInput label="State" value={stateVal} onChange={setStateVal} capitalize="words" />
+              <UnderlineInput label="State*" value={stateVal}
+                onChange={v => { setStateVal(v); clearError('state'); }}
+                capitalize="words" error={errors.state} />
             </View>
           </TwoCol>
           <View style={s.gap} />
-          <UnderlineInput label="PIN Code" value={zipcode}
-            onChange={v => setZipcode(v.replace(/\D/g,'').slice(0,6))}
-            keyboard="number-pad" />
+          <UnderlineInput label="PIN Code*" value={zipcode}
+            onChange={v => { setZipcode(v.replace(/\D/g,'').slice(0,6)); clearError('zipcode'); }}
+            keyboard="number-pad" error={errors.zipcode} />
 
           {/* ── Working Hours ── */}
           <SectionHeader title="Working Hours" />
@@ -490,9 +528,15 @@ export default function ProfileScreen() {
           <View style={s.daysRow}>
             {DAYS.map(d => (
               <DayPill key={d} label={d} on={workDays.includes(d)}
-                onPress={() => setWorkDays(p => p.includes(d) ? p.filter(x => x !== d) : [...p, d])} />
+                onPress={() => { setWorkDays(p => p.includes(d) ? p.filter(x => x !== d) : [...p, d]); clearError('workDays'); }} />
             ))}
           </View>
+          {errors.workDays ? (
+            <View style={s.daysError}>
+              <AlertTriangle size={13} color={DANGER} strokeWidth={2} />
+              <Text style={s.daysErrorTxt}>{errors.workDays}</Text>
+            </View>
+          ) : null}
           <View style={[s.timesRow, { marginTop: 16 }]}>
             <TouchableOpacity style={s.timeBtn} onPress={() => setPickerFor('open')} activeOpacity={0.8}>
               <Sun size={14} color="#F97316" strokeWidth={2} />
@@ -578,6 +622,8 @@ const s = StyleSheet.create({
   /* Days */
   microLabel: { fontSize: 10.5, fontWeight: '700', color: MUTED, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
   daysRow:    { flexDirection: 'row', gap: 5 },
+  daysError:  { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
+  daysErrorTxt: { fontSize: 11.5, color: DANGER },
 
   /* Times */
   timesRow:     { flexDirection: 'row', borderWidth: 1.5, borderColor: LINE, borderRadius: 10, overflow: 'hidden' },

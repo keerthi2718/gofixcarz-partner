@@ -7,6 +7,8 @@ export interface GarageResponse {
   user_id: string;
   name: string;
   owner: string;
+  phone: string | null;
+  email: string | null;
   address: string | null;
   city: string | null;
   state: string | null;
@@ -24,6 +26,8 @@ export interface GarageResponse {
 export interface GarageUpdate {
   name?: string | null;
   owner?: string | null;
+  phone?: string | null;
+  email?: string | null;
   address?: string | null;
   city?: string | null;
   state?: string | null;
