@@ -395,16 +395,12 @@ export default function RegisterScreen() {
     zipcode: touched.zipcode && form.zipcode && form.zipcode.length !== 6
       ? 'PIN code must contain 6 digits.'
       : '',
-    wheelers: touched.wheelers && form.wheelers.length === 0
-      ? 'Select at least one vehicle service type.'
-      : '',
   };
 
   const isValid = !!(
     form.firstName &&
     form.workshopName && form.workshopName.length >= 3 &&
     form.phone.length >= 10 &&
-    form.wheelers.length > 0 &&
     form.acceptTerms &&
     (!form.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) &&
     (!form.zipcode || form.zipcode.length === 6)
@@ -424,7 +420,7 @@ export default function RegisterScreen() {
   }, [error]);
 
   const handleSubmit = useCallback(async () => {
-    setTouched(t => ({ ...t, firstName: true, workshopName: true, phone: true, wheelers: true, email: !!form.email, zipcode: !!form.zipcode }));
+    setTouched(t => ({ ...t, firstName: true, workshopName: true, phone: true, email: !!form.email, zipcode: !!form.zipcode }));
     if (!isValid) return;
     try {
       await signUp({
@@ -585,9 +581,8 @@ export default function RegisterScreen() {
           </View>
 
           {/* ── Wheeler Types ── */}
-          <SectionLabel title="Vehicle Types" />
-          {errors.wheelers ? <InlineError msg={errors.wheelers} /> : null}
-          <View style={[s.wheelersRow, { marginTop: errors.wheelers ? 8 : 0 }]}>
+          <SectionLabel title="Vehicle Types (optional)" />
+          <View style={s.wheelersRow}>
             {['2W', '3W', '4W', '6W'].map(w => (
               <WheelerBox key={w} label={w} checked={form.wheelers.includes(w)}
                 onPress={() => { toggleWheeler(w); touch('wheelers'); }} />
