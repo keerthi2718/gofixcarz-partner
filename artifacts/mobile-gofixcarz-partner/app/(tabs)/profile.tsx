@@ -522,13 +522,6 @@ export default function ProfileScreen() {
           <TimePickerModal visible={pickerFor === 'close'} label="Closing Time" value={closeTime}
             onConfirm={d => { setCloseTime(d); setPickerFor(null); }} onCancel={() => setPickerFor(null)} />
 
-          {/* ── Personal Info ── */}
-          <UnderlineInput label="Your Name" value={name} onChange={setName} capitalize="words" />
-          <View style={s.gap} />
-          <UnderlineInput label="Email Address" value={email} onChange={setEmail} keyboard="email-address" capitalize="none" />
-          <View style={s.gap} />
-          <UnderlineInput label="Mobile Number" value={phone} onChange={() => {}} readOnly prefix="🇮🇳" />
-
           {/* ── Notifications ── */}
           <SectionHeader title="Notifications" />
           <ToggleRow label="Job Alerts" sub="New bookings & status changes" value={notifJobs} onChange={setNotifJobs} />
