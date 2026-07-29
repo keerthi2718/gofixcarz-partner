@@ -522,7 +522,6 @@ export default function ProfileScreen() {
             onConfirm={d => { setCloseTime(d); setPickerFor(null); }} onCancel={() => setPickerFor(null)} />
 
           {/* ── Personal Info ── */}
-          <SectionHeader title="Personal Info" />
           <UnderlineInput label="Your Name" value={name} onChange={setName} capitalize="words" />
           <View style={s.gap} />
           <UnderlineInput label="Email Address" value={email} onChange={setEmail} keyboard="email-address" capitalize="none" />
@@ -533,13 +532,6 @@ export default function ProfileScreen() {
           <SectionHeader title="Notifications" />
           <ToggleRow label="Job Alerts" sub="New bookings & status changes" value={notifJobs} onChange={setNotifJobs} />
           <ToggleRow label="Promotions & Updates" sub="GoFixCarz news and offers" value={notifPromo} onChange={setNotifPromo} last />
-
-          {/* ── Account Links ── */}
-          <SectionHeader title="Account" />
-          <LinkRow label="Change Password" />
-          <LinkRow label="Help & Support" />
-          <LinkRow label="Privacy Policy" />
-          <LinkRow label="App Version" value="1.0.0" last />
 
           {/* Sign out */}
           <TouchableOpacity style={s.logout} onPress={logout} activeOpacity={0.8}>
