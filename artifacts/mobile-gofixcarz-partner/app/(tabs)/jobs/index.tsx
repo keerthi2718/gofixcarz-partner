@@ -14,7 +14,7 @@ import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import JobService from '@/src/services/job.service';
-import { Filter, Plus, Wrench, Clock, User } from 'lucide-react-native';
+import { Filter, Plus, Wrench, Clock, ChevronRight } from 'lucide-react-native';
 
 /* ─────────────── Status config ─────────────── */
 // Muted, desaturated — status communicates without shouting
@@ -60,6 +60,21 @@ function getInitials(name?: string): string {
     .join('')
     .toUpperCase()
     .substring(0, 2);
+}
+
+const AVATAR_PALETTE = [
+  { bg: '#DBEAFE', fg: '#1E40AF' },
+  { bg: '#D1FAE5', fg: '#065F46' },
+  { bg: '#FEF3C7', fg: '#92400E' },
+  { bg: '#FCE7F3', fg: '#9D174D' },
+  { bg: '#EDE9FE', fg: '#4C1D95' },
+  { bg: '#FEE2E2', fg: '#991B1B' },
+];
+
+function getAvatarColor(name?: string): { bg: string; fg: string } {
+  if (!name) return { bg: '#F3F4F6', fg: '#6B7280' };
+  const idx = name.charCodeAt(0) % AVATAR_PALETTE.length;
+  return AVATAR_PALETTE[idx];
 }
 
 /* ─────────────── Component ─────────────── */
@@ -224,55 +239,74 @@ export default function JobsScreen() {
               const vehicleLine = [item.brand, item.vehicle_model].filter(Boolean).join(' ');
               const serviceNames = item.services?.map(s => s.name).join(' · ') ?? '';
               const techName = item.customer_name ?? '—';
-              const jobRef = item.job_number ?? `JC-${item.id.substring(0, 4).toUpperCase()}`;
-              // Format plate with spaces for readability
+              const jobRef = item.job_number ?? `#${item.id.substring(0, 6).toUpperCase()}`;
               const plate = item.registration_number
                 ? item.registration_number.toUpperCase().replace(/([A-Z]{2})(\d{2})([A-Z]{1,2})(\d{4})/, '$1 $2 $3 $4')
                 : null;
+              const avatar = getAvatarColor(techName);
 
               return (
                 <TouchableOpacity
                   key={item.id}
-                  activeOpacity={0.78}
+                  activeOpacity={0.75}
                   style={styles.card}
                   onPress={() => router.push(`/(tabs)/jobs/${item.id}` as any)}
                 >
-                  {/* Top strip: status property (plain text, no chip) + job ref */}
-                  <View style={styles.cardTop}>
-                    <View style={styles.statusInline}>
-                      <View style={[styles.statusDot, { backgroundColor: st.dot }]} />
-                      <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
+                  {/* Left accent strip — status at a glance without reading */}
+                  <View style={[styles.cardStrip, { backgroundColor: st.dot }]} />
+
+                  {/* Card body — all content indented past the strip */}
+                  <View style={styles.cardBody}>
+
+                    {/* Row 1: vehicle name (dominant) + chevron */}
+                    <View style={styles.cardHeadRow}>
+                      <Text style={styles.vehicleName} numberOfLines={1}>
+                        {vehicleLine || 'Unknown Vehicle'}
+                      </Text>
+                      <ChevronRight size={15} color="#D1D5DB" strokeWidth={2} />
                     </View>
-                    <Text style={styles.jobRef}>{jobRef}</Text>
-                  </View>
 
-                  {/* Vehicle — dominant headline, largest element */}
-                  <Text style={styles.vehicleName} numberOfLines={1}>
-                    {vehicleLine || 'Vehicle'}
-                  </Text>
-
-                  {/* Plate — styled like an actual plate number */}
-                  {!!plate && (
-                    <Text style={styles.plateBadge}>{plate}</Text>
-                  )}
-
-                  {/* Services — inline, muted, dot-separated */}
-                  {!!serviceNames && (
-                    <Text style={styles.serviceText} numberOfLines={1}>{serviceNames}</Text>
-                  )}
-
-                  {/* Footer — meta strip: tech + time, minimal */}
-                  <View style={styles.cardFooter}>
-                    <View style={styles.cardTechRow}>
-                      <View style={styles.techAvatar}>
-                        <Text style={styles.techInitials}>{getInitials(techName)}</Text>
+                    {/* Row 2: plate badge + status pill — both on same line */}
+                    <View style={styles.cardSubRow}>
+                      {!!plate && (
+                        <View style={styles.plateBadge}>
+                          <Text style={styles.plateText}>{plate}</Text>
+                        </View>
+                      )}
+                      <View style={[styles.statusPill, { backgroundColor: st.bg }]}>
+                        <View style={[styles.statusDot, { backgroundColor: st.dot }]} />
+                        <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
                       </View>
-                      <Text style={styles.techName} numberOfLines={1}>{techName}</Text>
                     </View>
-                    <View style={styles.estWrap}>
-                      <Clock size={10} color="#94A3B8" strokeWidth={2} />
-                      <Text style={styles.estTime}>2h</Text>
+
+                    {/* Row 3: services — with wrench icon */}
+                    {!!serviceNames && (
+                      <View style={styles.servicesRow}>
+                        <Wrench size={11} color="#9CA3AF" strokeWidth={2} />
+                        <Text style={styles.serviceText} numberOfLines={1}>{serviceNames}</Text>
+                      </View>
+                    )}
+
+                    {/* Divider */}
+                    <View style={styles.cardDivider} />
+
+                    {/* Footer: tech avatar + name, job ref, est time */}
+                    <View style={styles.cardFooter}>
+                      <View style={styles.cardTechRow}>
+                        <View style={[styles.techAvatar, { backgroundColor: avatar.bg }]}>
+                          <Text style={[styles.techInitials, { color: avatar.fg }]}>
+                            {getInitials(techName)}
+                          </Text>
+                        </View>
+                        <Text style={styles.techName} numberOfLines={1}>{techName}</Text>
+                        <Text style={styles.jobRef}>{jobRef}</Text>
+                      </View>
+                      <View style={styles.estWrap}>
+                        <Clock size={10} color="#9CA3AF" strokeWidth={2.5} />
+                        <Text style={styles.estTime}>2h</Text>
+                      </View>
                     </View>
+
                   </View>
                 </TouchableOpacity>
               );
@@ -481,37 +515,84 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  /* ── Job card ─────────────────────────────────────────────
-     Designed to be scanned in 0.5 seconds.
-     Eye lands on: vehicle → plate → service → tech
-     Status is a property, not a badge. No chips, no accent bars.
-  ────────────────────────────────────────────────────────── */
+  /* ── Job card ────────────────────────────────────────────
+     Structure: left-strip (status color) + card body.
+     Scan order: strip color → vehicle name → plate/status → services → tech
+  ──────────────────────────────────────────────────────── */
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    paddingTop: 13,
-    paddingHorizontal: 15,
-    paddingBottom: 13,
     borderWidth: 1,
-    borderColor: '#EAECF0',
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    overflow: 'hidden',
     ...Platform.select({
-      ios:     { shadowColor: '#101828', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3 },
-      android: { elevation: 1 },
+      ios:     { shadowColor: '#111827', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6 },
+      android: { elevation: 2 },
       default: {},
     }),
   },
 
-  /* Status + job ref — both tertiary, never compete with content */
-  cardTop: {
+  /* 3 px left strip — color carries status without text */
+  cardStrip: {
+    width: 3,
+    alignSelf: 'stretch',
+    flexShrink: 0,
+  },
+
+  /* Everything right of the strip */
+  cardBody: {
+    flex: 1,
+    paddingTop: 12,
+    paddingRight: 12,
+    paddingBottom: 12,
+    paddingLeft: 11,
+  },
+
+  /* Row 1: vehicle name + chevron */
+  cardHeadRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 9,
+    gap: 4,
+    marginBottom: 6,
   },
-  statusInline: {
+  vehicleName: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    letterSpacing: -0.3,
+    lineHeight: 21,
+  },
+
+  /* Row 2: plate badge + status pill */
+  cardSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+    flexWrap: 'wrap',
+  },
+  plateBadge: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  plateText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#374151',
+    letterSpacing: 1.4,
+    fontVariant: ['tabular-nums'] as any,
+  },
+  statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 5,
   },
   statusDot: {
     width: 6,
@@ -520,51 +601,36 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '600',
     letterSpacing: 0.1,
   },
-  jobRef: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    letterSpacing: 0.5,
-    fontVariant: ['tabular-nums'] as any,
-  },
 
-  /* Vehicle — the loudest element on the card */
-  vehicleName: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#111827',
-    letterSpacing: -0.4,
-    lineHeight: 22,
+  /* Row 3: services */
+  servicesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 10,
   },
-
-  /* Plate — spaced like a physical plate, distinct from other text */
-  plateBadge: {
+  serviceText: {
+    flex: 1,
     fontSize: 12,
     color: '#6B7280',
-    letterSpacing: 1.8,
-    marginTop: 4,
-    fontVariant: ['tabular-nums'] as any,
+    lineHeight: 16,
   },
 
-  /* Services — compact, one line, separator dot from the data */
-  serviceText: {
-    fontSize: 12.5,
-    color: '#4B5563',
-    marginTop: 7,
-    lineHeight: 17,
+  /* Hairline divider */
+  cardDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#E5E7EB',
+    marginBottom: 10,
   },
 
-  /* Footer — the quietest row. Not a feature, a footnote. */
+  /* Footer */
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 13,
-    paddingTop: 11,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E5E7EB',
   },
   cardTechRow: {
     flexDirection: 'row',
@@ -574,24 +640,29 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   techAvatar: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#F3F4F6',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
   techInitials: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: '700',
-    color: '#6B7280',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   techName: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#6B7280',
     flex: 1,
+  },
+  jobRef: {
+    fontSize: 10.5,
+    color: '#9CA3AF',
+    letterSpacing: 0.3,
+    fontVariant: ['tabular-nums'] as any,
+    flexShrink: 0,
   },
   estWrap: {
     flexDirection: 'row',
