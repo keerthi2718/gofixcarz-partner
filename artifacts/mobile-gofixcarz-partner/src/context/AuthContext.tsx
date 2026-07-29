@@ -107,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       router.push('/(auth)/otp');
     } catch (err: unknown) {
       setError(extractErrorMessage(err, 'Registration failed. Please try again.'));
+      throw err; // let the caller inspect status code (e.g. 409 conflict)
     } finally {
       setLoading(false);
     }

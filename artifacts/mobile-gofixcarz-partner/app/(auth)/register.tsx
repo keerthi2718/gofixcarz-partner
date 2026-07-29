@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { isAxiosError } from 'axios';
 import { useAuth } from '@/src/context/AuthContext';
 import { Check, AlertTriangle, X, Wifi } from 'lucide-react-native';
 
@@ -406,17 +407,12 @@ export default function RegisterScreen() {
     (!form.zipcode || form.zipcode.length === 6)
   );
 
-  /* ── Route API errors: phone-exists → inline; others → snackbar ── */
+  /* ── Show non-conflict API errors in snackbar ── */
   useEffect(() => {
     if (!error) return;
     const msg = error.toLowerCase();
-    const isExisting = msg.includes('already exist') || msg.includes('already registered') || msg.includes('already use') || msg.includes('duplicate');
-    if (isExisting) {
-      setPhoneExists(true);
-    } else {
-      const isNetwork = msg.includes('network') || msg.includes('connection');
-      setSnackbar(isNetwork ? 'Something went wrong. Please check your connection and retry.' : error);
-    }
+    const isNetwork = msg.includes('network') || msg.includes('connection');
+    setSnackbar(isNetwork ? 'Something went wrong. Please check your connection and retry.' : error);
   }, [error]);
 
   const handleSubmit = useCallback(async () => {
@@ -439,8 +435,13 @@ export default function RegisterScreen() {
         terms_accepted: true,
       });
       // AuthContext.signUp() navigates to /(auth)/otp automatically on success
-    } catch {
-      // error handled by useEffect above
+    } catch (err: unknown) {
+      // 409 = phone already registered → show inline error near phone field
+      if (isAxiosError(err) && err.response?.status === 409) {
+        setPhoneExists(true);
+        setSnackbar(null); // suppress the snackbar echo
+      }
+      // all other errors are shown via the useEffect → snackbar
     }
   }, [form, isValid, signUp]);
 
