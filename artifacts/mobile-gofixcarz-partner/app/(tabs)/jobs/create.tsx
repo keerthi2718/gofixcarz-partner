@@ -385,6 +385,10 @@ export default function CreateJobScreen() {
     }
     if (step === 1) { if (!complaint.trim()) errs.complaint = 'Customer complaint is required.'; }
     if (step === 2) { if (services.length === 0) errs.services = 'Please add at least one service.'; }
+    if (step === 3) {
+      if (!deliveryDate) errs.deliveryDate = 'Please select an expected delivery date.';
+      if (!deliveryTime) errs.deliveryTime = 'Please select an expected pickup time.';
+    }
     return errs;
   }
 
@@ -948,8 +952,8 @@ export default function CreateJobScreen() {
 
                 {/* Date row */}
                 <TouchableOpacity
-                  style={[s.deliveryRow, deliveryDate && s.deliveryRowSet]}
-                  onPress={() => setShowDatePicker(true)}
+                  style={[s.deliveryRow, deliveryDate && s.deliveryRowSet, !!errors.deliveryDate && s.deliveryRowError]}
+                  onPress={() => { setShowDatePicker(true); clearFieldError('deliveryDate'); }}
                   activeOpacity={0.8}
                 >
                   <View style={[s.deliveryIconWrap, { backgroundColor: deliveryDate ? '#FFF7ED' : '#F3F4F6' }]}>
@@ -974,12 +978,19 @@ export default function CreateJobScreen() {
                   )}
                 </TouchableOpacity>
 
+                {!!errors.deliveryDate && (
+                  <View style={s.areaErrRow}>
+                    <AlertCircle size={11} color={DANGER} strokeWidth={2} />
+                    <Text style={s.areaErrText}>{errors.deliveryDate}</Text>
+                  </View>
+                )}
+
                 <View style={s.deliveryDivider} />
 
                 {/* Time row */}
                 <TouchableOpacity
-                  style={[s.deliveryRow, deliveryTime && s.deliveryRowSet, { marginBottom: 0 }]}
-                  onPress={() => setShowTimePicker(true)}
+                  style={[s.deliveryRow, deliveryTime && s.deliveryRowSet, !!errors.deliveryTime && s.deliveryRowError, { marginBottom: 0 }]}
+                  onPress={() => { setShowTimePicker(true); clearFieldError('deliveryTime'); }}
                   activeOpacity={0.8}
                 >
                   <View style={[s.deliveryIconWrap, { backgroundColor: deliveryTime ? '#EDE9FE' : '#F3F4F6' }]}>
@@ -1004,6 +1015,13 @@ export default function CreateJobScreen() {
                   )}
                 </TouchableOpacity>
 
+                {!!errors.deliveryTime && (
+                  <View style={s.areaErrRow}>
+                    <AlertCircle size={11} color={DANGER} strokeWidth={2} />
+                    <Text style={s.areaErrText}>{errors.deliveryTime}</Text>
+                  </View>
+                )}
+
                 {/* Confirmation summary */}
                 {deliveryDate && deliveryTime && (
                   <View style={s.deliverySummary}>
@@ -1024,11 +1042,11 @@ export default function CreateJobScreen() {
                 {/* Android native pickers */}
                 {Platform.OS === 'android' && showDatePicker && (
                   <DateTimePicker value={deliveryDate ?? new Date()} mode="date" minimumDate={new Date()} display="calendar"
-                    onChange={(_: DateTimePickerEvent, date?: Date) => { setShowDatePicker(false); if (date) setDeliveryDate(date); }} />
+                    onChange={(_: DateTimePickerEvent, date?: Date) => { setShowDatePicker(false); if (date) { setDeliveryDate(date); clearFieldError('deliveryDate'); } }} />
                 )}
                 {Platform.OS === 'android' && showTimePicker && (
                   <DateTimePicker value={deliveryTime ?? new Date()} mode="time" is24Hour={false} display="clock"
-                    onChange={(_: DateTimePickerEvent, date?: Date) => { setShowTimePicker(false); if (date) setDeliveryTime(date); }} />
+                    onChange={(_: DateTimePickerEvent, date?: Date) => { setShowTimePicker(false); if (date) { setDeliveryTime(date); clearFieldError('deliveryTime'); } }} />
                 )}
 
                 {/* iOS bottom-sheet picker */}
@@ -1047,12 +1065,12 @@ export default function CreateJobScreen() {
                       {showDatePicker && (
                         <DateTimePicker value={deliveryDate ?? new Date()} mode="date" minimumDate={new Date()} display="inline"
                           themeVariant="light" accentColor={PRIMARY} style={{ alignSelf: 'center' }}
-                          onChange={(_: DateTimePickerEvent, date?: Date) => { if (date) setDeliveryDate(date); }} />
+                          onChange={(_: DateTimePickerEvent, date?: Date) => { if (date) { setDeliveryDate(date); clearFieldError('deliveryDate'); } }} />
                       )}
                       {showTimePicker && (
                         <DateTimePicker value={deliveryTime ?? new Date()} mode="time" is24Hour={false} display="spinner"
                           themeVariant="light" accentColor={PRIMARY} style={{ alignSelf: 'center' }}
-                          onChange={(_: DateTimePickerEvent, date?: Date) => { if (date) setDeliveryTime(date); }} />
+                          onChange={(_: DateTimePickerEvent, date?: Date) => { if (date) { setDeliveryTime(date); clearFieldError('deliveryTime'); } }} />
                       )}
                     </View>
                   </View>
@@ -1479,7 +1497,8 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 14,
     paddingVertical: 14, marginBottom: 0,
   },
-  deliveryRowSet: { /* no extra style needed — driven by child colors */ },
+  deliveryRowSet:   { /* no extra style needed — driven by child colors */ },
+  deliveryRowError: { backgroundColor: '#FEF2F2', borderRadius: 10 },
   deliveryIconWrap: {
     width: 44, height: 44, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
