@@ -1,0 +1,264 @@
+Improve the validation UX across the entire GoFixCarz Partner registration flow. Do NOT change the existing flow, backend logic, APIs, navigation, or validation rules. This task is only for UI/UX improvements.
+
+Goal:
+Create professional, production-ready validation states similar to Uber Driver, Google, PhonePe Business, and Razorpay.
+
+====================================
+MOBILE NUMBER VALIDATION
+====================================
+
+When the user enters:
+- Less than 10 digits
+- More than 10 digits
+- Invalid format
+- Empty field
+
+Show:
+- Red border (#DC2626)
+- Red warning icon inside the field
+- Inline error message below the field
+
+Examples:
+"Please enter a valid 10-digit mobile number."
+"Mobile number is required."
+
+The error should disappear immediately after entering a valid number.
+
+====================================
+OTP SCREEN
+====================================
+
+Wrong OTP:
+- Shake OTP boxes slightly
+- Red border around OTP inputs
+- Show:
+"Invalid OTP. Please try again."
+
+Expired OTP:
+- Show clock icon
+- Message:
+"OTP has expired."
+"Request a new OTP."
+
+Resend OTP:
+- Disable resend button for 30 seconds
+- Show countdown
+Resend OTP (00:29)
+
+OTP Success:
+- Green check icon
+- Small success toast:
+"Mobile number verified."
+
+Too Many Attempts:
+- Show warning illustration/icon
+- Message:
+"Too many incorrect attempts."
+"Please try again after 5 minutes."
+
+====================================
+EMAIL VALIDATION
+====================================
+
+Invalid email:
+- Red border
+- Red helper text
+
+Example:
+"Please enter a valid email address."
+
+====================================
+PASSWORD VALIDATION
+====================================
+
+Password must contain:
+- Minimum 8 characters
+- One uppercase letter
+- One lowercase letter
+- One number
+- One special character
+
+Display a live checklist while typing.
+
+Example:
+
+✓ 8 Characters
+
+✓ Uppercase Letter
+
+✗ Special Character
+
+✓ Number
+
+The checklist updates in real time.
+
+====================================
+CONFIRM PASSWORD
+====================================
+
+If passwords don't match:
+
+Red border
+
+Error:
+"Passwords do not match."
+
+Show green success state when both passwords match.
+
+====================================
+REQUIRED FIELD VALIDATION
+====================================
+
+Every mandatory field should show:
+
+Red border
+
+Red helper text
+
+"This field is required."
+
+Automatically remove the error after valid input.
+
+====================================
+PINCODE VALIDATION
+====================================
+
+Allow only 6 digits.
+
+Examples:
+
+"Pincode must contain 6 digits."
+
+====================================
+WORKSHOP NAME VALIDATION
+====================================
+
+Minimum 3 characters.
+
+Maximum 80 characters.
+
+Show:
+
+"Workshop name is too short."
+
+====================================
+WORKING HOURS VALIDATION
+====================================
+
+Prevent:
+
+Closing time earlier than opening time.
+
+Show:
+
+"Closing time must be later than opening time."
+
+====================================
+SERVICE TYPE VALIDATION
+====================================
+
+If no service type is selected:
+
+Show:
+
+"Select at least one vehicle service type."
+
+====================================
+SERVICES OFFERED VALIDATION
+====================================
+
+Require at least one service.
+
+Show:
+
+"Please select at least one service."
+
+====================================
+LOCATION VALIDATION
+====================================
+
+If GPS fails:
+
+Show inline banner:
+
+"Unable to fetch location."
+
+Buttons:
+
+Retry
+
+Enter Address Manually
+
+====================================
+NETWORK ERROR
+====================================
+
+If API fails:
+
+Show snackbar:
+
+"Something went wrong."
+
+Button:
+
+Retry
+
+====================================
+SUCCESS SCREEN
+====================================
+
+After successful registration:
+
+Show large green success icon.
+
+Message:
+
+"Registration Successful"
+
+"Your garage account has been created successfully."
+
+Button:
+
+Continue
+
+====================================
+DESIGN SYSTEM
+====================================
+
+Error Color:
+#DC2626
+
+Success:
+#16A34A
+
+Warning:
+#F59E0B
+
+Info:
+#2563EB
+
+Border Radius:
+14px
+
+Field Height:
+56px
+
+Animations:
+- Shake animation for invalid OTP
+- Fade-in helper messages
+- Smooth border color transitions
+- Snackbar slide animation
+- Success scale animation
+
+====================================
+IMPORTANT
+====================================
+
+- Do NOT change backend validation.
+- Do NOT change APIs.
+- Do NOT change navigation.
+- Do NOT change user flow.
+- Do NOT remove any fields.
+- Only improve validation UI/UX.
+- Follow Material Design 3 and modern mobile UX best practices.
+- Ensure all validation messages are consistent, accessible, and production-ready.
