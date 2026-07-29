@@ -346,6 +346,14 @@ export default function RegisterScreen() {
   const [snackbar,     setSnackbar]     = useState<string | null>(null);
   const [phoneExists,  setPhoneExists]  = useState(false);
 
+  /* ── Clear any stale auth error the moment this screen mounts ── */
+  useEffect(() => {
+    clearError();
+    setPhoneExists(false);
+    setSnackbar(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [form, setForm] = useState({
     firstName:    '',
     lastName:     '',
