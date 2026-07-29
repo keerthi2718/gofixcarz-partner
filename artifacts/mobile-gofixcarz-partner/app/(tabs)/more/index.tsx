@@ -128,7 +128,7 @@ export default function MoreScreen() {
         {/* ── Profile card ── */}
         <TouchableOpacity
           style={styles.profileCard}
-          onPress={() => router.push('/(tabs)/more/profile' as never)}
+          onPress={() => router.push('/(tabs)/profile' as never)}
           activeOpacity={0.88}
         >
           <Avatar name={name} size={54} />
@@ -147,7 +147,7 @@ export default function MoreScreen() {
           {
             label: 'My Profile', sub: 'Name, email, contact',
             icon: 'user', iconBg: '#F5F3FF', iconFg: '#C41E3A',
-            route: '/(tabs)/more/profile',
+            route: '/(tabs)/profile',
           },
           {
             label: 'Notifications', sub: 'Booking & job alerts',

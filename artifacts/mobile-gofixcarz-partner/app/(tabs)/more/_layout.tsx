@@ -6,7 +6,7 @@ export default function MoreLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="notifications" />
       <Stack.Screen name="analytics" />
-      <Stack.Screen name="profile" />
+
     </Stack>
   );
 }
