@@ -7,6 +7,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { router } from 'expo-router';
 import { useAuth } from '@/src/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
@@ -389,7 +390,7 @@ export default function ProfileScreen() {
           working_hours,
         }),
       ]);
-      Alert.alert('Saved ✓', 'Your profile has been updated.');
+      router.back();
     } catch {
       Alert.alert('Error', 'Failed to save. Please try again.');
     } finally { setSaving(false); }
