@@ -298,7 +298,8 @@ export default function ProfileScreen() {
   /* ── Garage state ── */
   const [garageName,  setGarageName]  = useState('');
   const [owner,       setOwner]       = useState('');
-  const [altPhone,    setAltPhone]    = useState('');
+  const [garagePhone, setGaragePhone] = useState('');
+  const [garageEmail, setGarageEmail] = useState('');
   const [address,     setAddress]     = useState('');
   const [city,        setCity]        = useState('');
   const [stateVal,    setStateVal]    = useState('');
@@ -337,7 +338,8 @@ export default function ProfileScreen() {
     if (garagePopulated.current || !garage) return;
     setGarageName(garage.name ?? '');
     setOwner(garage.owner ?? '');
-    setAltPhone(garage.alternate_number ?? '');
+    setGaragePhone((garage as any).phone ?? '');
+    setGarageEmail((garage as any).email ?? '');
     setAddress(garage.address ?? '');
     setCity(garage.city ?? '');
     setStateVal((garage as any).state ?? '');
@@ -382,7 +384,8 @@ export default function ProfileScreen() {
         garageMut.mutateAsync({
           name:             garageName.trim() || null,
           owner:            owner.trim() || null,
-          alternate_number: altPhone.trim() || null,
+          phone:            garagePhone.trim() || null,
+          email:            garageEmail.trim() || null,
           address:          address.trim() || null,
           city:             city.trim() || null,
           state:            stateVal.trim() || null,
@@ -445,16 +448,14 @@ export default function ProfileScreen() {
           <SectionHeader title="Garage Details" />
           <UnderlineInput label="Garage Name" value={garageName} onChange={setGarageName} capitalize="words" />
           <View style={s.gap} />
-          <TwoCol>
-            <View style={{ flex: 1 }}>
-              <UnderlineInput label="Owner / Manager" value={owner} onChange={setOwner} capitalize="words" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <UnderlineInput label="Alternate Phone" value={altPhone}
-                onChange={v => setAltPhone(v.replace(/\D/g,'').slice(0,10))}
-                keyboard="phone-pad" />
-            </View>
-          </TwoCol>
+          <UnderlineInput label="Owner / Manager" value={owner} onChange={setOwner} capitalize="words" />
+          <View style={s.gap} />
+          <UnderlineInput label="Phone Number" value={garagePhone}
+            onChange={v => setGaragePhone(v.replace(/\D/g,'').slice(0,10))}
+            keyboard="phone-pad" prefix="🇮🇳 +91" />
+          <View style={s.gap} />
+          <UnderlineInput label="Garage Email ID" value={garageEmail}
+            onChange={setGarageEmail} keyboard="email-address" capitalize="none" />
 
           {/* ── Location ── */}
           <SectionHeader title="Location" />
