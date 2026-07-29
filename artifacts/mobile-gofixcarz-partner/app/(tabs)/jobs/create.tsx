@@ -1,44 +1,46 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform,
-  Pressable, ScrollView, StatusBar, StyleSheet,
-  Text, TextInput, TouchableOpacity, View,
+  ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Feather } from '@/src/components/ui/FeatherIcon';
 import { useMutation } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import {
+  ArrowLeft, ArrowRight, Check, AlertCircle, ChevronDown,
+  User, Phone, Hash, Truck, Tag, GitBranch, Navigation,
+  Droplet, Clipboard, Camera, Search, Plus, Minus, Trash2,
+  Users, Clock, Calendar, Wrench, Image as ImageIcon, Upload,
+  FileText, Download, Share2, Activity, X, CheckCircle,
+} from 'lucide-react-native';
 import JobService from '@/src/services/job.service';
-import InputField from '@/src/components/ui/InputField';
 import SelectDropdown from '@/src/components/ui/SelectDropdown';
 import { VEHICLE_BRANDS, getModelsForBrand } from '@/src/data/vehicleData';
 import { formatCurrency } from '@/src/utils/helpers';
 
-/* ── Design tokens ── */
-const BG      = '#F0F2F5';
+/* ─────────────────────────── Tokens ─────────────────────────── */
+const BG      = '#F2F4F7';
 const CARD    = '#FFFFFF';
 const PRIMARY = '#C41E3A';
-const INDIGO  = '#6366F1';
 const TEXT    = '#0D1117';
 const MUTED   = '#6B7280';
 const BORDER  = '#E5E7EB';
 const SUCCESS = '#059669';
 const DANGER  = '#DC2626';
 const WARN    = '#D97706';
-const HEADER_BG = '#FFFFFF';
 
 const STEPS = [
-  { label: 'Customer' },
-  { label: 'Inspect'  },
-  { label: 'Services' },
-  { label: 'Labour'   },
-  { label: 'Progress' },
-  { label: 'Invoice'  },
+  { label: 'Customer', Icon: User      },
+  { label: 'Inspect',  Icon: Clipboard },
+  { label: 'Services', Icon: Wrench    },
+  { label: 'Labour',   Icon: Users     },
+  { label: 'Progress', Icon: Activity  },
+  { label: 'Invoice',  Icon: FileText  },
 ];
 
 const FUEL_LEVELS = ['E', '1/4', '1/2', '3/4', 'F'];
@@ -48,111 +50,169 @@ type ServiceItem = { name: string; price: number; qty: number };
 type PhotoItem   = { uri: string; name?: string };
 type DocItem     = { uri: string; name: string; mimeType?: string };
 
-/* ── Reusable step section card ── */
-function StepCard({ icon, title, children, iconBg = '#FEE2E2', iconFg = PRIMARY }: {
-  icon: React.ComponentProps<typeof Feather>['name'];
-  title: string;
-  children: React.ReactNode;
-  iconBg?: string;
-  iconFg?: string;
+/* ─────────────────────────── InlineInput ────────────────────── */
+function InlineInput({
+  label, value, onChangeText, placeholder, Icon, error,
+  keyboardType, autoCapitalize, prefix, maxLength,
+  multiline, numberOfLines, editable = true,
+}: {
+  label?: string; value: string; onChangeText: (v: string) => void;
+  placeholder?: string; Icon?: any; error?: string;
+  keyboardType?: any; autoCapitalize?: any; prefix?: string;
+  maxLength?: number; multiline?: boolean; numberOfLines?: number;
+  editable?: boolean;
 }) {
+  const [focused, setFocused] = useState(false);
+  const bc = error ? DANGER : focused ? PRIMARY : BORDER;
+  const bw = focused || !!error ? 2 : 1;
+
   return (
-    <View style={cardStyles.card}>
-      <View style={cardStyles.header}>
-        <View style={[cardStyles.accent, { backgroundColor: iconFg }]} />
-        <Text style={cardStyles.title}>{title}</Text>
+    <View style={inp.wrap}>
+      {!!label && (
+        <Text style={inp.label}>
+          {label.replace(' *', '')}
+          {label.endsWith(' *') && <Text style={{ color: DANGER }}> *</Text>}
+        </Text>
+      )}
+      <View style={[
+        inp.row,
+        multiline && inp.rowMulti,
+        { borderColor: bc, borderWidth: bw },
+        !editable && { backgroundColor: '#F9FAFB' },
+      ]}>
+        {Icon && (
+          <View style={inp.iconSlot}>
+            <Icon size={16} color={focused ? PRIMARY : '#9CA3AF'} strokeWidth={2} />
+          </View>
+        )}
+        {prefix && (
+          <View style={inp.prefixSlot}>
+            <Text style={inp.prefixText}>{prefix}</Text>
+            <View style={inp.prefixDivider} />
+          </View>
+        )}
+        <TextInput
+          style={[inp.field, multiline && inp.fieldMulti]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor="#9CA3AF"
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          maxLength={maxLength}
+          multiline={multiline}
+          numberOfLines={numberOfLines}
+          textAlignVertical={multiline ? 'top' : 'center'}
+          editable={editable}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+        />
       </View>
-      <View style={cardStyles.body}>{children}</View>
+      {!!error && (
+        <View style={inp.errRow}>
+          <AlertCircle size={11} color={DANGER} strokeWidth={2} />
+          <Text style={inp.errText}>{error}</Text>
+        </View>
+      )}
     </View>
   );
 }
-const cardStyles = StyleSheet.create({
-  card: {
-    backgroundColor: CARD,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: BORDER,
-    overflow: 'hidden',
-    marginBottom: 12,
+
+const inp = StyleSheet.create({
+  wrap:  { marginBottom: 16 },
+  label: { fontSize: 11, fontWeight: '700', color: '#4B5563', letterSpacing: 0.6, marginBottom: 7, textTransform: 'uppercase' },
+  row: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: CARD, borderRadius: 12,
+    minHeight: 52, overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3 },
+      android: { elevation: 1 },
+      default: {},
+    }),
+  },
+  rowMulti: { alignItems: 'flex-start', minHeight: 100 },
+  iconSlot: { width: 48, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
+  prefixSlot: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16 },
+  prefixText: { fontSize: 13, fontWeight: '600', color: MUTED },
+  prefixDivider: { width: 1, height: 18, backgroundColor: BORDER, marginLeft: 10 },
+  field: { flex: 1, fontSize: 15, color: TEXT, paddingRight: 16, height: 52 },
+  fieldMulti: { height: undefined, paddingTop: 14, paddingBottom: 14, paddingLeft: 4 },
+  errRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 },
+  errText: { fontSize: 11.5, color: DANGER, flex: 1 },
+});
+
+/* ─────────────────────────── SectionCard ───────────────────── */
+function SectionCard({ title, iconBg, Icon, iconColor = PRIMARY, children }: {
+  title: string; iconBg: string; Icon: any; iconColor?: string; children: React.ReactNode;
+}) {
+  return (
+    <View style={sc.card}>
+      <View style={sc.header}>
+        <View style={[sc.iconCircle, { backgroundColor: iconBg }]}>
+          <Icon size={16} color={iconColor} strokeWidth={2} />
+        </View>
+        <Text style={sc.title}>{title}</Text>
+      </View>
+      <View style={sc.body}>{children}</View>
+    </View>
+  );
+}
+
+const sc = StyleSheet.create({
+  card: {
+    backgroundColor: CARD, borderRadius: 16, borderWidth: 1, borderColor: BORDER,
+    overflow: 'hidden', marginBottom: 16,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
       android: { elevation: 2 },
       default: {},
     }),
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    backgroundColor: '#FAFAFA',
-    borderBottomWidth: 1,
-    borderBottomColor: BORDER,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 18, paddingVertical: 15,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER,
   },
-  accent: { width: 3, height: 16, borderRadius: 2 },
-  title: { fontSize: 12, fontWeight: '700', color: TEXT, letterSpacing: 0.4, textTransform: 'uppercase' },
-  body:  { padding: 16 },
+  iconCircle: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 14, fontWeight: '700', color: TEXT, letterSpacing: -0.2 },
+  body:  { padding: 18 },
 });
 
-/* ── Inline label ── */
-function FieldLabel({ text }: { text: string }) {
-  const hasAsterisk = text.endsWith(' *');
-  const base = hasAsterisk ? text.slice(0, -2) : text;
-  return (
-    <Text style={styles.fieldLabel}>
-      {base.toUpperCase()}
-      {hasAsterisk && <Text style={{ color: DANGER }}> *</Text>}
-    </Text>
-  );
-}
-
-/* ── Inline error message ── */
-function FieldError({ msg }: { msg?: string }) {
-  if (!msg) return null;
-  return (
-    <View style={styles.fieldError}>
-      <Feather name="alert-circle" size={12} color={DANGER} />
-      <Text style={styles.fieldErrorText}>{msg}</Text>
-    </View>
-  );
-}
-
-/* ── Main screen ── */
+/* ─────────────────────────── Main screen ────────────────────── */
 export default function CreateJobScreen() {
   const insets = useSafeAreaInsets();
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
   const scrollRef = useRef<ScrollView>(null);
 
-  const [step,        setStep]       = useState(0);
-  const [errors,      setErrors]     = useState<Record<string, string>>({});
+  const [step,        setStep]        = useState(0);
+  const [errors,      setErrors]      = useState<Record<string, string>>({});
   const [createError, setCreateError] = useState<string | null>(null);
   const [pdfLoading,  setPdfLoading]  = useState<'download' | 'share' | null>(null);
 
-  // Stable invoice number for this session
   const invoiceNum = useRef(`INV-${Date.now().toString().slice(-6)}`).current;
 
-  /* Step 0 — Customer & Vehicle */
-  const [customerName,    setCustomerName]    = useState('');
-  const [customerPhone,   setCustomerPhone]   = useState('');
-  const [regNumber,      setRegNumber]      = useState('');
-  const [brand,          setBrand]          = useState('');
-  const [model,          setModel]          = useState('');
-  const [fuelType,       setFuelType]       = useState('Petrol');
-  const [odometer,       setOdometer]       = useState('');
+  /* Step 0 */
+  const [customerName,  setCustomerName]  = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [regNumber,     setRegNumber]     = useState('');
+  const [brand,         setBrand]         = useState('');
+  const [model,         setModel]         = useState('');
+  const [fuelType,      setFuelType]      = useState('Petrol');
+  const [odometer,      setOdometer]      = useState('');
 
-  /* Step 1 — Inspection */
+  /* Step 1 */
   const [fuelLevel,       setFuelLevel]       = useState('1/2');
   const [complaint,       setComplaint]       = useState('');
   const [inspectionNotes, setInspectionNotes] = useState('');
   const [beforePhotos,    setBeforePhotos]    = useState<PhotoItem[]>([]);
   const [documents,       setDocuments]       = useState<DocItem[]>([]);
 
-  /* Step 2 — Services */
+  /* Step 2 */
   const [serviceSearch, setServiceSearch] = useState('');
   const [services,      setServices]      = useState<ServiceItem[]>([]);
 
-  /* Step 3 — Labour */
+  /* Step 3 */
   const [selectedTechId,   setSelectedTechId]   = useState<string | null>(null);
   const [selectedTechName, setSelectedTechName] = useState('');
   const [estHours,         setEstHours]         = useState('');
@@ -163,13 +223,13 @@ export default function CreateJobScreen() {
   const [showTimePicker,   setShowTimePicker]    = useState(false);
   const [additionalNotes,  setAdditionalNotes]   = useState('');
 
-  /* Step 4/5 — created job */
+  /* Step 4/5 */
   const [createdJobId, setCreatedJobId] = useState<string | null>(null);
 
   const mockTechs = [
-    { id: 't1', name: 'Suresh Kumar', role: 'Senior Mechanic',  available: true },
-    { id: 't2', name: 'Mahesh Reddy', role: 'Electrician',      available: true },
-    { id: 't3', name: 'Ganesh Patel', role: 'AC Specialist',    available: false },
+    { id: 't1', name: 'Suresh Kumar', role: 'Senior Mechanic', available: true  },
+    { id: 't2', name: 'Mahesh Reddy', role: 'Electrician',     available: true  },
+    { id: 't3', name: 'Ganesh Patel', role: 'AC Specialist',   available: false },
   ];
 
   const servicesTotal = services.reduce((sum, s) => sum + s.price * s.qty, 0);
@@ -178,68 +238,47 @@ export default function CreateJobScreen() {
   const gst           = subtotal * 0.18;
   const grandTotal    = subtotal + gst;
 
-  /* ── Invoice HTML template ── */
+  /* ── Invoice HTML ── */
   function buildInvoiceHtml() {
     const now     = new Date();
     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
     const dueStr  = deliveryDate
       ? deliveryDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
       : '—';
-
     const vehicleLabel = [brand, model, fuelType].filter(Boolean).join(' · ') || '—';
-
     const serviceRows = services.map((s, i) => `
       <tr style="background:${i % 2 === 0 ? '#FAFAFA' : '#fff'}">
-        <td style="padding:10px 12px; border-bottom:1px solid #F1F5F9;">
-          <div style="font-weight:600;color:#1E293B;font-size:13px;">${s.name}</div>
-        </td>
+        <td style="padding:10px 12px; border-bottom:1px solid #F1F5F9;"><div style="font-weight:600;color:#1E293B;font-size:13px;">${s.name}</div></td>
         <td style="padding:10px 12px; border-bottom:1px solid #F1F5F9; text-align:center;color:#64748B;font-size:13px;">${s.qty}</td>
         <td style="padding:10px 12px; border-bottom:1px solid #F1F5F9; text-align:right;color:#64748B;font-size:13px;">${formatCurrency(s.price)}</td>
         <td style="padding:10px 12px; border-bottom:1px solid #F1F5F9; text-align:right;font-weight:600;color:#1E293B;font-size:13px;">${formatCurrency(s.price * s.qty)}</td>
       </tr>`).join('');
 
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:-apple-system,Helvetica Neue,Arial,sans-serif;color:#1E293B;background:#F8FAFC;font-size:13px;}
-  a{color:inherit;text-decoration:none;}
-
-  /* ── Page wrapper ── */
   .page{max-width:680px;margin:0 auto;background:#fff;box-shadow:0 0 0 1px #E2E8F0;}
-
-  /* ── Header band ── */
   .header{background:linear-gradient(135deg,#7B0E20 0%,#C41E3A 55%,#E11D48 100%);padding:36px 36px 28px;color:#fff;}
   .header-row{display:flex;justify-content:space-between;align-items:flex-start;}
-  .brand-name{font-size:26px;font-weight:800;letter-spacing:-0.5px;line-height:1;}
-  .brand-tag{font-size:11px;font-weight:500;opacity:0.65;margin-top:5px;letter-spacing:0.4px;}
+  .brand-name{font-size:26px;font-weight:800;letter-spacing:-0.5px;}
+  .brand-tag{font-size:11px;opacity:0.65;margin-top:5px;}
   .inv-block{text-align:right;}
   .inv-word{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;opacity:0.65;margin-bottom:4px;}
-  .inv-number{font-size:22px;font-weight:800;letter-spacing:-0.3px;}
+  .inv-number{font-size:22px;font-weight:800;}
   .inv-date{font-size:11px;opacity:0.7;margin-top:4px;}
-
-  /* ── Status pill ── */
   .status-row{margin-top:22px;display:flex;align-items:center;gap:10px;}
-  .status-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:#fff;letter-spacing:0.3px;}
-  .dot{width:6px;height:6px;border-radius:50%;background:#4ADE80;flex-shrink:0;}
+  .status-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:#fff;}
+  .dot{width:6px;height:6px;border-radius:50%;background:#4ADE80;}
   .due-text{font-size:11px;opacity:0.7;}
-
-  /* ── Two-column info grid ── */
   .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid #E2E8F0;}
   .info-cell{padding:20px 28px;}
   .info-cell+.info-cell{border-left:1px solid #E2E8F0;}
   .cell-label{font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
   .cell-name{font-size:15px;font-weight:700;color:#1E293B;margin-bottom:3px;}
   .cell-sub{font-size:12px;color:#64748B;line-height:1.5;}
-
-  /* ── Section header ── */
   .section-head{padding:16px 28px 12px;border-bottom:2px solid #F1F5F9;display:flex;justify-content:space-between;align-items:center;}
   .section-title{font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;}
-
-  /* ── Items table ── */
   .items-table{width:100%;border-collapse:collapse;}
   .items-table thead tr{background:#F8FAFC;}
   .items-table thead th{padding:10px 12px;font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:0.8px;border-bottom:2px solid #E2E8F0;}
@@ -248,13 +287,9 @@ export default function CreateJobScreen() {
   .items-table tbody tr:last-child td{border-bottom:none;}
   .items-table tbody td:first-child{padding-left:28px;}
   .items-table tbody td:last-child{padding-right:28px;}
-
-  /* ── Labour row ── */
   .labour-row{display:flex;justify-content:space-between;align-items:center;padding:12px 28px;background:#FFFBEB;border-top:1px solid #FEF3C7;border-bottom:1px solid #FEF3C7;}
   .labour-label{font-size:13px;color:#92400E;font-weight:500;}
   .labour-amount{font-size:13px;font-weight:600;color:#92400E;}
-
-  /* ── Totals box ── */
   .totals-wrap{padding:20px 28px 24px;border-top:2px solid #F1F5F9;}
   .total-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#64748B;}
   .total-row span:last-child{font-weight:500;color:#475569;}
@@ -262,133 +297,61 @@ export default function CreateJobScreen() {
   .grand-row{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:linear-gradient(135deg,#7B0E20,#C41E3A);border-radius:10px;margin-top:4px;}
   .grand-label{color:#fff;font-size:13px;font-weight:600;opacity:0.85;}
   .grand-amount{color:#fff;font-size:20px;font-weight:800;letter-spacing:-0.5px;}
-
-  /* ── Notes ── */
   .notes-block{margin:0 28px 24px;padding:14px 16px;background:#F8FAFC;border-left:3px solid #C41E3A;border-radius:0 6px 6px 0;}
   .notes-label{font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
   .notes-text{font-size:12px;color:#475569;line-height:1.6;}
-
-  /* ── Footer ── */
   .footer{background:#F8FAFC;border-top:1px solid #E2E8F0;padding:20px 28px;display:flex;justify-content:space-between;align-items:center;}
   .footer-brand{font-size:13px;font-weight:700;color:#C41E3A;}
   .footer-right{font-size:11px;color:#94A3B8;text-align:right;}
   .thank-you{font-size:11px;color:#64748B;margin-top:2px;}
-</style>
-</head>
-<body>
-<div class="page">
-
-  <!-- Header -->
+</style></head><body><div class="page">
   <div class="header">
     <div class="header-row">
-      <div>
-        <div class="brand-name">GoFixCarz</div>
-        <div class="brand-tag">Smart Garage Management</div>
-      </div>
-      <div class="inv-block">
-        <div class="inv-word">Tax Invoice</div>
-        <div class="inv-number">${invoiceNum}</div>
-        <div class="inv-date">Issued ${dateStr}</div>
-      </div>
+      <div><div class="brand-name">GoFixCarz</div><div class="brand-tag">Smart Garage Management</div></div>
+      <div class="inv-block"><div class="inv-word">Tax Invoice</div><div class="inv-number">${invoiceNum}</div><div class="inv-date">Issued ${dateStr}</div></div>
     </div>
     <div class="status-row">
       <div class="status-pill"><div class="dot"></div>Due on Delivery</div>
       ${deliveryDate ? `<div class="due-text">Expected: ${dueStr}</div>` : ''}
     </div>
   </div>
-
-  <!-- Bill To / Vehicle -->
   <div class="info-grid">
-    <div class="info-cell">
-      <div class="cell-label">Bill To</div>
-      <div class="cell-name">${customerName || '—'}</div>
-      <div class="cell-sub">${customerPhone || ''}</div>
-    </div>
-    <div class="info-cell">
-      <div class="cell-label">Vehicle</div>
-      <div class="cell-name">${regNumber || '—'}</div>
-      <div class="cell-sub">${vehicleLabel}</div>
-    </div>
+    <div class="info-cell"><div class="cell-label">Bill To</div><div class="cell-name">${customerName || '—'}</div><div class="cell-sub">${customerPhone || ''}</div></div>
+    <div class="info-cell"><div class="cell-label">Vehicle</div><div class="cell-name">${regNumber || '—'}</div><div class="cell-sub">${vehicleLabel}</div></div>
   </div>
-
-  <!-- Services -->
   ${services.length > 0 ? `
-  <div class="section-head">
-    <div class="section-title">Services &amp; Parts</div>
-    <div style="font-size:11px;color:#94A3B8;">${services.length} item${services.length !== 1 ? 's' : ''}</div>
-  </div>
+  <div class="section-head"><div class="section-title">Services &amp; Parts</div><div style="font-size:11px;color:#94A3B8;">${services.length} item${services.length !== 1 ? 's' : ''}</div></div>
   <table class="items-table">
-    <thead>
-      <tr>
-        <th style="text-align:left;">Description</th>
-        <th style="text-align:center;">Qty</th>
-        <th style="text-align:right;">Unit Price</th>
-        <th style="text-align:right;">Amount</th>
-      </tr>
-    </thead>
+    <thead><tr><th style="text-align:left;">Description</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Unit Price</th><th style="text-align:right;">Amount</th></tr></thead>
     <tbody>${serviceRows}</tbody>
   </table>` : ''}
-
-  <!-- Labour -->
-  ${labourTotal > 0 ? `
-  <div class="labour-row">
-    <span class="labour-label">&#9881; Labour Charge${estHours ? ` &mdash; ${estHours} hrs estimated` : ''}</span>
-    <span class="labour-amount">${formatCurrency(labourTotal)}</span>
-  </div>` : ''}
-
-  <!-- Totals -->
+  ${labourTotal > 0 ? `<div class="labour-row"><span class="labour-label">&#9881; Labour Charge${estHours ? ` — ${estHours} hrs estimated` : ''}</span><span class="labour-amount">${formatCurrency(labourTotal)}</span></div>` : ''}
   <div class="totals-wrap">
     <div class="total-row"><span>Services Subtotal</span><span>${formatCurrency(servicesTotal)}</span></div>
     ${labourTotal > 0 ? `<div class="total-row"><span>Labour</span><span>${formatCurrency(labourTotal)}</span></div>` : ''}
     <div class="total-row"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>
     <div class="total-row"><span>GST @ 18%</span><span>${formatCurrency(gst)}</span></div>
     <hr class="total-divider"/>
-    <div class="grand-row">
-      <span class="grand-label">Grand Total (INR)</span>
-      <span class="grand-amount">${formatCurrency(grandTotal)}</span>
-    </div>
+    <div class="grand-row"><span class="grand-label">Grand Total (INR)</span><span class="grand-amount">${formatCurrency(grandTotal)}</span></div>
   </div>
-
-  <!-- Notes -->
-  ${additionalNotes ? `
-  <div class="notes-block">
-    <div class="notes-label">Workshop Notes</div>
-    <div class="notes-text">${additionalNotes}</div>
-  </div>` : ''}
-
-  <!-- Footer -->
+  ${additionalNotes ? `<div class="notes-block"><div class="notes-label">Workshop Notes</div><div class="notes-text">${additionalNotes}</div></div>` : ''}
   <div class="footer">
-    <div>
-      <div class="footer-brand">GoFixCarz Partner</div>
-      <div class="thank-you">Thank you for your business!</div>
-    </div>
-    <div class="footer-right">
-      <div>This is a computer-generated invoice.</div>
-      <div style="margin-top:2px;">No signature required.</div>
-    </div>
+    <div><div class="footer-brand">GoFixCarz Partner</div><div class="thank-you">Thank you for your business!</div></div>
+    <div class="footer-right"><div>Computer-generated invoice.</div><div style="margin-top:2px;">No signature required.</div></div>
   </div>
-
-</div>
-</body>
-</html>`;
+</div></body></html>`;
   }
 
   /* ── PDF actions ── */
-  // Download PDF  → native print/preview dialog (iOS: share ▸ Save as PDF; Android: print preview ▸ Save)
-  // Share Invoice → share sheet so the user can send via WhatsApp, email, Drive, etc.
   async function handleDownloadPdf() {
     if (pdfLoading) return;
     setPdfLoading('download');
     try {
       await Print.printAsync({ html: buildInvoiceHtml() });
     } catch (e: any) {
-      // User cancelled the dialog — not an error worth alerting
-      if (!String(e?.message).toLowerCase().includes('cancel')) {
+      if (!String(e?.message).toLowerCase().includes('cancel'))
         Alert.alert('Error', e?.message ?? 'Could not open print dialog.');
-      }
-    } finally {
-      setPdfLoading(null);
-    }
+    } finally { setPdfLoading(null); }
   }
 
   async function handleSharePdf() {
@@ -397,21 +360,14 @@ export default function CreateJobScreen() {
     try {
       const { uri } = await Print.printToFileAsync({ html: buildInvoiceHtml(), base64: false });
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
-          mimeType: 'application/pdf',
-          dialogTitle: `Share ${invoiceNum}`,
-          UTI: 'com.adobe.pdf',
-        });
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: `Share ${invoiceNum}`, UTI: 'com.adobe.pdf' });
       } else {
         Alert.alert('Not available', 'Sharing is not supported on this device.');
       }
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Could not generate PDF.');
-    } finally {
-      setPdfLoading(null);
-    }
+    } finally { setPdfLoading(null); }
   }
-
 
   /* ── Validation ── */
   function validateStep(): Record<string, string> {
@@ -422,18 +378,13 @@ export default function CreateJobScreen() {
       if (!brand.trim())         errs.brand         = 'Vehicle brand is required.';
       if (!model.trim())         errs.model         = 'Vehicle model is required.';
       if (customerPhone) {
-        const digits = customerPhone.replace(/\D/g, '');
-        if (digits.length !== 10) errs.customerPhone = 'Mobile number must be exactly 10 digits.';
+        const d = customerPhone.replace(/\D/g, '');
+        if (d.length !== 10) errs.customerPhone = 'Mobile number must be exactly 10 digits.';
       }
       if (odometer && parseFloat(odometer) < 0) errs.odometer = 'Odometer must be a positive number.';
     }
-    if (step === 1) {
-      if (!complaint.trim()) errs.complaint = 'Customer complaint is required.';
-    }
-    if (step === 2) {
-      if (services.length === 0) errs.services = 'Please add at least one service.';
-    }
-    // Technician is optional – mock IDs are not sent to the API
+    if (step === 1) { if (!complaint.trim()) errs.complaint = 'Customer complaint is required.'; }
+    if (step === 2) { if (services.length === 0) errs.services = 'Please add at least one service.'; }
     return errs;
   }
 
@@ -441,7 +392,7 @@ export default function CreateJobScreen() {
     if (errors[key]) setErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
   }
 
-  /* ── Navigation ── */
+  /* ── Mutation ── */
   const { mutate: createJob, isPending } = useMutation({
     mutationFn: () => JobService.create({
       customer_name:       customerName  || null,
@@ -464,11 +415,7 @@ export default function CreateJobScreen() {
       setStep(4);
     },
     onError: (err: any) => {
-      const msg =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.message ||
-        'Something went wrong. Please try again.';
+      const msg = err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Something went wrong. Please try again.';
       setCreateError(msg);
       scrollRef.current?.scrollTo({ y: 0, animated: true });
       Alert.alert('Failed to Create Job', msg);
@@ -495,9 +442,7 @@ export default function CreateJobScreen() {
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }
 
-  const nextLabel =
-    step === 3 ? 'Create Job Card' :
-    step === 5 ? 'Done ✓' : 'Continue';
+  const nextLabel = step === 3 ? 'Create Job Card' : step === 5 ? 'Done' : 'Continue';
 
   /* ── Service helpers ── */
   function addService() {
@@ -519,15 +464,8 @@ export default function CreateJobScreen() {
   /* ── Camera / Gallery ── */
   async function pickFromCamera() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Camera access is needed to take photos.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: 'images',
-      quality: 0.7,
-      allowsEditing: false,
-    });
+    if (status !== 'granted') { Alert.alert('Permission Required', 'Camera access is needed to take photos.'); return; }
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.7, allowsEditing: false });
     if (!result.canceled && result.assets.length > 0) {
       const asset = result.assets[0];
       setBeforePhotos(prev => [...prev, { uri: asset.uri, name: `photo_${Date.now()}.jpg` }]);
@@ -536,1269 +474,1035 @@ export default function CreateJobScreen() {
 
   async function pickFromGallery() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Photo library access is needed to select images.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
-      quality: 0.7,
-      allowsMultipleSelection: true,
-      selectionLimit: 10,
-    });
+    if (status !== 'granted') { Alert.alert('Permission Required', 'Photo library access is needed.'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 0.7, allowsMultipleSelection: true, selectionLimit: 10 });
     if (!result.canceled) {
       const newPhotos = result.assets.map(a => ({ uri: a.uri, name: a.fileName ?? `photo_${Date.now()}.jpg` }));
       setBeforePhotos(prev => [...prev, ...newPhotos]);
     }
   }
 
-  function removePhoto(idx: number) {
-    setBeforePhotos(prev => prev.filter((_, i) => i !== idx));
-  }
+  function removePhoto(idx: number) { setBeforePhotos(prev => prev.filter((_, i) => i !== idx)); }
 
-  /* ── Document upload (via image picker) ── */
   async function pickDocument() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Photo library access is needed to attach documents.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
-      quality: 0.8,
-      allowsMultipleSelection: true,
-      selectionLimit: 5,
-    });
+    if (status !== 'granted') { Alert.alert('Permission Required', 'Photo library access is needed.'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 0.8, allowsMultipleSelection: true, selectionLimit: 5 });
     if (!result.canceled) {
-      const newDocs = result.assets.map(a => ({
-        uri:      a.uri,
-        name:     a.fileName ?? `doc_${Date.now()}.jpg`,
-        mimeType: a.mimeType,
-      }));
+      const newDocs = result.assets.map(a => ({ uri: a.uri, name: a.fileName ?? `doc_${Date.now()}.jpg`, mimeType: a.mimeType }));
       setDocuments(prev => [...prev, ...newDocs]);
     }
   }
 
-  function removeDocument(idx: number) {
-    setDocuments(prev => prev.filter((_, i) => i !== idx));
-  }
+  function removeDocument(idx: number) { setDocuments(prev => prev.filter((_, i) => i !== idx)); }
 
+  /* ── Render ── */
   return (
-    <View style={[styles.root, { backgroundColor: BG }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={HEADER_BG} />
+    <View style={[s.root, { backgroundColor: BG }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       {/* ── Header ── */}
-      <View style={[styles.topBar, { paddingTop: topPad + 10 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-          <Feather name="arrow-left" size={18} color={TEXT} />
+      <View style={[s.header, { paddingTop: topPad + 12 }]}>
+        <TouchableOpacity style={s.backBtn} onPress={handleBack} activeOpacity={0.7}>
+          <ArrowLeft size={18} color={TEXT} strokeWidth={2.5} />
         </TouchableOpacity>
-        <View style={styles.topBarCenter}>
-          <Text style={styles.topBarTitle}>New Job Card</Text>
-          <Text style={styles.topBarSub}>{STEPS[step].label}</Text>
+        <View style={s.headerCenter}>
+          <Text style={s.headerTitle}>New Job Card</Text>
+          <Text style={s.headerSub}>{STEPS[step].label} · Step {step + 1} of {STEPS.length}</Text>
         </View>
-        <View style={styles.stepBadge}>
-          <Text style={styles.stepBadgeText}>{step + 1}<Text style={styles.stepBadgeOf}>/{STEPS.length}</Text></Text>
+        <View style={s.stepBadge}>
+          <Text style={s.stepBadgeText}>{step + 1}<Text style={s.stepBadgeOf}>/{STEPS.length}</Text></Text>
         </View>
       </View>
 
-      {/* ── Segmented progress bar ── */}
-      <View style={styles.segmentBar}>
+      {/* ── Progress segments ── */}
+      <View style={s.progressBar}>
         {STEPS.map((_, i) => (
-          <View
-            key={i}
-            style={[
-              styles.segment,
-              i < step  && styles.segmentDone,
-              i === step && styles.segmentActive,
-            ]}
-          />
+          <View key={i} style={[s.seg, i < step && s.segDone, i === step && s.segActive]} />
         ))}
       </View>
 
-      {/* KAV only wraps the scroll area so footer stays fixed in the flex column */}
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={[styles.body, { paddingBottom: 20 }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+      {/* ── Step labels ── */}
+      <View style={s.stepLabels}>
+        {STEPS.map((st, i) => (
+          <Text key={i} style={[s.stepLabel, i === step && s.stepLabelActive]} numberOfLines={1}>
+            {st.label}
+          </Text>
+        ))}
+      </View>
 
-        {/* ═══════════════════════════════════════════════════════ */}
-        {/* STEP 0 — Customer & Vehicle                            */}
-        {/* ═══════════════════════════════════════════════════════ */}
-        {step === 0 && (
-          <>
-            {/* Customer picker card */}
-            <View style={cardStyles.card}>
-              <View style={cardStyles.header}>
-                <View style={[cardStyles.accent, { backgroundColor: PRIMARY }]} />
-                <Text style={cardStyles.title}>Customer</Text>
-              </View>
-              <View style={cardStyles.body}>
-                <InputField
-                    label="Customer Name *"
-                    value={customerName}
-                    onChangeText={v => { setCustomerName(v); clearFieldError('customerName'); }}
-                    placeholder="Full name"
-                    autoCapitalize="words"
-                    leadingIcon="user"
-                    error={errors.customerName}
-                  />
-                <InputField
-                    label="Phone Number"
-                    value={customerPhone}
-                    onChangeText={v => {
-                      setCustomerPhone(v.replace(/\D/g, '').slice(0, 10));
-                      clearFieldError('customerPhone');
-                    }}
-                    placeholder="10-digit mobile"
-                    keyboardType="phone-pad"
-                    leadingIcon="phone"
-                    prefix="+91"
-                    maxLength={10}
-                    error={errors.customerPhone}
-                  />
-              </View>
-            </View>
+      {/* ── Content ── */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={[s.body, { paddingBottom: 24 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
 
-            {/* Vehicle Details */}
-            <StepCard icon="truck" title="Vehicle Details" iconBg="#FFF7ED" iconFg="#F97316">
-              <InputField
+          {/* ═══════ STEP 0 — Customer & Vehicle ═══════ */}
+          {step === 0 && (
+            <>
+              <SectionCard title="Customer Information" iconBg="#FEE2E2" Icon={User} iconColor={PRIMARY}>
+                <InlineInput
+                  label="Customer Name *"
+                  value={customerName}
+                  onChangeText={v => { setCustomerName(v); clearFieldError('customerName'); }}
+                  placeholder="Full name"
+                  autoCapitalize="words"
+                  Icon={User}
+                  error={errors.customerName}
+                />
+                <InlineInput
+                  label="Phone Number"
+                  value={customerPhone}
+                  onChangeText={v => { setCustomerPhone(v.replace(/\D/g, '').slice(0, 10)); clearFieldError('customerPhone'); }}
+                  placeholder="10-digit mobile"
+                  keyboardType="phone-pad"
+                  Icon={Phone}
+                  prefix="+91"
+                  maxLength={10}
+                  error={errors.customerPhone}
+                />
+              </SectionCard>
+
+              <SectionCard title="Vehicle Details" iconBg="#FFF7ED" Icon={Truck} iconColor="#F97316">
+                <InlineInput
                   label="Registration Number *"
                   value={regNumber}
                   onChangeText={v => { setRegNumber(v); clearFieldError('regNumber'); }}
-                  placeholder="KA-01-AB-1234"
+                  placeholder="KA 01 AB 1234"
                   autoCapitalize="characters"
-                  leadingIcon="hash"
+                  Icon={Hash}
                   error={errors.regNumber}
                 />
-              <SelectDropdown
-                label="Vehicle Brand *"
-                value={brand}
-                onChange={v => {
-                  setBrand(v);
-                  setModel('');           // clear dependent model
-                  clearFieldError('brand');
-                  clearFieldError('model');
-                }}
-                options={VEHICLE_BRANDS}
-                placeholder="Select Vehicle Brand"
-                error={errors.brand}
-                leadingIcon="tag"
-              />
-              <SelectDropdown
-                label="Vehicle Model *"
-                value={model}
-                onChange={v => { setModel(v); clearFieldError('model'); }}
-                options={getModelsForBrand(brand)}
-                placeholder={brand ? 'Select Vehicle Model' : 'Select a brand first'}
-                disabled={!brand}
-                error={errors.model}
-                leadingIcon="git-branch"
-              />
-              <View style={styles.row}>
-                <View style={{ flex: 1 }}>
-                  <FieldLabel text="Fuel Type" />
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.chipRow}
-                    style={{ marginBottom: 14 }}
-                  >
-                    {FUEL_TYPES.map(ft => (
-                      <TouchableOpacity
-                        key={ft}
-                        style={[styles.chip, fuelType === ft && styles.chipActive]}
-                        onPress={() => setFuelType(ft)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[styles.chipText, fuelType === ft && styles.chipTextActive]}>{ft}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              </View>
-              <InputField
+                <SelectDropdown
+                  label="Vehicle Brand *"
+                  value={brand}
+                  onChange={v => { setBrand(v); setModel(''); clearFieldError('brand'); clearFieldError('model'); }}
+                  options={VEHICLE_BRANDS}
+                  placeholder="Select Vehicle Brand"
+                  error={errors.brand}
+                  leadingIcon="tag"
+                />
+                <SelectDropdown
+                  label="Vehicle Model *"
+                  value={model}
+                  onChange={v => { setModel(v); clearFieldError('model'); }}
+                  options={getModelsForBrand(brand)}
+                  placeholder={brand ? 'Select Vehicle Model' : 'Select a brand first'}
+                  disabled={!brand}
+                  error={errors.model}
+                  leadingIcon="git-branch"
+                />
+
+                {/* Fuel type selector */}
+                <Text style={s.chipLabel}>FUEL TYPE</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chipRow} style={{ marginBottom: 18 }}>
+                  {FUEL_TYPES.map(ft => (
+                    <TouchableOpacity
+                      key={ft}
+                      style={[s.chip, fuelType === ft && s.chipActive]}
+                      onPress={() => setFuelType(ft)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[s.chipText, fuelType === ft && s.chipTextActive]}>{ft}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                <InlineInput
                   label="Odometer (km)"
                   value={odometer}
                   onChangeText={v => { setOdometer(v); clearFieldError('odometer'); }}
-                  placeholder="45230"
+                  placeholder="e.g. 45230"
                   keyboardType="number-pad"
-                  leadingIcon="navigation"
+                  Icon={Navigation}
                   error={errors.odometer}
                 />
-            </StepCard>
-          </>
-        )}
+              </SectionCard>
+            </>
+          )}
 
-        {/* ═══════════════════════════════════════════════════════ */}
-        {/* STEP 1 — Vehicle Inspection                            */}
-        {/* ═══════════════════════════════════════════════════════ */}
-        {step === 1 && (
-          <>
-            {/* Fuel Level */}
-            <StepCard icon="droplet" title="Fuel Level" iconBg="#FFF7ED" iconFg="#F97316">
-              <View style={styles.fuelRow}>
-                {FUEL_LEVELS.map(l => (
-                  <TouchableOpacity
-                    key={l}
-                    style={[styles.fuelBtn, fuelLevel === l && styles.fuelBtnActive]}
-                    onPress={() => setFuelLevel(l)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.fuelText, fuelLevel === l && styles.fuelTextActive]}>{l}</Text>
+          {/* ═══════ STEP 1 — Inspection ═══════ */}
+          {step === 1 && (
+            <>
+              <SectionCard title="Fuel Level" iconBg="#FFF7ED" Icon={Droplet} iconColor="#F97316">
+                <View style={s.fuelRow}>
+                  {FUEL_LEVELS.map(l => (
+                    <TouchableOpacity
+                      key={l}
+                      style={[s.fuelBtn, fuelLevel === l && s.fuelBtnActive]}
+                      onPress={() => setFuelLevel(l)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[s.fuelText, fuelLevel === l && s.fuelTextActive]}>{l}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={s.gaugeTrack}>
+                  <View style={[
+                    s.gaugeFill,
+                    {
+                      width: `${(FUEL_LEVELS.indexOf(fuelLevel) + 1) / FUEL_LEVELS.length * 100}%` as any,
+                      backgroundColor: fuelLevel === 'E' ? DANGER : fuelLevel === '1/4' ? WARN : SUCCESS,
+                    },
+                  ]} />
+                </View>
+              </SectionCard>
+
+              <SectionCard title="Inspection Details" iconBg="#FEE2E2" Icon={Clipboard} iconColor={PRIMARY}>
+                <Text style={s.areaLabel}>CUSTOMER COMPLAINT <Text style={{ color: DANGER }}>*</Text></Text>
+                <View style={[s.areaWrap, !!errors.complaint && s.areaError]}>
+                  <TextInput
+                    style={s.area}
+                    value={complaint}
+                    onChangeText={v => { setComplaint(v); clearFieldError('complaint'); }}
+                    placeholder="Describe the issue reported by the customer…"
+                    placeholderTextColor="#9CA3AF"
+                    multiline numberOfLines={4}
+                    textAlignVertical="top"
+                  />
+                </View>
+                {!!errors.complaint && (
+                  <View style={s.areaErrRow}>
+                    <AlertCircle size={11} color={DANGER} strokeWidth={2} />
+                    <Text style={s.areaErrText}>{errors.complaint}</Text>
+                  </View>
+                )}
+
+                <Text style={s.areaLabel}>INSPECTION NOTES</Text>
+                <View style={[s.areaWrap, { marginBottom: 0 }]}>
+                  <TextInput
+                    style={[s.area, { minHeight: 80 }]}
+                    value={inspectionNotes}
+                    onChangeText={setInspectionNotes}
+                    placeholder="Additional observations…"
+                    placeholderTextColor="#9CA3AF"
+                    multiline numberOfLines={3}
+                    textAlignVertical="top"
+                  />
+                </View>
+              </SectionCard>
+
+              <SectionCard title="Before Service Photos" iconBg="#F0FDF4" Icon={Camera} iconColor={SUCCESS}>
+                <View style={s.photoActionsRow}>
+                  <TouchableOpacity style={s.photoBtn} onPress={pickFromCamera} activeOpacity={0.85}>
+                    <Camera size={16} color={PRIMARY} strokeWidth={2} />
+                    <Text style={s.photoBtnText}>Take Photo</Text>
                   </TouchableOpacity>
-                ))}
-              </View>
-              <View style={styles.gaugeTrack}>
-                <View style={[
-                  styles.gaugeFill,
-                  {
-                    width: `${(['E','1/4','1/2','3/4','F'].indexOf(fuelLevel) + 1) / 5 * 100}%`,
-                    backgroundColor: fuelLevel === 'E' ? DANGER : fuelLevel === '1/4' ? WARN : SUCCESS,
-                  },
-                ]} />
-              </View>
-            </StepCard>
+                  <TouchableOpacity style={s.photoBtn} onPress={pickFromGallery} activeOpacity={0.85}>
+                    <ImageIcon size={16} color={PRIMARY} strokeWidth={2} />
+                    <Text style={s.photoBtnText}>From Gallery</Text>
+                  </TouchableOpacity>
+                </View>
+                {beforePhotos.length > 0 ? (
+                  <>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.thumbRow}>
+                      {beforePhotos.map((p, i) => (
+                        <View key={i} style={s.thumbWrap}>
+                          <Image source={{ uri: p.uri }} style={s.thumb} />
+                          <TouchableOpacity style={s.thumbDel} onPress={() => removePhoto(i)} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+                            <X size={10} color="#fff" strokeWidth={3} />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </ScrollView>
+                    <Text style={s.photoCount}>{beforePhotos.length} photo{beforePhotos.length > 1 ? 's' : ''} added</Text>
+                  </>
+                ) : (
+                  <View style={s.photoEmpty}>
+                    <ImageIcon size={24} color="#D1D5DB" strokeWidth={1.5} />
+                    <Text style={s.photoEmptyText}>No photos added yet</Text>
+                  </View>
+                )}
+              </SectionCard>
 
-            {/* Inspection Details */}
-            <StepCard icon="clipboard" title="Inspection Details">
-              <FieldLabel text="Customer Complaint *" />
-              <View style={[styles.textAreaWrap, errors.complaint && styles.textAreaError]}>
-                <TextInput
-                  style={styles.textArea}
-                  value={complaint}
-                  onChangeText={v => { setComplaint(v); clearFieldError('complaint'); }}
-                  placeholder="Describe the issue reported by the customer…"
-                  placeholderTextColor="#94A3B8"
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                />
-              </View>
-              <FieldError msg={errors.complaint} />
-
-              <FieldLabel text="Inspection Notes" />
-              <View style={[styles.textAreaWrap, { marginBottom: 0 }]}>
-                <TextInput
-                  style={[styles.textArea, { minHeight: 72 }]}
-                  value={inspectionNotes}
-                  onChangeText={setInspectionNotes}
-                  placeholder="Any additional observations…"
-                  placeholderTextColor="#94A3B8"
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                />
-              </View>
-            </StepCard>
-
-            {/* Before Service Photos — live camera + gallery */}
-            <StepCard icon="camera" title="Before Service Photos" iconBg="#F0FDF4" iconFg={SUCCESS}>
-              {/* Action buttons */}
-              <View style={styles.photoActionsRow}>
-                <TouchableOpacity style={styles.photoActionBtn} onPress={pickFromCamera} activeOpacity={0.85}>
-                  <Feather name="camera" size={15} color={PRIMARY} />
-                  <Text style={styles.photoActionText}>Take Photo</Text>
+              <SectionCard title="Attach Documents" iconBg="#FFFBEB" Icon={FileText} iconColor={WARN}>
+                <Text style={s.docHint}>RC Book, Insurance, Previous service records, etc.</Text>
+                <TouchableOpacity style={s.uploadBtn} onPress={pickDocument} activeOpacity={0.85}>
+                  <Upload size={15} color={PRIMARY} strokeWidth={2} />
+                  <Text style={s.uploadBtnText}>Select from Gallery</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.photoActionBtn} onPress={pickFromGallery} activeOpacity={0.85}>
-                  <Feather name="image" size={15} color={PRIMARY} />
-                  <Text style={styles.photoActionText}>Choose from Gallery</Text>
-                </TouchableOpacity>
-              </View>
+                {documents.length > 0 ? (
+                  <View style={s.docList}>
+                    {documents.map((d, i) => (
+                      <View key={i} style={s.docRow}>
+                        <View style={s.docIconWrap}>
+                          <FileText size={14} color={PRIMARY} strokeWidth={2} />
+                        </View>
+                        <Text style={s.docName} numberOfLines={1}>{d.name}</Text>
+                        <TouchableOpacity onPress={() => removeDocument(i)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <X size={15} color={DANGER + 'AA'} strokeWidth={2.5} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={s.docEmpty}>No documents attached</Text>
+                )}
+              </SectionCard>
+            </>
+          )}
 
-              {/* Photo thumbnails */}
-              {beforePhotos.length > 0 ? (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.thumbRow}
-                >
-                  {beforePhotos.map((p, i) => (
-                    <View key={i} style={styles.thumbWrap}>
-                      <Image source={{ uri: p.uri }} style={styles.thumb} />
-                      <TouchableOpacity
-                        style={styles.thumbDelete}
-                        onPress={() => removePhoto(i)}
-                        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                      >
-                        <Feather name="x" size={11} color="#fff" />
-                      </TouchableOpacity>
-                    </View>
+          {/* ═══════ STEP 2 — Services ═══════ */}
+          {step === 2 && (
+            <>
+              {errors.services && (
+                <View style={s.errBanner}>
+                  <AlertCircle size={14} color={DANGER} strokeWidth={2} />
+                  <Text style={s.errBannerText}>{errors.services}</Text>
+                </View>
+              )}
+
+              <SectionCard title="Add Services" iconBg="#FEE2E2" Icon={Wrench} iconColor={PRIMARY}>
+                <View style={s.searchRow}>
+                  <View style={s.searchBox}>
+                    <Search size={15} color="#9CA3AF" strokeWidth={2} />
+                    <TextInput
+                      style={s.searchInput}
+                      value={serviceSearch}
+                      onChangeText={setServiceSearch}
+                      placeholder="Search or type a service…"
+                      placeholderTextColor="#9CA3AF"
+                      onSubmitEditing={addService}
+                      returnKeyType="done"
+                    />
+                  </View>
+                  <TouchableOpacity style={s.addBtn} onPress={addService} activeOpacity={0.85}>
+                    <Plus size={20} color="#fff" strokeWidth={2.5} />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={s.chipLabel}>QUICK ADD</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
+                  {['Oil Change', 'AC Service', 'Wheel Alignment', 'Brake Service', 'Battery Check'].map(sv => (
+                    <TouchableOpacity
+                      key={sv}
+                      style={s.suggestChip}
+                      onPress={() => { setServices(prev => [...prev, { name: sv, price: 0, qty: 1 }]); clearFieldError('services'); }}
+                      activeOpacity={0.8}
+                    >
+                      <Plus size={11} color={PRIMARY} strokeWidth={2.5} />
+                      <Text style={s.suggestChipText}>{sv}</Text>
+                    </TouchableOpacity>
                   ))}
                 </ScrollView>
-              ) : (
-                <View style={styles.photoEmptyHint}>
-                  <Feather name="image" size={22} color="#CBD5E1" />
-                  <Text style={styles.photoEmptyText}>No photos added yet</Text>
+              </SectionCard>
+
+              {services.length > 0 && (
+                <SectionCard title={`Services Added (${services.length})`} iconBg="#F0FDF4" Icon={Check} iconColor={SUCCESS}>
+                  {services.map((svc, i) => (
+                    <View key={i}>
+                      <View style={s.svcItem}>
+                        <View style={s.svcLeft}>
+                          <View style={s.svcDot}>
+                            <Wrench size={11} color={PRIMARY} strokeWidth={2} />
+                          </View>
+                          <Text style={s.svcName} numberOfLines={1}>{svc.name}</Text>
+                          <TouchableOpacity onPress={() => removeService(i)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                            <Trash2 size={14} color={DANGER + 'AA'} strokeWidth={2} />
+                          </TouchableOpacity>
+                        </View>
+                        <View style={s.svcRight}>
+                          <View style={s.priceWrap}>
+                            <Text style={s.rupee}>₹</Text>
+                            <TextInput
+                              style={s.priceInput}
+                              value={svc.price > 0 ? String(svc.price) : ''}
+                              onChangeText={v => updateServicePrice(i, v)}
+                              placeholder="0"
+                              placeholderTextColor="#9CA3AF"
+                              keyboardType="number-pad"
+                            />
+                          </View>
+                          <View style={s.qtyRow}>
+                            <TouchableOpacity style={s.qtyBtn} onPress={() => updateQty(i, -1)} activeOpacity={0.8}>
+                              <Minus size={12} color={TEXT} strokeWidth={2.5} />
+                            </TouchableOpacity>
+                            <Text style={s.qtyVal}>{svc.qty}</Text>
+                            <TouchableOpacity style={s.qtyBtn} onPress={() => updateQty(i, 1)} activeOpacity={0.8}>
+                              <Plus size={12} color={TEXT} strokeWidth={2.5} />
+                            </TouchableOpacity>
+                          </View>
+                          <Text style={s.svcTotal}>{formatCurrency(svc.price * svc.qty)}</Text>
+                        </View>
+                      </View>
+                      {i < services.length - 1 && <View style={s.svcDivider} />}
+                    </View>
+                  ))}
+                  <View style={s.svcSummary}>
+                    <Text style={s.svcSummaryLabel}>Services Total</Text>
+                    <Text style={s.svcSummaryValue}>{formatCurrency(servicesTotal)}</Text>
+                  </View>
+                </SectionCard>
+              )}
+            </>
+          )}
+
+          {/* ═══════ STEP 3 — Labour & Technician ═══════ */}
+          {step === 3 && (
+            <>
+              {createError && (
+                <View style={s.errBanner}>
+                  <AlertCircle size={14} color={DANGER} strokeWidth={2} />
+                  <Text style={s.errBannerText}>{createError}</Text>
                 </View>
               )}
-              {beforePhotos.length > 0 && (
-                <Text style={styles.photoCount}>{beforePhotos.length} photo{beforePhotos.length > 1 ? 's' : ''} added</Text>
-              )}
-            </StepCard>
 
-            {/* Documents */}
-            <StepCard icon="file-text" title="Attach Documents" iconBg="#FFF7ED" iconFg={WARN}>
-              <Text style={styles.docHint}>RC Book, Insurance, Previous Service Records, etc.</Text>
-              <TouchableOpacity style={styles.docPickBtn} onPress={pickDocument} activeOpacity={0.85}>
-                <Feather name="upload" size={15} color={PRIMARY} />
-                <Text style={styles.docPickText}>Select from Gallery</Text>
-              </TouchableOpacity>
+              <SectionCard title="Assign Technician" iconBg="#EDE9FE" Icon={Users} iconColor="#7C3AED">
+                {mockTechs.map(t => (
+                  <TouchableOpacity
+                    key={t.id}
+                    style={[s.techCard, selectedTechId === t.id && s.techCardActive]}
+                    onPress={() => { setSelectedTechId(t.id); setSelectedTechName(t.name); clearFieldError('technician'); }}
+                    activeOpacity={0.85}
+                  >
+                    <View style={[s.techAvatar, selectedTechId === t.id && { backgroundColor: PRIMARY }]}>
+                      <Text style={[s.techAvatarText, selectedTechId === t.id && { color: '#fff' }]}>
+                        {t.name.charAt(0)}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.techName}>{t.name}</Text>
+                      <Text style={s.techRole}>{t.role}</Text>
+                    </View>
+                    <View style={[s.availBadge, { backgroundColor: t.available ? '#ECFDF5' : '#FEF2F2' }]}>
+                      <View style={[s.availDot, { backgroundColor: t.available ? SUCCESS : DANGER }]} />
+                      <Text style={[s.availText, { color: t.available ? SUCCESS : DANGER }]}>
+                        {t.available ? 'Available' : 'Busy'}
+                      </Text>
+                    </View>
+                    {selectedTechId === t.id && (
+                      <CheckCircle size={18} color={PRIMARY} strokeWidth={2} style={{ marginLeft: 6 }} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </SectionCard>
 
-              {documents.length > 0 && (
-                <View style={styles.docList}>
-                  {documents.map((d, i) => (
-                    <View key={i} style={styles.docItem}>
-                      <View style={styles.docIcon}>
-                        <Feather name="file" size={14} color={PRIMARY} />
+              <SectionCard title="Labour Details" iconBg="#FEF3C7" Icon={Clock} iconColor={WARN}>
+                <View style={s.twoCol}>
+                  <View style={{ flex: 1 }}>
+                    <InlineInput
+                      label="Est. Hours"
+                      value={estHours}
+                      onChangeText={setEstHours}
+                      placeholder="2"
+                      keyboardType="number-pad"
+                      Icon={Clock}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <InlineInput
+                      label="Labour Charge (₹)"
+                      value={labourCharge}
+                      onChangeText={setLabourCharge}
+                      placeholder="500"
+                      keyboardType="number-pad"
+                      Icon={Hash}
+                    />
+                  </View>
+                </View>
+              </SectionCard>
+
+              <SectionCard title="Expected Delivery" iconBg="#FFF7ED" Icon={Calendar} iconColor="#F97316">
+                <View style={s.twoCol}>
+                  <TouchableOpacity style={s.pickerBtn} onPress={() => setShowDatePicker(true)} activeOpacity={0.8}>
+                    <View style={s.pickerIconWrap}>
+                      <Calendar size={16} color={PRIMARY} strokeWidth={2} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.pickerLabel}>DATE</Text>
+                      <Text style={[s.pickerVal, !deliveryDate && s.pickerPlaceholder]}>
+                        {deliveryDate
+                          ? deliveryDate.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' })
+                          : 'Select date'}
+                      </Text>
+                    </View>
+                    <ChevronDown size={14} color={MUTED} strokeWidth={2} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={s.pickerBtn} onPress={() => setShowTimePicker(true)} activeOpacity={0.8}>
+                    <View style={s.pickerIconWrap}>
+                      <Clock size={16} color={PRIMARY} strokeWidth={2} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.pickerLabel}>TIME</Text>
+                      <Text style={[s.pickerVal, !deliveryTime && s.pickerPlaceholder]}>
+                        {deliveryTime
+                          ? deliveryTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+                          : 'Select time'}
+                      </Text>
+                    </View>
+                    <ChevronDown size={14} color={MUTED} strokeWidth={2} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Android native pickers */}
+                {Platform.OS === 'android' && showDatePicker && (
+                  <DateTimePicker value={deliveryDate ?? new Date()} mode="date" minimumDate={new Date()} display="calendar"
+                    onChange={(_: DateTimePickerEvent, date?: Date) => { setShowDatePicker(false); if (date) setDeliveryDate(date); }} />
+                )}
+                {Platform.OS === 'android' && showTimePicker && (
+                  <DateTimePicker value={deliveryTime ?? new Date()} mode="time" is24Hour={false} display="clock"
+                    onChange={(_: DateTimePickerEvent, date?: Date) => { setShowTimePicker(false); if (date) setDeliveryTime(date); }} />
+                )}
+
+                {/* iOS Modal picker */}
+                <Modal visible={Platform.OS === 'ios' && (showDatePicker || showTimePicker)} transparent animationType="slide">
+                  <View style={s.pickerModal}>
+                    <View style={s.pickerSheet}>
+                      <View style={s.pickerSheetHeader}>
+                        <Text style={s.pickerSheetTitle}>{showDatePicker ? 'Select Date' : 'Select Time'}</Text>
+                        <TouchableOpacity onPress={() => { setShowDatePicker(false); setShowTimePicker(false); }}>
+                          <Text style={s.pickerDone}>Done</Text>
+                        </TouchableOpacity>
                       </View>
-                      <Text style={styles.docName} numberOfLines={1}>{d.name}</Text>
-                      <TouchableOpacity
-                        onPress={() => removeDocument(i)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Feather name="x-circle" size={16} color={DANGER + 'AA'} />
-                      </TouchableOpacity>
+                      {showDatePicker && (
+                        <DateTimePicker value={deliveryDate ?? new Date()} mode="date" minimumDate={new Date()} display="inline"
+                          themeVariant="light" accentColor={PRIMARY} style={{ alignSelf: 'center' }}
+                          onChange={(_: DateTimePickerEvent, date?: Date) => { if (date) setDeliveryDate(date); }} />
+                      )}
+                      {showTimePicker && (
+                        <DateTimePicker value={deliveryTime ?? new Date()} mode="time" is24Hour={false} display="spinner"
+                          themeVariant="light" accentColor={PRIMARY} style={{ alignSelf: 'center' }}
+                          onChange={(_: DateTimePickerEvent, date?: Date) => { if (date) setDeliveryTime(date); }} />
+                      )}
+                    </View>
+                  </View>
+                </Modal>
+
+                <Text style={[s.areaLabel, { marginTop: 4 }]}>ADDITIONAL NOTES</Text>
+                <View style={[s.areaWrap, { marginBottom: 0 }]}>
+                  <TextInput
+                    style={[s.area, { minHeight: 80 }]}
+                    value={additionalNotes}
+                    onChangeText={setAdditionalNotes}
+                    placeholder="Special instructions for the technician…"
+                    placeholderTextColor="#9CA3AF"
+                    multiline numberOfLines={3}
+                    textAlignVertical="top"
+                  />
+                </View>
+              </SectionCard>
+            </>
+          )}
+
+          {/* ═══════ STEP 4 — Job Progress ═══════ */}
+          {step === 4 && (
+            <SectionCard title="Job Timeline" iconBg="#F0FDF4" Icon={Activity} iconColor={SUCCESS}>
+              {[
+                { label: 'Job Created',         desc: 'Job card successfully created',  done: true  },
+                { label: 'Technician Assigned', desc: selectedTechName || '—',          done: !!selectedTechId },
+                { label: 'Work Started',        desc: 'Vehicle under service',          current: true },
+                { label: 'Quality Check',       desc: '',                               done: false },
+                { label: 'Ready for Delivery',  desc: '',                               done: false },
+                { label: 'Completed',           desc: '',                               done: false },
+              ].map((item, i, arr) => (
+                <View key={i} style={s.tlRow}>
+                  <View style={s.tlLeft}>
+                    <View style={[
+                      s.tlCircle,
+                      (item as any).done    && s.tlCircleDone,
+                      (item as any).current && s.tlCircleCurrent,
+                    ]}>
+                      {(item as any).done
+                        ? <Check size={11} color="#fff" strokeWidth={3} />
+                        : (item as any).current
+                          ? <View style={s.tlPulse} />
+                          : <Text style={s.tlNum}>{i + 1}</Text>
+                      }
+                    </View>
+                    {i < arr.length - 1 && <View style={[s.tlLine, (item as any).done && s.tlLineDone]} />}
+                  </View>
+                  <View style={s.tlContent}>
+                    <Text style={[s.tlLabel, !(item as any).done && !(item as any).current && { color: MUTED }]}>
+                      {item.label}
+                    </Text>
+                    {item.desc ? <Text style={s.tlDesc}>{item.desc}</Text> : null}
+                    {(item as any).current && (
+                      <View style={s.tlBadge}>
+                        <View style={s.tlBadgeDot} />
+                        <Text style={s.tlBadgeText}>In Progress</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </SectionCard>
+          )}
+
+          {/* ═══════ STEP 5 — Invoice ═══════ */}
+          {step === 5 && (
+            <>
+              <LinearGradient
+                colors={['#921527', '#C41E3A', '#E11D48']}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={s.invoiceHero}
+              >
+                <View style={s.invoiceCircle} />
+                <View style={s.invoiceHeroTop}>
+                  <View>
+                    <Text style={s.invBrand}>GoFixCarz</Text>
+                    <Text style={s.invTag}>Smart Garage Management</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={s.invNumLabel}>INVOICE</Text>
+                    <Text style={s.invNum}>{invoiceNum}</Text>
+                  </View>
+                </View>
+                <View style={s.invMeta}>
+                  {[[User, customerName || '—'], [Hash, regNumber || '—'], [Calendar, new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })]].map(([Icon, val], i) => (
+                    <View key={i} style={s.invMetaRow}>
+                      {React.createElement(Icon as any, { size: 11, color: 'rgba(255,255,255,0.7)', strokeWidth: 2 })}
+                      <Text style={s.invMetaText}>{val as string}</Text>
                     </View>
                   ))}
                 </View>
-              )}
-              {documents.length === 0 && (
-                <Text style={styles.docEmpty}>No documents attached</Text>
-              )}
-            </StepCard>
-          </>
-        )}
+              </LinearGradient>
 
-        {/* ═══════════════════════════════════════════════════════ */}
-        {/* STEP 2 — Services                                      */}
-        {/* ═══════════════════════════════════════════════════════ */}
-        {step === 2 && (
-          <>
-            {errors.services && (
-              <View style={styles.stepErrorBanner}>
-                <Feather name="alert-circle" size={14} color={DANGER} />
-                <Text style={styles.stepErrorText}>{errors.services}</Text>
-              </View>
-            )}
-            <StepCard icon="tool" title="Add Services">
-              <View style={styles.serviceSearchRow}>
-                <View style={styles.serviceSearchInput}>
-                  <Feather name="search" size={15} color={MUTED} />
-                  <TextInput
-                    style={styles.serviceSearchText}
-                    value={serviceSearch}
-                    onChangeText={setServiceSearch}
-                    placeholder="Search or type a service…"
-                    placeholderTextColor="#94A3B8"
-                    onSubmitEditing={addService}
-                    returnKeyType="done"
-                  />
-                </View>
-                <TouchableOpacity style={styles.addServiceBtn} onPress={addService} activeOpacity={0.85}>
-                  <Feather name="plus" size={18} color="#fff" />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.suggestLabel}>Quick add</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
-              >
-                {['Oil Change', 'AC Service', 'Wheel Alignment', 'Brake Service', 'Battery Check'].map(s => (
-                  <TouchableOpacity
-                    key={s}
-                    style={styles.suggestChip}
-                    onPress={() => {
-                      setServices(prev => [...prev, { name: s, price: 0, qty: 1 }]);
-                      clearFieldError('services');
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Feather name="plus" size={11} color={PRIMARY} />
-                    <Text style={styles.suggestChipText}>{s}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </StepCard>
-
-            {services.length > 0 && (
-              <StepCard icon="list" title={`Services Added (${services.length})`} iconBg="#F0FDF4" iconFg={SUCCESS}>
-                {services.map((svc, i) => (
-                  <View key={i} style={[styles.serviceItem, i < services.length - 1 && { marginBottom: 12 }]}>
-                    <View style={styles.serviceTop}>
-                      <View style={styles.serviceIconDot}>
-                        <Feather name="tool" size={12} color={PRIMARY} />
-                      </View>
-                      <Text style={styles.serviceItemName} numberOfLines={1}>{svc.name}</Text>
-                      <TouchableOpacity onPress={() => removeService(i)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <Feather name="trash-2" size={14} color={DANGER + 'AA'} />
-                      </TouchableOpacity>
+              {services.length > 0 && (
+                <SectionCard title="Services" iconBg="#FEE2E2" Icon={Wrench} iconColor={PRIMARY}>
+                  {services.map((sv, i) => (
+                    <View key={i} style={[s.lineItem, i < services.length - 1 && { marginBottom: 12 }]}>
+                      <Text style={s.lineItemName}>{sv.name}{sv.qty > 1 ? ` ×${sv.qty}` : ''}</Text>
+                      <Text style={s.lineItemAmt}>{formatCurrency(sv.price * sv.qty)}</Text>
                     </View>
-                    <View style={styles.serviceBottom}>
-                      <View style={styles.priceInputWrap}>
-                        <Text style={styles.priceRupee}>₹</Text>
-                        <TextInput
-                          style={styles.priceInput}
-                          value={svc.price > 0 ? String(svc.price) : ''}
-                          onChangeText={v => updateServicePrice(i, v)}
-                          placeholder="0"
-                          placeholderTextColor="#94A3B8"
-                          keyboardType="number-pad"
-                        />
-                      </View>
-                      <View style={styles.qtyRow}>
-                        <TouchableOpacity style={styles.qtyBtn} onPress={() => updateQty(i, -1)} activeOpacity={0.8}>
-                          <Feather name="minus" size={12} color={TEXT} />
-                        </TouchableOpacity>
-                        <Text style={styles.qtyValue}>{svc.qty}</Text>
-                        <TouchableOpacity style={styles.qtyBtn} onPress={() => updateQty(i, 1)} activeOpacity={0.8}>
-                          <Feather name="plus" size={12} color={TEXT} />
-                        </TouchableOpacity>
-                      </View>
-                      <Text style={styles.serviceRowTotal}>{formatCurrency(svc.price * svc.qty)}</Text>
-                    </View>
-                    {i < services.length - 1 && <View style={styles.serviceDivider} />}
+                  ))}
+                </SectionCard>
+              )}
+
+              {labourTotal > 0 && (
+                <SectionCard title="Labour" iconBg="#EDE9FE" Icon={Users} iconColor="#7C3AED">
+                  <View style={s.lineItem}>
+                    <Text style={s.lineItemName}>Labour Charge{estHours ? ` (${estHours}h)` : ''}</Text>
+                    <Text style={s.lineItemAmt}>{formatCurrency(labourTotal)}</Text>
+                  </View>
+                </SectionCard>
+              )}
+
+              <View style={s.totalsCard}>
+                {(
+                  [
+                    ['Services', servicesTotal] as [string, number],
+                    labourTotal > 0 ? (['Labour', labourTotal] as [string, number]) : null,
+                    ['Subtotal', subtotal] as [string, number],
+                    ['GST (18%)', gst] as [string, number],
+                  ].filter((r): r is [string, number] => r !== null)
+                ).map(([label, val], i) => (
+                  <View key={i} style={s.totalRow}>
+                    <Text style={s.totalLabel}>{label}</Text>
+                    <Text style={s.totalVal}>{formatCurrency(val)}</Text>
                   </View>
                 ))}
-                <View style={styles.servicesSummary}>
-                  <Text style={styles.servicesSummaryLabel}>Services Total</Text>
-                  <Text style={styles.servicesSummaryValue}>{formatCurrency(servicesTotal)}</Text>
-                </View>
-              </StepCard>
-            )}
-          </>
-        )}
-
-        {/* ═══════════════════════════════════════════════════════ */}
-        {/* STEP 3 — Labour & Technician                           */}
-        {/* ═══════════════════════════════════════════════════════ */}
-        {step === 3 && (
-          <>
-            {createError && (
-              <View style={styles.stepErrorBanner}>
-                <Feather name="alert-circle" size={14} color={DANGER} />
-                <Text style={styles.stepErrorText}>{createError}</Text>
-              </View>
-            )}
-            <StepCard icon="users" title="Assign Technician" iconBg="#F5F3FF" iconFg="#C41E3A">
-              {mockTechs.map(t => (
-                <TouchableOpacity
-                  key={t.id}
-                  style={[
-                    styles.techCard,
-                    selectedTechId === t.id && styles.techCardActive,
-                    errors.technician && !selectedTechId && styles.techCardError,
-                  ]}
-                  onPress={() => {
-                    setSelectedTechId(t.id);
-                    setSelectedTechName(t.name);
-                    clearFieldError('technician');
-                  }}
-                  activeOpacity={0.85}
-                >
-                  <View style={[styles.techAvatar, selectedTechId === t.id && { backgroundColor: PRIMARY }]}>
-                    <Text style={[styles.techAvatarText, selectedTechId === t.id && { color: '#fff' }]}>
-                      {t.name.charAt(0)}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.techName}>{t.name}</Text>
-                    <Text style={styles.techRole}>{t.role}</Text>
-                  </View>
-                  <View style={[styles.availBadge, { backgroundColor: t.available ? '#ECFDF5' : '#FEF2F2' }]}>
-                    <View style={[styles.availDot, { backgroundColor: t.available ? SUCCESS : DANGER }]} />
-                    <Text style={[styles.availText, { color: t.available ? SUCCESS : DANGER }]}>
-                      {t.available ? 'Free' : 'Busy'}
-                    </Text>
-                  </View>
-                  {selectedTechId === t.id && (
-                    <View style={styles.techCheckWrap}>
-                      <Feather name="check-circle" size={18} color={PRIMARY} />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </StepCard>
-
-            <StepCard icon="clock" title="Labour Details">
-              <View style={styles.row}>
-                <View style={{ flex: 1 }}>
-                  <InputField
-                    label="Est. Hours"
-                    value={estHours}
-                    onChangeText={setEstHours}
-                    placeholder="2"
-                    keyboardType="number-pad"
-                    leadingIcon="clock"
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <InputField
-                    label="Labour Charge"
-                    value={labourCharge}
-                    onChangeText={setLabourCharge}
-                    placeholder="₹ 500"
-                    keyboardType="number-pad"
-                    leadingIcon="dollar-sign"
-                  />
+                <View style={s.grandRow}>
+                  <Text style={s.grandLabel}>Grand Total</Text>
+                  <Text style={s.grandVal}>{formatCurrency(grandTotal)}</Text>
                 </View>
               </View>
-            </StepCard>
 
-            <StepCard icon="calendar" title="Expected Delivery" iconBg="#FFF7ED" iconFg="#F97316">
-              {/* Date + Time picker buttons */}
-              <View style={styles.row}>
-                {/* Date */}
+              <View style={s.invoiceActions}>
                 <TouchableOpacity
-                  style={styles.pickerBtn}
-                  onPress={() => setShowDatePicker(true)}
-                  activeOpacity={0.8}
+                  style={[s.invoiceActionBtn, pdfLoading === 'download' && { opacity: 0.6 }]}
+                  onPress={handleDownloadPdf} disabled={!!pdfLoading} activeOpacity={0.8}
                 >
-                  <View style={styles.pickerBtnIcon}>
-                    <Feather name="calendar" size={17} color={PRIMARY} />
+                  <View style={[s.invActionIcon, { backgroundColor: '#FEE2E2' }]}>
+                    {pdfLoading === 'download'
+                      ? <ActivityIndicator size="small" color={PRIMARY} />
+                      : <Download size={16} color={PRIMARY} strokeWidth={2} />}
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.pickerBtnLabel}>Date</Text>
-                    <Text style={[styles.pickerBtnValue, !deliveryDate && styles.pickerBtnPlaceholder]}>
-                      {deliveryDate
-                        ? deliveryDate.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })
-                        : 'Select date'}
-                    </Text>
-                  </View>
-                  <Feather name="chevron-down" size={15} color={MUTED} />
+                  <Text style={s.invActionText}>Download PDF</Text>
                 </TouchableOpacity>
-
-                {/* Time */}
                 <TouchableOpacity
-                  style={styles.pickerBtn}
-                  onPress={() => setShowTimePicker(true)}
-                  activeOpacity={0.8}
+                  style={[s.invoiceActionBtn, pdfLoading === 'share' && { opacity: 0.6 }]}
+                  onPress={handleSharePdf} disabled={!!pdfLoading} activeOpacity={0.8}
                 >
-                  <View style={styles.pickerBtnIcon}>
-                    <Feather name="clock" size={17} color={PRIMARY} />
+                  <View style={[s.invActionIcon, { backgroundColor: '#ECFDF5' }]}>
+                    {pdfLoading === 'share'
+                      ? <ActivityIndicator size="small" color={SUCCESS} />
+                      : <Share2 size={16} color={SUCCESS} strokeWidth={2} />}
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.pickerBtnLabel}>Time</Text>
-                    <Text style={[styles.pickerBtnValue, !deliveryTime && styles.pickerBtnPlaceholder]}>
-                      {deliveryTime
-                        ? deliveryTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
-                        : 'Select time'}
-                    </Text>
-                  </View>
-                  <Feather name="chevron-down" size={15} color={MUTED} />
+                  <Text style={s.invActionText}>Share Invoice</Text>
                 </TouchableOpacity>
               </View>
+            </>
+          )}
 
-              {/* Android: renders as a native dialog — no Modal needed */}
-              {Platform.OS === 'android' && showDatePicker && (
-                <DateTimePicker
-                  value={deliveryDate ?? new Date()}
-                  mode="date"
-                  minimumDate={new Date()}
-                  display="calendar"
-                  onChange={(_: DateTimePickerEvent, date?: Date) => {
-                    setShowDatePicker(false);
-                    if (date) setDeliveryDate(date);
-                  }}
-                />
-              )}
-              {Platform.OS === 'android' && showTimePicker && (
-                <DateTimePicker
-                  value={deliveryTime ?? new Date()}
-                  mode="time"
-                  is24Hour={false}
-                  display="clock"
-                  onChange={(_: DateTimePickerEvent, date?: Date) => {
-                    setShowTimePicker(false);
-                    if (date) setDeliveryTime(date);
-                  }}
-                />
-              )}
-
-              {/* iOS: inline spinner — wrap in Modal with Done button */}
-              <Modal visible={Platform.OS === 'ios' && (showDatePicker || showTimePicker)} transparent animationType="slide">
-                <View style={styles.pickerModal}>
-                  <View style={styles.pickerModalSheet}>
-                    <View style={styles.pickerModalHeader}>
-                      <Text style={styles.pickerModalTitle}>
-                        {showDatePicker ? 'Select Date' : 'Select Time'}
-                      </Text>
-                      <TouchableOpacity onPress={() => { setShowDatePicker(false); setShowTimePicker(false); }}>
-                        <Text style={styles.pickerModalDone}>Done</Text>
-                      </TouchableOpacity>
-                    </View>
-                    {showDatePicker && (
-                      <DateTimePicker
-                        value={deliveryDate ?? new Date()}
-                        mode="date"
-                        minimumDate={new Date()}
-                        display="inline"
-                        themeVariant="light"
-                        accentColor={PRIMARY}
-                        onChange={(_: DateTimePickerEvent, date?: Date) => {
-                          if (date) setDeliveryDate(date);
-                        }}
-                        style={{ alignSelf: 'center' }}
-                      />
-                    )}
-                    {showTimePicker && (
-                      <DateTimePicker
-                        value={deliveryTime ?? new Date()}
-                        mode="time"
-                        is24Hour={false}
-                        display="spinner"
-                        themeVariant="light"
-                        accentColor={PRIMARY}
-                        onChange={(_: DateTimePickerEvent, date?: Date) => {
-                          if (date) setDeliveryTime(date);
-                        }}
-                        style={{ alignSelf: 'center' }}
-                      />
-                    )}
-                  </View>
-                </View>
-              </Modal>
-
-              <FieldLabel text="Additional Notes" />
-              <View style={[styles.textAreaWrap, { marginBottom: 0 }]}>
-                <TextInput
-                  style={[styles.textArea, { minHeight: 72 }]}
-                  value={additionalNotes}
-                  onChangeText={setAdditionalNotes}
-                  placeholder="Special instructions for the technician…"
-                  placeholderTextColor="#94A3B8"
-                  multiline numberOfLines={3}
-                  textAlignVertical="top"
-                />
-              </View>
-            </StepCard>
-          </>
-        )}
-
-        {/* ═══════════════════════════════════════════════════════ */}
-        {/* STEP 4 — Job Progress                                  */}
-        {/* ═══════════════════════════════════════════════════════ */}
-        {step === 4 && (
-          <>
-            <StepCard icon="activity" title="Job Timeline" iconBg="#F0FDF4" iconFg={SUCCESS}>
-              {[
-                { label: 'Job Created',         desc: 'Job card successfully created', done: true  },
-                { label: 'Technician Assigned', desc: selectedTechName || '—',         done: !!selectedTechId },
-                { label: 'Work Started',        desc: 'Vehicle under service',         current: true },
-                { label: 'Quality Check',       desc: '',                              done: false },
-                { label: 'Ready for Delivery',  desc: '',                              done: false },
-                { label: 'Completed',           desc: '',                              done: false },
-              ].map((item, i, arr) => (
-                <View key={i} style={styles.timelineRow}>
-                  <View style={styles.timelineLeft}>
-                    <View style={[
-                      styles.timelineCircle,
-                      (item as any).done    && styles.timelineCircleDone,
-                      (item as any).current && styles.timelineCircleCurrent,
-                    ]}>
-                      {(item as any).done
-                        ? <Feather name="check" size={11} color="#fff" />
-                        : (item as any).current
-                          ? <View style={styles.timelinePulse} />
-                          : <Text style={styles.timelineNum}>{i + 1}</Text>
-                      }
-                    </View>
-                    {i < arr.length - 1 && (
-                      <View style={[styles.timelineLine, (item as any).done && styles.timelineLineDone]} />
-                    )}
-                  </View>
-                  <View style={styles.timelineContent}>
-                    <Text style={[
-                      styles.timelineLabel,
-                      !(item as any).done && !(item as any).current && { color: MUTED },
-                    ]}>
-                      {item.label}
-                    </Text>
-                    {item.desc ? <Text style={styles.timelineDesc}>{item.desc}</Text> : null}
-                    {(item as any).current && (
-                      <View style={styles.currentBadge}>
-                        <View style={styles.currentDot} />
-                        <Text style={styles.currentBadgeText}>In Progress</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              ))}
-            </StepCard>
-
-          </>
-        )}
-
-        {/* ═══════════════════════════════════════════════════════ */}
-        {/* STEP 5 — Final Invoice                                 */}
-        {/* ═══════════════════════════════════════════════════════ */}
-        {step === 5 && (
-          <>
-            <LinearGradient
-              colors={['#921527', '#C41E3A', '#E11D48']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.invoiceHero}
-            >
-              <View style={styles.invoiceHeroCircle} />
-              <View style={styles.invoiceHeroTop}>
-                <View>
-                  <Text style={styles.invoiceBrand}>GoFixCarz</Text>
-                  <Text style={styles.invoiceTagline}>Smart Garage Management</Text>
-                </View>
-                <View style={styles.invoiceNumWrap}>
-                  <Text style={styles.invoiceNumLabel}>INVOICE</Text>
-                  <Text style={styles.invoiceNum}>{invoiceNum}</Text>
-                </View>
-              </View>
-              <View style={styles.invoiceMeta}>
-                <View style={styles.invoiceMetaRow}>
-                  <Feather name="user"     size={11} color="rgba(255,255,255,0.7)" />
-                  <Text style={styles.invoiceMetaText}>{customerName || '—'}</Text>
-                </View>
-                <View style={styles.invoiceMetaRow}>
-                  <Feather name="hash"     size={11} color="rgba(255,255,255,0.7)" />
-                  <Text style={styles.invoiceMetaText}>{regNumber || '—'}</Text>
-                </View>
-                <View style={styles.invoiceMetaRow}>
-                  <Feather name="calendar" size={11} color="rgba(255,255,255,0.7)" />
-                  <Text style={styles.invoiceMetaText}>
-                    {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                  </Text>
-                </View>
-              </View>
-            </LinearGradient>
-
-            {services.length > 0 && (
-              <StepCard icon="tool" title="Services">
-                {services.map((s, i) => (
-                  <View key={i} style={[styles.lineItem, i < services.length - 1 && { marginBottom: 10 }]}>
-                    <Text style={styles.lineItemName}>{s.name} {s.qty > 1 ? `×${s.qty}` : ''}</Text>
-                    <Text style={styles.lineItemAmt}>{formatCurrency(s.price * s.qty)}</Text>
-                  </View>
-                ))}
-              </StepCard>
-            )}
-
-            {labourTotal > 0 && (
-              <StepCard icon="users" title="Labour" iconBg="#F5F3FF" iconFg="#C41E3A">
-                <View style={styles.lineItem}>
-                  <Text style={styles.lineItemName}>Labour Charge{estHours ? ` (${estHours}h)` : ''}</Text>
-                  <Text style={styles.lineItemAmt}>{formatCurrency(labourTotal)}</Text>
-                </View>
-              </StepCard>
-            )}
-
-            <View style={styles.totalsCard}>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalRowLabel}>Services</Text>
-                <Text style={styles.totalRowValue}>{formatCurrency(servicesTotal)}</Text>
-              </View>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalRowLabel}>Labour</Text>
-                <Text style={styles.totalRowValue}>{formatCurrency(labourTotal)}</Text>
-              </View>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalRowLabel}>Subtotal</Text>
-                <Text style={styles.totalRowValue}>{formatCurrency(subtotal)}</Text>
-              </View>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalRowLabel}>GST (18%)</Text>
-                <Text style={styles.totalRowValue}>{formatCurrency(gst)}</Text>
-              </View>
-              <View style={styles.grandTotalRow}>
-                <Text style={styles.grandTotalLabel}>Grand Total</Text>
-                <Text style={styles.grandTotalValue}>{formatCurrency(grandTotal)}</Text>
-              </View>
-            </View>
-
-            <View style={styles.invoiceActions}>
-              <TouchableOpacity
-                style={[styles.invoiceActionBtn, pdfLoading === 'download' && { opacity: 0.6 }]}
-                onPress={handleDownloadPdf}
-                disabled={!!pdfLoading}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.invoiceActionIcon, { backgroundColor: '#FEE2E2' }]}>
-                  {pdfLoading === 'download'
-                    ? <ActivityIndicator size="small" color={PRIMARY} />
-                    : <Feather name="download" size={16} color={PRIMARY} />}
-                </View>
-                <Text style={styles.invoiceActionText}>Download PDF</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.invoiceActionBtn, pdfLoading === 'share' && { opacity: 0.6 }]}
-                onPress={handleSharePdf}
-                disabled={!!pdfLoading}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.invoiceActionIcon, { backgroundColor: '#F0FDF4' }]}>
-                  {pdfLoading === 'share'
-                    ? <ActivityIndicator size="small" color={SUCCESS} />
-                    : <Feather name="share-2" size={16} color={SUCCESS} />}
-                </View>
-                <Text style={styles.invoiceActionText}>Share Invoice</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-
-      </ScrollView>
+        </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* ── Sticky Footer — in normal flex flow, always above the tab bar ── */}
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      {/* ── Footer ── */}
+      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <TouchableOpacity
-          style={[styles.footerBack, step === 0 && styles.footerBackDisabled]}
+          style={[s.footerBack, step === 0 && { opacity: 0.35 }]}
           onPress={handleBack}
           activeOpacity={0.8}
         >
-          <Feather name="arrow-left" size={16} color={step === 0 ? '#CBD5E1' : TEXT} />
-          <Text style={[styles.footerBackText, step === 0 && { color: '#CBD5E1' }]}>Back</Text>
+          <ArrowLeft size={16} color={step === 0 ? '#9CA3AF' : TEXT} strokeWidth={2.5} />
+          <Text style={[s.footerBackText, step === 0 && { color: '#9CA3AF' }]}>Back</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[
-            styles.footerNext,
-            isPending && { opacity: 0.65 },
-            step === 5 && { backgroundColor: SUCCESS },
-          ]}
+          style={[s.footerNext, isPending && { opacity: 0.65 }, step === 5 && { backgroundColor: SUCCESS }]}
           onPress={step === 5 ? () => router.replace('/(tabs)/jobs') : handleNext}
           disabled={isPending}
           activeOpacity={0.85}
         >
-          {isPending
-            ? <ActivityIndicator color="#fff" />
-            : (
-              <>
-                <Text style={styles.footerNextText}>{nextLabel}</Text>
-                {step < 5 && <Feather name="arrow-right" size={16} color="#fff" />}
-                {step === 5 && <Feather name="check" size={16} color="#fff" />}
-              </>
-            )
-          }
+          {isPending ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Text style={s.footerNextText}>{nextLabel}</Text>
+              {step < 5 && <ArrowRight size={16} color="#fff" strokeWidth={2.5} />}
+              {step === 5 && <Check size={16} color="#fff" strokeWidth={2.5} />}
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+/* ─────────────────────────── Styles ─────────────────────────── */
+const s = StyleSheet.create({
   root: { flex: 1 },
 
-  /* ── Header ───────────────────────────────────────────── */
-  topBar: {
-    backgroundColor: HEADER_BG,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  /* Header */
+  header: {
+    backgroundColor: '#fff', paddingHorizontal: 16, paddingBottom: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
   },
   backBtn: {
-    width: 36, height: 36, borderRadius: 9,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
+    width: 38, height: 38, borderRadius: 10, backgroundColor: '#F3F4F6',
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  topBarCenter: { flex: 1, alignItems: 'center' },
-  topBarTitle: { fontSize: 15, fontWeight: '700', color: TEXT, letterSpacing: -0.2 },
-  topBarSub:   { fontSize: 11, color: MUTED, marginTop: 1 },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerTitle:  { fontSize: 16, fontWeight: '700', color: TEXT, letterSpacing: -0.3 },
+  headerSub:    { fontSize: 11, color: MUTED, marginTop: 2 },
   stepBadge: {
-    minWidth: 36, height: 24,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 8, flexShrink: 0,
+    minWidth: 38, height: 26, backgroundColor: '#F3F4F6', borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, flexShrink: 0,
   },
   stepBadgeText: { fontSize: 12, fontWeight: '700', color: TEXT },
   stepBadgeOf:   { fontSize: 10, fontWeight: '500', color: MUTED },
 
-  /* ── Segmented progress bar ───────────────────────────── */
-  segmentBar: {
-    flexDirection: 'row',
-    gap: 3,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    backgroundColor: HEADER_BG,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: BORDER,
-  },
-  segment: {
-    flex: 1, height: 3, borderRadius: 2,
-    backgroundColor: '#E5E7EB',
-  },
-  segmentDone:   { backgroundColor: SUCCESS },
-  segmentActive: { backgroundColor: PRIMARY },
+  /* Progress */
+  progressBar: { flexDirection: 'row', gap: 3, paddingHorizontal: 16, backgroundColor: '#fff' },
+  seg:         { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB' },
+  segDone:     { backgroundColor: SUCCESS },
+  segActive:   { backgroundColor: PRIMARY },
 
-  /* ── Body ─────────────────────────────────────────────── */
-  body: { padding: 14 },
+  /* Step labels */
+  stepLabels: {
+    flexDirection: 'row', paddingHorizontal: 16, paddingTop: 7, paddingBottom: 11,
+    backgroundColor: '#fff', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER,
+  },
+  stepLabel:       { flex: 1, fontSize: 9, color: '#D1D5DB', textAlign: 'center', fontWeight: '600' },
+  stepLabelActive: { color: PRIMARY },
 
-  /* ── Field label / error ──────────────────────────────── */
-  fieldLabel: {
-    fontSize: 11, fontWeight: '700', color: MUTED,
-    letterSpacing: 0.5, marginBottom: 6, textTransform: 'uppercase',
-  },
-  fieldError: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    marginTop: -4, marginBottom: 10,
-  },
-  fieldErrorText: { fontSize: 11.5, color: DANGER, flex: 1 },
+  /* Body */
+  body: { padding: 16 },
 
-  /* ── Step-level error banner ──────────────────────────── */
-  stepErrorBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#FEF2F2', borderRadius: 10,
-    borderWidth: 1, borderColor: '#FCA5A5',
-    padding: 12, marginBottom: 12,
-  },
-  stepErrorText: { fontSize: 12.5, color: DANGER, fontWeight: '500', flex: 1 },
-
-  /* ── Row ──────────────────────────────────────────────── */
-  row: { flexDirection: 'row', gap: 10 },
-
-  /* ── Date / Time picker buttons ───────────────────────── */
-  pickerBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: CARD, borderRadius: 10,
-    borderWidth: 1, borderColor: BORDER,
-    paddingHorizontal: 12, paddingVertical: 12, marginBottom: 12,
-  },
-  pickerBtnIcon: {
-    width: 34, height: 34, borderRadius: 9,
-    backgroundColor: '#FEF2F2',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  pickerBtnLabel:       { fontSize: 10, color: MUTED, fontWeight: '600', marginBottom: 2, letterSpacing: 0.3 },
-  pickerBtnValue:       { fontSize: 13, fontWeight: '600', color: TEXT },
-  pickerBtnPlaceholder: { color: '#9CA3AF', fontWeight: '400' },
-
-  /* ── iOS picker modal ─────────────────────────────────── */
-  pickerModal: {
-    flex: 1, justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  pickerModalSheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    paddingBottom: 32, overflow: 'hidden',
-  },
-  pickerModalHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER,
-  },
-  pickerModalTitle: { fontSize: 15, fontWeight: '700', color: TEXT },
-  pickerModalDone:  { fontSize: 15, fontWeight: '700', color: PRIMARY },
-
-  /* ── Fuel-type chips ──────────────────────────────────── */
-  chipRow: { gap: 7 },
+  /* Chip */
+  chipLabel: { fontSize: 11, fontWeight: '700', color: '#4B5563', letterSpacing: 0.6, marginBottom: 8, textTransform: 'uppercase' },
+  chipRow:   { gap: 8 },
   chip: {
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 8, borderWidth: 1, borderColor: BORDER,
-    backgroundColor: CARD,
+    paddingHorizontal: 16, paddingVertical: 9,
+    borderRadius: 10, borderWidth: 1.5, borderColor: BORDER, backgroundColor: CARD,
   },
   chipActive:     { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  chipText:       { fontSize: 12, fontWeight: '600', color: MUTED },
+  chipText:       { fontSize: 13, fontWeight: '600', color: MUTED },
   chipTextActive: { color: '#fff' },
 
-  /* ── Textarea ─────────────────────────────────────────── */
-  textAreaWrap: {
-    backgroundColor: CARD,
-    borderRadius: 10, borderWidth: 1, borderColor: BORDER,
-    marginBottom: 12, overflow: 'hidden',
-  },
-  textAreaError: { borderColor: DANGER },
-  textArea: {
-    padding: 13, fontSize: 14, color: TEXT,
-    minHeight: 96, textAlignVertical: 'top',
-  },
-
-  /* ── Fuel gauge ───────────────────────────────────────── */
-  fuelRow: { flexDirection: 'row', gap: 6, marginBottom: 12 },
-  fuelBtn: {
-    flex: 1, paddingVertical: 11, borderRadius: 8,
-    borderWidth: 1, borderColor: BORDER,
-    backgroundColor: '#F9FAFB', alignItems: 'center',
-  },
-  fuelBtnActive:  { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  fuelText:       { fontSize: 12, fontWeight: '600', color: MUTED },
-  fuelTextActive: { color: '#fff' },
-  gaugeTrack: {
-    height: 6, borderRadius: 3,
-    backgroundColor: '#F3F4F6', overflow: 'hidden',
-  },
-  gaugeFill: { height: '100%', borderRadius: 3 },
-
-  /* ── Photo picker ─────────────────────────────────────── */
-  photoActionsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  photoActionBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 12, borderRadius: 9,
-    borderWidth: 1, borderColor: PRIMARY + '33',
-    backgroundColor: '#FEF2F2',
-  },
-  photoActionText: { fontSize: 12.5, fontWeight: '600', color: PRIMARY },
-  thumbRow:   { gap: 8, paddingBottom: 4 },
-  thumbWrap:  { position: 'relative' },
-  thumb:      { width: 88, height: 88, borderRadius: 10 },
-  thumbDelete: {
-    position: 'absolute', top: 4, right: 4,
-    width: 22, height: 22, borderRadius: 11,
-    backgroundColor: DANGER, alignItems: 'center', justifyContent: 'center',
-  },
-  photoEmptyHint: {
-    alignItems: 'center', paddingVertical: 20, gap: 6,
-    borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB',
-    borderStyle: 'dashed', backgroundColor: '#F9FAFB',
-  },
-  photoEmptyText: { fontSize: 12.5, color: MUTED },
-  photoCount:     { fontSize: 11.5, color: MUTED, marginTop: 7, textAlign: 'center' },
-
-  /* ── Documents ────────────────────────────────────────── */
-  docHint: { fontSize: 11.5, color: MUTED, marginBottom: 10 },
-  docPickBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 12, borderRadius: 9,
-    borderWidth: 1, borderColor: PRIMARY + '33',
-    backgroundColor: '#FEF2F2', marginBottom: 10,
-  },
-  docPickText: { fontSize: 12.5, fontWeight: '600', color: PRIMARY },
-  docList: { gap: 7 },
-  docItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    padding: 10, borderRadius: 9,
-    backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: BORDER,
-  },
-  docIcon: {
-    width: 30, height: 30, borderRadius: 8,
-    backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center',
-  },
-  docName:  { flex: 1, fontSize: 12.5, color: TEXT, fontWeight: '500' },
-  docEmpty: { fontSize: 12, color: MUTED, textAlign: 'center', paddingVertical: 6 },
-
-  /* ── Service search ───────────────────────────────────── */
-  serviceSearchRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12 },
-  serviceSearchInput: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#F9FAFB', borderRadius: 10,
-    borderWidth: 1, borderColor: BORDER,
-    paddingHorizontal: 13, height: 48,
-  },
-  serviceSearchText: { flex: 1, fontSize: 14, color: TEXT },
-  addServiceBtn: {
-    width: 48, height: 48, borderRadius: 10,
-    backgroundColor: PRIMARY,
-    alignItems: 'center', justifyContent: 'center',
+  /* Textarea */
+  areaLabel: { fontSize: 11, fontWeight: '700', color: '#4B5563', letterSpacing: 0.6, marginBottom: 7, textTransform: 'uppercase' },
+  areaWrap: {
+    backgroundColor: CARD, borderRadius: 12, borderWidth: 1, borderColor: BORDER,
+    marginBottom: 16, overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6 },
-      android: { elevation: 3 },
-      default: {},
-    }),
-  },
-  suggestLabel: {
-    fontSize: 10, fontWeight: '700', color: MUTED,
-    letterSpacing: 0.6, marginBottom: 7, textTransform: 'uppercase',
-  },
-  suggestChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 11, paddingVertical: 6,
-    borderRadius: 7, borderWidth: 1, borderColor: PRIMARY + '33',
-    backgroundColor: '#FEF2F2',
-  },
-  suggestChipText: { fontSize: 12, fontWeight: '600', color: PRIMARY },
-
-  /* ── Service line items ───────────────────────────────── */
-  serviceItem: { marginBottom: 0 },
-  serviceTop:  { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 8 },
-  serviceIconDot: {
-    width: 24, height: 24, borderRadius: 6,
-    backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center',
-  },
-  serviceItemName: { flex: 1, fontSize: 13.5, fontWeight: '600', color: TEXT },
-  serviceBottom:   { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 33 },
-  priceInputWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderWidth: 1, borderColor: BORDER, borderRadius: 8,
-    backgroundColor: '#F9FAFB',
-    paddingHorizontal: 9, paddingVertical: 7, flex: 1,
-  },
-  priceRupee:      { fontSize: 13, color: MUTED, fontWeight: '600' },
-  priceInput:      { flex: 1, fontSize: 13.5, fontWeight: '600', color: TEXT, paddingVertical: 0 },
-  qtyRow:          { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  qtyBtn: {
-    width: 28, height: 28, borderRadius: 7,
-    borderWidth: 1, borderColor: BORDER,
-    backgroundColor: CARD, alignItems: 'center', justifyContent: 'center',
-  },
-  qtyValue:        { fontSize: 13, fontWeight: '700', color: TEXT, minWidth: 20, textAlign: 'center' },
-  serviceRowTotal: { fontSize: 13.5, fontWeight: '700', color: PRIMARY, minWidth: 62, textAlign: 'right' },
-  serviceDivider:  { height: StyleSheet.hairlineWidth, backgroundColor: '#E5E7EB', marginVertical: 12 },
-  servicesSummary: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginTop: 14, paddingTop: 12,
-    borderTopWidth: 1, borderTopColor: BORDER,
-  },
-  servicesSummaryLabel: { fontSize: 12, fontWeight: '700', color: MUTED, letterSpacing: 0.3 },
-  servicesSummaryValue: { fontSize: 18, fontWeight: '800', color: PRIMARY, letterSpacing: -0.4 },
-
-  /* ── Technician cards ─────────────────────────────────── */
-  techCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    padding: 13, borderRadius: 10,
-    borderWidth: 1, borderColor: BORDER,
-    backgroundColor: '#F9FAFB', marginBottom: 8,
-  },
-  techCardActive: { borderColor: PRIMARY, backgroundColor: '#FEF2F2' },
-  techCardError:  { borderColor: DANGER + '66' },
-  techAvatar: {
-    width: 42, height: 42, borderRadius: 10,
-    backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center',
-  },
-  techAvatarText: { fontSize: 17, fontWeight: '700', color: TEXT },
-  techName:       { fontSize: 13.5, fontWeight: '600', color: TEXT, marginBottom: 2 },
-  techRole:       { fontSize: 11.5, color: MUTED },
-  availBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
-  },
-  availDot:       { width: 5, height: 5, borderRadius: 3 },
-  availText:      { fontSize: 10.5, fontWeight: '600' },
-  techCheckWrap:  { marginLeft: 2 },
-
-  /* ── Timeline ─────────────────────────────────────────── */
-  timelineRow:    { flexDirection: 'row', gap: 12, marginBottom: 0 },
-  timelineLeft:   { alignItems: 'center', width: 28 },
-  timelineCircle: {
-    width: 28, height: 28, borderRadius: 14,
-    borderWidth: 1.5, borderColor: '#D1D5DB',
-    backgroundColor: CARD, alignItems: 'center', justifyContent: 'center', zIndex: 1,
-  },
-  timelineCircleDone:    { backgroundColor: SUCCESS, borderColor: SUCCESS },
-  timelineCircleCurrent: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  timelinePulse:    { width: 9, height: 9, borderRadius: 5, backgroundColor: '#fff' },
-  timelineLine:     { width: 1.5, flex: 1, backgroundColor: '#E5E7EB', minHeight: 22 },
-  timelineLineDone: { backgroundColor: SUCCESS },
-  timelineNum:      { fontSize: 10, fontWeight: '700', color: '#9CA3AF' },
-  timelineContent:  { flex: 1, paddingBottom: 22, paddingTop: 5 },
-  timelineLabel:    { fontSize: 13.5, fontWeight: '600', color: TEXT },
-  timelineDesc:     { fontSize: 12, color: MUTED, marginTop: 2 },
-  currentBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    marginTop: 5, alignSelf: 'flex-start',
-    backgroundColor: '#FEF2F2', borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 3,
-  },
-  currentDot:       { width: 5, height: 5, borderRadius: 3, backgroundColor: PRIMARY },
-  currentBadgeText: { fontSize: 10.5, fontWeight: '700', color: PRIMARY },
-
-  /* ── Stage grid ───────────────────────────────────────── */
-  stageGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  stageBtn:    { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
-  stageBtnText:{ fontSize: 12, fontWeight: '700' },
-
-  /* ── Invoice hero ─────────────────────────────────────── */
-  invoiceHero: {
-    borderRadius: 16, padding: 20, marginBottom: 12, overflow: 'hidden',
-    ...Platform.select({
-      ios: { shadowColor: '#7B0E20', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 14 },
-      android: { elevation: 8 },
-      default: {},
-    }),
-  },
-  invoiceHeroCircle: {
-    position: 'absolute', top: -40, right: -40,
-    width: 140, height: 140, borderRadius: 70,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-  },
-  invoiceHeroTop: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'flex-start', marginBottom: 18,
-  },
-  invoiceBrand:    { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.4 },
-  invoiceTagline:  { fontSize: 10.5, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
-  invoiceNumWrap:  { alignItems: 'flex-end' },
-  invoiceNumLabel: { fontSize: 9.5, color: 'rgba(255,255,255,0.6)', letterSpacing: 1.5, textTransform: 'uppercase' },
-  invoiceNum:      { fontSize: 15, fontWeight: '700', color: '#fff', marginTop: 2 },
-  invoiceMeta:     { gap: 5 },
-  invoiceMetaRow:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  invoiceMetaText: { fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
-
-  /* ── Invoice line items ───────────────────────────────── */
-  lineItem:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  lineItemName: { fontSize: 13, color: TEXT, flex: 1 },
-  lineItemAmt:  { fontSize: 13, fontWeight: '600', color: PRIMARY },
-
-  /* ── Totals card ──────────────────────────────────────── */
-  totalsCard: {
-    backgroundColor: CARD, borderRadius: 12,
-    borderWidth: 1, borderColor: BORDER,
-    padding: 16, marginBottom: 12, gap: 10,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6 },
-      android: { elevation: 2 },
-      default: {},
-    }),
-  },
-  totalRow:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  totalRowLabel: { fontSize: 13, color: MUTED },
-  totalRowValue: { fontSize: 13, fontWeight: '500', color: TEXT },
-  grandTotalRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 12, marginTop: 2,
-  },
-  grandTotalLabel: { fontSize: 14, fontWeight: '700', color: TEXT },
-  grandTotalValue: { fontSize: 22, fontWeight: '800', color: PRIMARY, letterSpacing: -0.5 },
-
-  /* ── Invoice action buttons ───────────────────────────── */
-  invoiceActions: { flexDirection: 'row', gap: 10, marginBottom: 6 },
-  invoiceActionBtn: {
-    flex: 1, backgroundColor: CARD,
-    borderRadius: 12, padding: 14,
-    alignItems: 'center', gap: 8,
-    borderWidth: 1, borderColor: BORDER,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3 },
       android: { elevation: 1 },
       default: {},
     }),
   },
-  invoiceActionIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  invoiceActionText: { fontSize: 12, fontWeight: '600', color: TEXT },
+  areaError: { borderColor: DANGER, borderWidth: 2 },
+  area: { padding: 14, fontSize: 14.5, color: TEXT, minHeight: 110, textAlignVertical: 'top' },
+  areaErrRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: -10, marginBottom: 12 },
+  areaErrText: { fontSize: 11.5, color: DANGER, flex: 1 },
 
-  /* ── Sticky footer ────────────────────────────────────── */
-  footer: {
-    flexDirection: 'row', gap: 10,
-    paddingHorizontal: 16, paddingTop: 12,
-    backgroundColor: CARD,
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: BORDER,
+  /* Fuel */
+  fuelRow: { flexDirection: 'row', gap: 7, marginBottom: 14 },
+  fuelBtn: {
+    flex: 1, paddingVertical: 12, borderRadius: 10,
+    borderWidth: 1.5, borderColor: BORDER, backgroundColor: '#F9FAFB', alignItems: 'center',
+  },
+  fuelBtnActive:  { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  fuelText:       { fontSize: 12, fontWeight: '700', color: MUTED },
+  fuelTextActive: { color: '#fff' },
+  gaugeTrack: { height: 6, borderRadius: 3, backgroundColor: '#F3F4F6', overflow: 'hidden' },
+  gaugeFill:  { height: '100%', borderRadius: 3 },
+
+  /* Photos */
+  photoActionsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  photoBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 13, borderRadius: 12, borderWidth: 1.5, borderColor: PRIMARY + '33',
+    backgroundColor: '#FEF2F2',
+  },
+  photoBtnText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
+  thumbRow:     { gap: 10, paddingBottom: 4 },
+  thumbWrap:    { position: 'relative' },
+  thumb:        { width: 90, height: 90, borderRadius: 12 },
+  thumbDel: {
+    position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: 11,
+    backgroundColor: DANGER, alignItems: 'center', justifyContent: 'center',
+  },
+  photoEmpty: {
+    alignItems: 'center', paddingVertical: 24, gap: 8,
+    borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB',
+    borderStyle: 'dashed', backgroundColor: '#F9FAFB',
+  },
+  photoEmptyText: { fontSize: 13, color: MUTED },
+  photoCount:     { fontSize: 12, color: MUTED, marginTop: 10, textAlign: 'center' },
+
+  /* Documents */
+  docHint:  { fontSize: 12, color: MUTED, marginBottom: 12 },
+  uploadBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 13, borderRadius: 12, borderWidth: 1.5, borderColor: PRIMARY + '33',
+    backgroundColor: '#FEF2F2', marginBottom: 12,
+  },
+  uploadBtnText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
+  docList:  { gap: 8 },
+  docRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 11, borderRadius: 10, backgroundColor: '#F9FAFB',
+    borderWidth: 1, borderColor: BORDER,
+  },
+  docIconWrap: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' },
+  docName:  { flex: 1, fontSize: 13, color: TEXT, fontWeight: '500' },
+  docEmpty: { fontSize: 12, color: MUTED, textAlign: 'center', paddingVertical: 8 },
+
+  /* Error banner */
+  errBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FEF2F2', borderRadius: 12, borderWidth: 1, borderColor: '#FCA5A5',
+    padding: 13, marginBottom: 14,
+  },
+  errBannerText: { fontSize: 13, color: DANGER, fontWeight: '500', flex: 1 },
+
+  /* Service search */
+  searchRow:  { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 14 },
+  searchBox: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#F9FAFB', borderRadius: 12, borderWidth: 1, borderColor: BORDER,
+    paddingHorizontal: 14, height: 52,
+  },
+  searchInput: { flex: 1, fontSize: 15, color: TEXT },
+  addBtn: {
+    width: 52, height: 52, borderRadius: 12, backgroundColor: PRIMARY,
+    alignItems: 'center', justifyContent: 'center',
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.06, shadowRadius: 10 },
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
+      android: { elevation: 4 },
+      default: {},
+    }),
+  },
+  suggestChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8,
+    borderWidth: 1.5, borderColor: PRIMARY + '33', backgroundColor: '#FEF2F2',
+  },
+  suggestChipText: { fontSize: 12, fontWeight: '600', color: PRIMARY },
+
+  /* Service items */
+  svcItem:    { paddingVertical: 4 },
+  svcLeft:    { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  svcDot: {
+    width: 26, height: 26, borderRadius: 7,
+    backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center',
+  },
+  svcName:    { flex: 1, fontSize: 14, fontWeight: '600', color: TEXT },
+  svcRight:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 36 },
+  priceWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    borderWidth: 1, borderColor: BORDER, borderRadius: 9,
+    backgroundColor: '#F9FAFB', paddingHorizontal: 10, paddingVertical: 8, flex: 1,
+  },
+  rupee:      { fontSize: 13, color: MUTED, fontWeight: '700' },
+  priceInput: { flex: 1, fontSize: 14, fontWeight: '600', color: TEXT, paddingVertical: 0 },
+  qtyRow:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  qtyBtn: {
+    width: 30, height: 30, borderRadius: 8, borderWidth: 1, borderColor: BORDER,
+    backgroundColor: CARD, alignItems: 'center', justifyContent: 'center',
+  },
+  qtyVal:     { fontSize: 14, fontWeight: '700', color: TEXT, minWidth: 22, textAlign: 'center' },
+  svcTotal:   { fontSize: 14, fontWeight: '700', color: PRIMARY, minWidth: 66, textAlign: 'right' },
+  svcDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#E5E7EB', marginVertical: 12 },
+  svcSummary: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: BORDER,
+  },
+  svcSummaryLabel: { fontSize: 12, fontWeight: '700', color: MUTED, letterSpacing: 0.3 },
+  svcSummaryValue: { fontSize: 20, fontWeight: '800', color: PRIMARY, letterSpacing: -0.5 },
+
+  /* Two column layout */
+  twoCol: { flexDirection: 'row', gap: 12 },
+
+  /* Technician */
+  techCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: BORDER,
+    backgroundColor: '#F9FAFB', marginBottom: 10,
+  },
+  techCardActive: { borderColor: PRIMARY, backgroundColor: '#FEF2F2' },
+  techAvatar: {
+    width: 44, height: 44, borderRadius: 12,
+    backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center',
+  },
+  techAvatarText: { fontSize: 18, fontWeight: '700', color: TEXT },
+  techName:       { fontSize: 14, fontWeight: '600', color: TEXT, marginBottom: 2 },
+  techRole:       { fontSize: 12, color: MUTED },
+  availBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4,
+  },
+  availDot:   { width: 6, height: 6, borderRadius: 3 },
+  availText:  { fontSize: 11, fontWeight: '600' },
+
+  /* Picker */
+  pickerBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: CARD, borderRadius: 12, borderWidth: 1, borderColor: BORDER,
+    paddingHorizontal: 12, paddingVertical: 12, marginBottom: 14,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3 },
+      android: { elevation: 1 },
+      default: {},
+    }),
+  },
+  pickerIconWrap: {
+    width: 34, height: 34, borderRadius: 9, backgroundColor: '#FEF2F2',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  pickerLabel:       { fontSize: 10, color: MUTED, fontWeight: '700', marginBottom: 2, letterSpacing: 0.4 },
+  pickerVal:         { fontSize: 13, fontWeight: '600', color: TEXT },
+  pickerPlaceholder: { color: '#9CA3AF', fontWeight: '400' },
+  pickerModal: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  pickerSheet: { backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingBottom: 32, overflow: 'hidden' },
+  pickerSheetHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER,
+  },
+  pickerSheetTitle: { fontSize: 16, fontWeight: '700', color: TEXT },
+  pickerDone:       { fontSize: 15, fontWeight: '700', color: PRIMARY },
+
+  /* Timeline */
+  tlRow:    { flexDirection: 'row', gap: 14 },
+  tlLeft:   { alignItems: 'center', width: 30 },
+  tlCircle: {
+    width: 30, height: 30, borderRadius: 15,
+    borderWidth: 2, borderColor: '#D1D5DB',
+    backgroundColor: CARD, alignItems: 'center', justifyContent: 'center', zIndex: 1,
+  },
+  tlCircleDone:    { backgroundColor: SUCCESS, borderColor: SUCCESS },
+  tlCircleCurrent: { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  tlPulse:  { width: 10, height: 10, borderRadius: 5, backgroundColor: '#fff' },
+  tlLine:     { width: 2, flex: 1, backgroundColor: '#E5E7EB', minHeight: 24 },
+  tlLineDone: { backgroundColor: SUCCESS },
+  tlNum:    { fontSize: 10, fontWeight: '700', color: '#9CA3AF' },
+  tlContent:{ flex: 1, paddingBottom: 24, paddingTop: 5 },
+  tlLabel:  { fontSize: 14, fontWeight: '600', color: TEXT },
+  tlDesc:   { fontSize: 12, color: MUTED, marginTop: 2 },
+  tlBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    marginTop: 6, alignSelf: 'flex-start',
+    backgroundColor: '#FEF2F2', borderRadius: 7,
+    paddingHorizontal: 9, paddingVertical: 4,
+  },
+  tlBadgeDot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: PRIMARY },
+  tlBadgeText: { fontSize: 11, fontWeight: '700', color: PRIMARY },
+
+  /* Invoice */
+  invoiceHero: {
+    borderRadius: 18, padding: 22, marginBottom: 16, overflow: 'hidden',
+    ...Platform.select({
+      ios: { shadowColor: '#7B0E20', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 16 },
       android: { elevation: 8 },
       default: {},
     }),
   },
-  footerBack: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingVertical: 14, paddingHorizontal: 18,
-    borderRadius: 12, borderWidth: 1, borderColor: BORDER,
-    backgroundColor: '#F3F4F6',
+  invoiceCircle: {
+    position: 'absolute', top: -40, right: -40, width: 140, height: 140, borderRadius: 70,
+    backgroundColor: 'rgba(255,255,255,0.07)',
   },
-  footerBackDisabled: { opacity: 0.35 },
-  footerBackText:     { fontSize: 14, fontWeight: '600', color: TEXT },
+  invoiceHeroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+  invBrand:    { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
+  invTag:      { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
+  invNumLabel: { fontSize: 9.5, color: 'rgba(255,255,255,0.6)', letterSpacing: 1.5, textTransform: 'uppercase' },
+  invNum:      { fontSize: 16, fontWeight: '700', color: '#fff', marginTop: 3 },
+  invMeta:     { gap: 6 },
+  invMetaRow:  { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  invMetaText: { fontSize: 12.5, color: 'rgba(255,255,255,0.88)', fontWeight: '500' },
+
+  lineItem:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  lineItemName: { fontSize: 13.5, color: TEXT, flex: 1 },
+  lineItemAmt:  { fontSize: 13.5, fontWeight: '600', color: PRIMARY },
+
+  totalsCard: {
+    backgroundColor: CARD, borderRadius: 14, borderWidth: 1, borderColor: BORDER,
+    padding: 18, marginBottom: 16, gap: 10,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
+      android: { elevation: 2 },
+      default: {},
+    }),
+  },
+  totalRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  totalLabel:{ fontSize: 13, color: MUTED },
+  totalVal:  { fontSize: 13, fontWeight: '500', color: TEXT },
+  grandRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 14, marginTop: 2,
+  },
+  grandLabel: { fontSize: 15, fontWeight: '700', color: TEXT },
+  grandVal:   { fontSize: 24, fontWeight: '800', color: PRIMARY, letterSpacing: -0.5 },
+
+  invoiceActions: { flexDirection: 'row', gap: 12, marginBottom: 8 },
+  invoiceActionBtn: {
+    flex: 1, backgroundColor: CARD, borderRadius: 14, padding: 16,
+    alignItems: 'center', gap: 8, borderWidth: 1, borderColor: BORDER,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 },
+      android: { elevation: 1 },
+      default: {},
+    }),
+  },
+  invActionIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  invActionText: { fontSize: 12.5, fontWeight: '600', color: TEXT },
+
+  /* Footer */
+  footer: {
+    flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingTop: 14,
+    backgroundColor: CARD, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: BORDER,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.06, shadowRadius: 12 },
+      android: { elevation: 10 },
+      default: {},
+    }),
+  },
+  footerBack: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    paddingVertical: 15, paddingHorizontal: 20,
+    borderRadius: 13, borderWidth: 1.5, borderColor: BORDER, backgroundColor: '#F3F4F6',
+  },
+  footerBackText: { fontSize: 14, fontWeight: '600', color: TEXT },
   footerNext: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 14, borderRadius: 12,
-    backgroundColor: PRIMARY,
+    gap: 8, paddingVertical: 15, borderRadius: 13, backgroundColor: PRIMARY,
     ...Platform.select({
-      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.32, shadowRadius: 12 },
       android: { elevation: 6 },
       default: {},
     }),
