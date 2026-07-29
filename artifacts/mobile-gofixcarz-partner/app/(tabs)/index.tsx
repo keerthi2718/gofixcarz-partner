@@ -141,10 +141,7 @@ export default function DashboardScreen() {
       >
         {/* ── Header ── */}
         <View style={[styles.header, { paddingTop: 40 + insets.top }]}>
-          <View>
-            <Text style={styles.headerGreeting}>Good morning, Rajesh</Text>
-            <Text style={styles.headerGarage}>{garageName}</Text>
-          </View>
+          <Text style={styles.headerGreeting}>Dashboard</Text>
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => router.push('/(tabs)/more' as any)}
