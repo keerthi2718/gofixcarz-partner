@@ -398,10 +398,8 @@ export default function RegisterScreen() {
       : form.phone.length < 10   ? 'Please enter a valid 10-digit mobile number.'
       : ''
       : '',
-    email: touched.email
-      ? !form.email                                        ? 'Email address is required.'
-      : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)    ? 'Please enter a valid email address.'
-      : ''
+    email: touched.email && form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)
+      ? 'Please enter a valid email address.'
       : '',
     zipcode: touched.zipcode && form.zipcode && form.zipcode.length !== 6
       ? 'PIN code must contain 6 digits.'
@@ -412,14 +410,14 @@ export default function RegisterScreen() {
     form.firstName &&
     form.workshopName && form.workshopName.length >= 3 &&
     form.phone.length >= 10 &&
-    form.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) &&
+    (!form.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) &&
     form.acceptTerms &&
     (!form.zipcode || form.zipcode.length === 6)
   );
 
 
   const handleSubmit = useCallback(async () => {
-    setTouched(t => ({ ...t, firstName: true, workshopName: true, phone: true, email: true, zipcode: !!form.zipcode }));
+    setTouched(t => ({ ...t, firstName: true, workshopName: true, phone: true, zipcode: !!form.zipcode }));
     if (!isValid) return;
     try {
       await signUp({
@@ -450,12 +448,7 @@ export default function RegisterScreen() {
           // Parse field-level validation errors from the API
           const fieldErrors: Array<{ field: string; message: string }> =
             err.response?.data?.errors ?? [];
-          const emailErr = fieldErrors.find(e => e.field?.includes('email'));
-          if (emailErr) {
-            setSnackbar('Email address is required to create an account.');
-          } else {
-            setSnackbar(err.response?.data?.message ?? 'Please check your details and try again.');
-          }
+          setSnackbar(err.response?.data?.message ?? 'Please check your details and try again.');
         } else {
           const msg: string =
             err.response?.data?.message ??
