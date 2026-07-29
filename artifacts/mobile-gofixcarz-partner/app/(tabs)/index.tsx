@@ -82,7 +82,7 @@ const SPARKLINE_LAST = SPARKLINE_POINTS[SPARKLINE_POINTS.length - 1];
 const QUICK_ACTIONS = [
   { label: 'New Booking', Icon: Calendar,  route: '/(tabs)/bookings' as const },
   { label: 'Create Job',  Icon: Wrench,    route: '/jobs/create'     as const },
-  { label: 'Invoice',     Icon: FileText,  route: '/(tabs)/more'     as const },
+
   { label: 'Reports',     Icon: BarChart2, route: '/(tabs)/analytics'as const },
 ];
 
