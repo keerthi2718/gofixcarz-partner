@@ -424,7 +424,7 @@ export default function ProfileScreen() {
           working_hours,
         }),
       ]);
-      router.back();
+      router.push('/(tabs)/more' as never);
     } catch {
       Alert.alert('Error', 'Failed to save. Please try again.');
     } finally { setSaving(false); }
