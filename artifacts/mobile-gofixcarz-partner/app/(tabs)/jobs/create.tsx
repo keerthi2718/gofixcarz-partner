@@ -20,16 +20,16 @@ import { VEHICLE_BRANDS, getModelsForBrand } from '@/src/data/vehicleData';
 import { formatCurrency } from '@/src/utils/helpers';
 
 /* ── Design tokens ── */
-const BG      = '#EEEEF6';
+const BG      = '#F5F6F8';
 const CARD    = '#FFFFFF';
 const PRIMARY = '#C41E3A';
 const INDIGO  = '#6366F1';
-const TEXT    = '#1E293B';
-const MUTED   = '#64748B';
-const BORDER  = 'rgba(226,232,240,0.7)';
-const SUCCESS = '#10B981';
-const DANGER  = '#EF4444';
-const WARN    = '#F59E0B';
+const TEXT    = '#111827';
+const MUTED   = '#6B7280';
+const BORDER  = '#E5E7EB';
+const SUCCESS = '#059669';
+const DANGER  = '#DC2626';
+const WARN    = '#D97706';
 
 const STEPS = [
   { label: 'Customer' },
@@ -59,7 +59,7 @@ function StepCard({ icon, title, children, iconBg = '#FEE2E2', iconFg = PRIMARY 
     <View style={cardStyles.card}>
       <View style={cardStyles.header}>
         <View style={[cardStyles.iconWrap, { backgroundColor: iconBg }]}>
-          <Feather name={icon} size={16} color={iconFg} />
+          <Feather name={icon} size={14} color={iconFg} />
         </View>
         <Text style={cardStyles.title}>{title}</Text>
       </View>
@@ -70,22 +70,30 @@ function StepCard({ icon, title, children, iconBg = '#FEE2E2', iconFg = PRIMARY 
 const cardStyles = StyleSheet.create({
   card: {
     backgroundColor: CARD,
-    borderRadius: 20, borderWidth: 1, borderColor: BORDER,
-    overflow: 'hidden', marginBottom: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
+    overflow: 'hidden',
+    marginBottom: 12,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
-      android: { elevation: 2 },
+      ios: { shadowColor: '#101828', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
+      android: { elevation: 1 },
       default: {},
     }),
   },
   header: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 18, paddingTop: 16, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E5E7EB',
   },
-  iconWrap: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 14, fontWeight: '700', color: TEXT },
-  body:  { padding: 18 },
+  iconWrap: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 13, fontWeight: '700', color: TEXT, letterSpacing: -0.1 },
+  body:  { padding: 16 },
 });
 
 /* ── Inline label ── */
@@ -94,7 +102,7 @@ function FieldLabel({ text }: { text: string }) {
   const base = hasAsterisk ? text.slice(0, -2) : text;
   return (
     <Text style={styles.fieldLabel}>
-      {base}
+      {base.toUpperCase()}
       {hasAsterisk && <Text style={{ color: DANGER }}> *</Text>}
     </Text>
   );
@@ -1400,63 +1408,70 @@ const styles = StyleSheet.create({
 
   /* Header */
   topBar: {
-    paddingHorizontal: 20, paddingBottom: 12,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 18,
+    paddingBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: CARD,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: BORDER,
   },
   backBtn: {
-    width: 42, height: 42, borderRadius: 21,
-    backgroundColor: CARD, borderWidth: 1, borderColor: BORDER,
+    width: 38, height: 38, borderRadius: 10,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center', justifyContent: 'center',
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
-      android: { elevation: 2 },
-      default: {},
-    }),
   },
-  stepMeta:    { fontSize: 11, color: MUTED, fontWeight: '500', letterSpacing: 0.2 },
-  stepHeading: { fontSize: 20, fontWeight: '800', color: TEXT, letterSpacing: -0.4 },
+  stepMeta:    { fontSize: 11, color: MUTED, fontWeight: '500', letterSpacing: 0.3, marginBottom: 2 },
+  stepHeading: { fontSize: 18, fontWeight: '700', color: TEXT, letterSpacing: -0.3 },
   progressPill: {
-    position: 'absolute', bottom: 0, left: 20, right: 20,
-    height: 3, borderRadius: 2, backgroundColor: '#E2E8F0', overflow: 'hidden',
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    height: 2, backgroundColor: '#F3F4F6', overflow: 'hidden',
   },
-  progressFill: { height: '100%', backgroundColor: PRIMARY, borderRadius: 2 },
+  progressFill: { height: '100%', backgroundColor: PRIMARY },
 
   /* Stepper */
   stepper: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     backgroundColor: CARD,
-    borderBottomWidth: 1, borderBottomColor: BORDER,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: BORDER,
   },
-  stepLine:     { flex: 1, height: 1.5, backgroundColor: '#E2E8F0' },
+  stepLine:     { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
   stepLineDone: { backgroundColor: SUCCESS },
-  stepNode:     { alignItems: 'center', gap: 4 },
+  stepNode:     { alignItems: 'center' },
   stepCircle: {
-    width: 28, height: 28, borderRadius: 14,
-    borderWidth: 1.5, borderColor: '#CBD5E1',
+    width: 24, height: 24, borderRadius: 12,
+    borderWidth: 1.5, borderColor: '#D1D5DB',
     backgroundColor: CARD,
     alignItems: 'center', justifyContent: 'center',
   },
   stepCircleDone:   { backgroundColor: SUCCESS, borderColor: SUCCESS },
   stepCircleActive: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  stepNum: { fontSize: 11, fontWeight: '700', color: MUTED },
+  stepNum: { fontSize: 10, fontWeight: '700', color: '#9CA3AF' },
 
   /* Body */
-  body: { padding: 20 },
+  body: { padding: 16 },
 
   /* Field label / error */
-  fieldLabel: { fontSize: 15, fontWeight: '600', color: '#475569', marginBottom: 8 },
-  fieldError: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: -6, marginBottom: 10 },
-  fieldErrorText: { fontSize: 12, color: DANGER, flex: 1 },
+  fieldLabel: {
+    fontSize: 11, fontWeight: '700', color: MUTED,
+    letterSpacing: 0.6, marginBottom: 7,
+  },
+  fieldError: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: -4, marginBottom: 10 },
+  fieldErrorText: { fontSize: 11.5, color: DANGER, flex: 1 },
 
   /* Step-level error banner */
   stepErrorBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#FEF2F2', borderRadius: 12,
-    borderWidth: 1, borderColor: '#FECACA',
-    padding: 12, marginBottom: 14,
+    backgroundColor: '#FEF2F2', borderRadius: 10,
+    borderWidth: 1, borderColor: '#FCA5A5',
+    padding: 12, marginBottom: 12,
   },
-  stepErrorText: { fontSize: 13, color: DANGER, fontWeight: '500', flex: 1 },
+  stepErrorText: { fontSize: 12.5, color: DANGER, fontWeight: '500', flex: 1 },
 
   /* Row */
   row: { flexDirection: 'row', gap: 10 },
@@ -1464,18 +1479,18 @@ const styles = StyleSheet.create({
   /* Date / Time picker buttons */
   pickerBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#F8FAFC', borderRadius: 14,
-    borderWidth: 1.5, borderColor: BORDER,
-    paddingHorizontal: 12, paddingVertical: 12, marginBottom: 14,
+    backgroundColor: CARD, borderRadius: 10,
+    borderWidth: 1, borderColor: BORDER,
+    paddingHorizontal: 12, paddingVertical: 11, marginBottom: 12,
   },
   pickerBtnIcon: {
-    width: 34, height: 34, borderRadius: 10,
+    width: 32, height: 32, borderRadius: 8,
     backgroundColor: '#FEE2E2',
     alignItems: 'center', justifyContent: 'center',
   },
-  pickerBtnLabel:       { fontSize: 11, color: MUTED, fontWeight: '500', marginBottom: 2 },
-  pickerBtnValue:       { fontSize: 13, fontWeight: '700', color: TEXT },
-  pickerBtnPlaceholder: { color: '#94A3B8', fontWeight: '400' },
+  pickerBtnLabel:       { fontSize: 10, color: MUTED, fontWeight: '600', marginBottom: 2, letterSpacing: 0.3 },
+  pickerBtnValue:       { fontSize: 13, fontWeight: '600', color: TEXT },
+  pickerBtnPlaceholder: { color: '#9CA3AF', fontWeight: '400' },
 
   /* iOS picker modal */
   pickerModal: {
@@ -1498,8 +1513,8 @@ const styles = StyleSheet.create({
   /* Chips */
   chipRow: { gap: 8 },
   chip: {
-    paddingHorizontal: 14, paddingVertical: 7,
-    borderRadius: 20, borderWidth: 1.5, borderColor: BORDER,
+    paddingHorizontal: 13, paddingVertical: 7,
+    borderRadius: 8, borderWidth: 1, borderColor: BORDER,
     backgroundColor: CARD,
   },
   chipActive:     { backgroundColor: PRIMARY, borderColor: PRIMARY },
@@ -1508,223 +1523,223 @@ const styles = StyleSheet.create({
 
   /* Textarea */
   textAreaWrap: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14, borderWidth: 1.5, borderColor: BORDER,
-    marginBottom: 14, overflow: 'hidden',
+    backgroundColor: CARD,
+    borderRadius: 10, borderWidth: 1, borderColor: BORDER,
+    marginBottom: 12, overflow: 'hidden',
   },
   textAreaError: { borderColor: DANGER },
   textArea: {
-    padding: 14, fontSize: 15, color: TEXT,
-    minHeight: 100, textAlignVertical: 'top',
+    padding: 13, fontSize: 14, color: TEXT,
+    minHeight: 96, textAlignVertical: 'top',
   },
 
   /* Fuel level */
-  fuelRow:   { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  fuelRow:   { flexDirection: 'row', gap: 7, marginBottom: 12 },
   fuelBtn: {
-    flex: 1, paddingVertical: 11, borderRadius: 12,
-    borderWidth: 1.5, borderColor: BORDER,
-    backgroundColor: CARD, alignItems: 'center',
+    flex: 1, paddingVertical: 10, borderRadius: 8,
+    borderWidth: 1, borderColor: BORDER,
+    backgroundColor: '#F9FAFB', alignItems: 'center',
   },
   fuelBtnActive:  { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  fuelText:       { fontSize: 12, fontWeight: '700', color: MUTED },
+  fuelText:       { fontSize: 12, fontWeight: '600', color: MUTED },
   fuelTextActive: { color: '#fff' },
   gaugeTrack: {
-    height: 6, borderRadius: 4,
-    backgroundColor: '#F1F5F9', overflow: 'hidden',
+    height: 5, borderRadius: 3,
+    backgroundColor: '#F3F4F6', overflow: 'hidden',
   },
-  gaugeFill: { height: '100%', borderRadius: 4 },
+  gaugeFill: { height: '100%', borderRadius: 3 },
 
   /* Photo picker */
-  photoActionsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  photoActionsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   photoActionBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 12, borderRadius: 12,
-    borderWidth: 1.5, borderColor: PRIMARY + '40',
-    backgroundColor: '#FEE2E2',
+    paddingVertical: 11, borderRadius: 9,
+    borderWidth: 1, borderColor: PRIMARY + '33',
+    backgroundColor: '#FEF2F2',
   },
-  photoActionText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
-  thumbRow: { gap: 10, paddingBottom: 4 },
+  photoActionText: { fontSize: 12.5, fontWeight: '600', color: PRIMARY },
+  thumbRow: { gap: 8, paddingBottom: 4 },
   thumbWrap: { position: 'relative' },
-  thumb: { width: 90, height: 90, borderRadius: 12 },
+  thumb: { width: 84, height: 84, borderRadius: 9 },
   thumbDelete: {
     position: 'absolute', top: 4, right: 4,
-    width: 22, height: 22, borderRadius: 11,
+    width: 20, height: 20, borderRadius: 10,
     backgroundColor: DANGER,
     alignItems: 'center', justifyContent: 'center',
   },
   photoEmptyHint: {
-    alignItems: 'center', paddingVertical: 20, gap: 8,
-    borderRadius: 12, borderWidth: 1.5, borderColor: '#E2E8F0',
-    borderStyle: 'dashed', backgroundColor: '#F8FAFC',
+    alignItems: 'center', paddingVertical: 18, gap: 6,
+    borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB',
+    borderStyle: 'dashed', backgroundColor: '#F9FAFB',
   },
-  photoEmptyText: { fontSize: 13, color: MUTED },
-  photoCount: { fontSize: 12, color: MUTED, marginTop: 8, textAlign: 'center' },
+  photoEmptyText: { fontSize: 12.5, color: MUTED },
+  photoCount: { fontSize: 11.5, color: MUTED, marginTop: 7, textAlign: 'center' },
 
   /* Documents */
-  docHint: { fontSize: 12, color: MUTED, marginBottom: 12 },
+  docHint: { fontSize: 11.5, color: MUTED, marginBottom: 10 },
   docPickBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 12, borderRadius: 12,
-    borderWidth: 1.5, borderColor: PRIMARY + '40',
-    backgroundColor: '#FEE2E2', marginBottom: 12,
+    paddingVertical: 11, borderRadius: 9,
+    borderWidth: 1, borderColor: PRIMARY + '33',
+    backgroundColor: '#FEF2F2', marginBottom: 10,
   },
-  docPickText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
-  docList: { gap: 8 },
+  docPickText: { fontSize: 12.5, fontWeight: '600', color: PRIMARY },
+  docList: { gap: 7 },
   docItem: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    padding: 10, borderRadius: 10,
-    backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: BORDER,
+    padding: 10, borderRadius: 9,
+    backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: BORDER,
   },
   docIcon: {
-    width: 32, height: 32, borderRadius: 9,
+    width: 30, height: 30, borderRadius: 8,
     backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center',
   },
-  docName:  { flex: 1, fontSize: 13, color: TEXT, fontWeight: '500' },
-  docEmpty: { fontSize: 12, color: MUTED, textAlign: 'center', paddingVertical: 8 },
+  docName:  { flex: 1, fontSize: 12.5, color: TEXT, fontWeight: '500' },
+  docEmpty: { fontSize: 12, color: MUTED, textAlign: 'center', paddingVertical: 6 },
 
   /* Service search */
-  serviceSearchRow: { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 14 },
+  serviceSearchRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12 },
   serviceSearchInput: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#F8FAFC', borderRadius: 14,
-    borderWidth: 1.5, borderColor: BORDER,
-    paddingHorizontal: 14, height: 50,
+    backgroundColor: CARD, borderRadius: 10,
+    borderWidth: 1, borderColor: BORDER,
+    paddingHorizontal: 12, height: 46,
   },
-  serviceSearchText: { flex: 1, fontSize: 15, color: TEXT },
+  serviceSearchText: { flex: 1, fontSize: 14, color: TEXT },
   addServiceBtn: {
-    width: 50, height: 50, borderRadius: 14,
+    width: 46, height: 46, borderRadius: 10,
     backgroundColor: PRIMARY,
     alignItems: 'center', justifyContent: 'center',
     ...Platform.select({
-      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8 },
-      android: { elevation: 4 },
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6 },
+      android: { elevation: 3 },
       default: {},
     }),
   },
-  suggestLabel: { fontSize: 11, fontWeight: '600', color: MUTED, letterSpacing: 0.4, marginBottom: 8 },
+  suggestLabel: { fontSize: 10, fontWeight: '700', color: MUTED, letterSpacing: 0.6, marginBottom: 7, textTransform: 'uppercase' },
   suggestChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 20, borderWidth: 1.5, borderColor: PRIMARY + '40',
-    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 11, paddingVertical: 6,
+    borderRadius: 7, borderWidth: 1, borderColor: PRIMARY + '33',
+    backgroundColor: '#FEF2F2',
   },
-  suggestChipText: { fontSize: 12, fontWeight: '600', color: PRIMARY },
+  suggestChipText: { fontSize: 11.5, fontWeight: '600', color: PRIMARY },
 
   /* Service items */
   serviceItem: { marginBottom: 0 },
-  serviceTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  serviceTop: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 8 },
   serviceIconDot: {
-    width: 26, height: 26, borderRadius: 8,
-    backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center',
+    width: 24, height: 24, borderRadius: 7,
+    backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center',
   },
-  serviceItemName: { flex: 1, fontSize: 14, fontWeight: '600', color: TEXT },
-  serviceBottom: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 36 },
+  serviceItemName: { flex: 1, fontSize: 13.5, fontWeight: '600', color: TEXT },
+  serviceBottom: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 33 },
   priceInputWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderWidth: 1, borderColor: BORDER, borderRadius: 10,
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 10, paddingVertical: 6, flex: 1,
+    borderWidth: 1, borderColor: BORDER, borderRadius: 8,
+    backgroundColor: '#F9FAFB',
+    paddingHorizontal: 9, paddingVertical: 6, flex: 1,
   },
   priceRupee: { fontSize: 13, color: MUTED, fontWeight: '600' },
-  priceInput: { flex: 1, fontSize: 14, fontWeight: '600', color: TEXT, paddingVertical: 0 },
-  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  priceInput: { flex: 1, fontSize: 13.5, fontWeight: '600', color: TEXT, paddingVertical: 0 },
+  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   qtyBtn: {
-    width: 28, height: 28, borderRadius: 9,
+    width: 26, height: 26, borderRadius: 7,
     borderWidth: 1, borderColor: BORDER,
     backgroundColor: CARD, alignItems: 'center', justifyContent: 'center',
   },
-  qtyValue: { fontSize: 14, fontWeight: '700', color: TEXT, minWidth: 22, textAlign: 'center' },
-  serviceRowTotal: { fontSize: 14, fontWeight: '700', color: PRIMARY, minWidth: 64, textAlign: 'right' },
-  serviceDivider:  { height: 1, backgroundColor: '#F1F5F9', marginVertical: 12 },
+  qtyValue: { fontSize: 13, fontWeight: '700', color: TEXT, minWidth: 20, textAlign: 'center' },
+  serviceRowTotal: { fontSize: 13.5, fontWeight: '700', color: PRIMARY, minWidth: 60, textAlign: 'right' },
+  serviceDivider:  { height: StyleSheet.hairlineWidth, backgroundColor: '#E5E7EB', marginVertical: 12 },
   servicesSummary: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginTop: 12, paddingTop: 12,
-    borderTopWidth: 1.5, borderTopColor: '#F1F5F9',
+    borderTopWidth: 1, borderTopColor: '#F3F4F6',
   },
-  servicesSummaryLabel: { fontSize: 13, fontWeight: '700', color: TEXT },
-  servicesSummaryValue: { fontSize: 16, fontWeight: '800', color: PRIMARY },
+  servicesSummaryLabel: { fontSize: 12, fontWeight: '700', color: MUTED, letterSpacing: 0.3 },
+  servicesSummaryValue: { fontSize: 17, fontWeight: '800', color: PRIMARY },
 
   /* Technician cards */
   techCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    padding: 14, borderRadius: 14,
-    borderWidth: 1.5, borderColor: BORDER,
-    backgroundColor: '#F8FAFC', marginBottom: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 11,
+    padding: 12, borderRadius: 10,
+    borderWidth: 1, borderColor: BORDER,
+    backgroundColor: '#F9FAFB', marginBottom: 8,
   },
-  techCardActive: { borderColor: PRIMARY, backgroundColor: '#FEE2E2' },
-  techCardError:  { borderColor: DANGER + '80' },
+  techCardActive: { borderColor: PRIMARY, backgroundColor: '#FEF2F2' },
+  techCardError:  { borderColor: DANGER + '66' },
   techAvatar: {
-    width: 44, height: 44, borderRadius: 14,
-    backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center',
+    width: 40, height: 40, borderRadius: 10,
+    backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center',
   },
-  techAvatarText: { fontSize: 18, fontWeight: '700', color: TEXT },
-  techName:  { fontSize: 14, fontWeight: '600', color: TEXT, marginBottom: 2 },
-  techRole:  { fontSize: 12, color: MUTED },
+  techAvatarText: { fontSize: 16, fontWeight: '700', color: TEXT },
+  techName:  { fontSize: 13.5, fontWeight: '600', color: TEXT, marginBottom: 1 },
+  techRole:  { fontSize: 11.5, color: MUTED },
   availBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderRadius: 20, paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
   },
-  availDot:  { width: 6, height: 6, borderRadius: 3 },
-  availText: { fontSize: 11, fontWeight: '600' },
-  techCheckWrap: { marginLeft: 4 },
+  availDot:  { width: 5, height: 5, borderRadius: 3 },
+  availText: { fontSize: 10.5, fontWeight: '600' },
+  techCheckWrap: { marginLeft: 2 },
 
   /* Timeline */
-  timelineRow: { flexDirection: 'row', gap: 14, marginBottom: 0 },
-  timelineLeft: { alignItems: 'center', width: 30 },
+  timelineRow: { flexDirection: 'row', gap: 12, marginBottom: 0 },
+  timelineLeft: { alignItems: 'center', width: 28 },
   timelineCircle: {
-    width: 30, height: 30, borderRadius: 15,
-    borderWidth: 1.5, borderColor: '#CBD5E1',
+    width: 28, height: 28, borderRadius: 14,
+    borderWidth: 1.5, borderColor: '#D1D5DB',
     backgroundColor: CARD, alignItems: 'center', justifyContent: 'center', zIndex: 1,
   },
   timelineCircleDone:    { backgroundColor: SUCCESS, borderColor: SUCCESS },
   timelineCircleCurrent: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  timelinePulse: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#fff' },
-  timelineLine:     { width: 1.5, flex: 1, backgroundColor: '#E2E8F0', minHeight: 24 },
+  timelinePulse: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#fff' },
+  timelineLine:     { width: 1, flex: 1, backgroundColor: '#E5E7EB', minHeight: 22 },
   timelineLineDone: { backgroundColor: SUCCESS },
-  timelineNum:      { fontSize: 10, fontWeight: '700', color: MUTED },
-  timelineContent:  { flex: 1, paddingBottom: 24, paddingTop: 6 },
-  timelineLabel:    { fontSize: 14, fontWeight: '600', color: TEXT },
-  timelineDesc:     { fontSize: 12, color: MUTED, marginTop: 2 },
+  timelineNum:      { fontSize: 10, fontWeight: '700', color: '#9CA3AF' },
+  timelineContent:  { flex: 1, paddingBottom: 22, paddingTop: 5 },
+  timelineLabel:    { fontSize: 13.5, fontWeight: '600', color: TEXT },
+  timelineDesc:     { fontSize: 11.5, color: MUTED, marginTop: 2 },
   currentBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     marginTop: 5, alignSelf: 'flex-start',
-    backgroundColor: '#FEE2E2',
-    borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
   },
-  currentDot:       { width: 6, height: 6, borderRadius: 3, backgroundColor: PRIMARY },
-  currentBadgeText: { fontSize: 11, fontWeight: '700', color: PRIMARY },
+  currentDot:       { width: 5, height: 5, borderRadius: 3, backgroundColor: PRIMARY },
+  currentBadgeText: { fontSize: 10.5, fontWeight: '700', color: PRIMARY },
 
   /* Stage grid */
-  stageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  stageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   stageBtn: {
-    paddingHorizontal: 14, paddingVertical: 9,
-    borderRadius: 10, borderWidth: 1,
+    paddingHorizontal: 13, paddingVertical: 8,
+    borderRadius: 8, borderWidth: 1,
   },
   stageBtnText: { fontSize: 12, fontWeight: '700' },
 
   /* Invoice */
   invoiceHero: {
-    borderRadius: 22, padding: 22, marginBottom: 14, overflow: 'hidden',
+    borderRadius: 16, padding: 20, marginBottom: 12, overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: INDIGO, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 18 },
-      android: { elevation: 10 },
+      ios: { shadowColor: '#7B0E20', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 14 },
+      android: { elevation: 8 },
       default: {},
     }),
   },
   invoiceHeroCircle: {
-    position: 'absolute', top: -40, right: -40,
-    width: 150, height: 150, borderRadius: 75,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    position: 'absolute', top: -36, right: -36,
+    width: 130, height: 130, borderRadius: 65,
+    backgroundColor: 'rgba(255,255,255,0.07)',
   },
   invoiceHeroTop: {
     flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'flex-start', marginBottom: 20,
+    alignItems: 'flex-start', marginBottom: 18,
   },
-  invoiceBrand:    { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
-  invoiceTagline:  { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  invoiceBrand:    { fontSize: 19, fontWeight: '800', color: '#fff', letterSpacing: -0.4 },
+  invoiceTagline:  { fontSize: 10.5, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
   invoiceNumWrap:  { alignItems: 'flex-end' },
-  invoiceNumLabel: { fontSize: 10, color: 'rgba(255,255,255,0.65)', letterSpacing: 1.5 },
-  invoiceNum:      { fontSize: 15, fontWeight: '700', color: '#fff', marginTop: 2 },
+  invoiceNumLabel: { fontSize: 9.5, color: 'rgba(255,255,255,0.6)', letterSpacing: 1.5, textTransform: 'uppercase' },
+  invoiceNum:      { fontSize: 14, fontWeight: '700', color: '#fff', marginTop: 2 },
   invoiceMeta:     { gap: 5 },
   invoiceMetaRow:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
   invoiceMetaText: { fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
@@ -1736,70 +1751,71 @@ const styles = StyleSheet.create({
 
   /* Totals */
   totalsCard: {
-    backgroundColor: CARD, borderRadius: 20,
+    backgroundColor: CARD, borderRadius: 14,
     borderWidth: 1, borderColor: BORDER,
-    padding: 18, marginBottom: 14, gap: 10,
+    padding: 16, marginBottom: 12, gap: 9,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
-      android: { elevation: 2 },
+      ios: { shadowColor: '#101828', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 },
+      android: { elevation: 1 },
       default: {},
     }),
   },
   totalRow:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   totalRowLabel: { fontSize: 13, color: MUTED },
-  totalRowValue: { fontSize: 13, fontWeight: '600', color: TEXT },
+  totalRowValue: { fontSize: 13, fontWeight: '500', color: TEXT },
   grandTotalRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    borderTopWidth: 1.5, borderTopColor: '#F1F5F9', paddingTop: 12, marginTop: 2,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E7EB',
+    paddingTop: 12, marginTop: 3,
   },
-  grandTotalLabel: { fontSize: 16, fontWeight: '800', color: TEXT },
-  grandTotalValue: { fontSize: 22, fontWeight: '800', color: PRIMARY },
+  grandTotalLabel: { fontSize: 14, fontWeight: '700', color: TEXT },
+  grandTotalValue: { fontSize: 22, fontWeight: '800', color: PRIMARY, letterSpacing: -0.5 },
 
   /* Invoice actions */
-  invoiceActions: { flexDirection: 'row', gap: 12, marginBottom: 6 },
+  invoiceActions: { flexDirection: 'row', gap: 10, marginBottom: 6 },
   invoiceActionBtn: {
     flex: 1, backgroundColor: CARD,
-    borderRadius: 16, padding: 16,
-    alignItems: 'center', gap: 8,
+    borderRadius: 12, padding: 14,
+    alignItems: 'center', gap: 7,
     borderWidth: 1, borderColor: BORDER,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
-      android: { elevation: 2 },
+      ios: { shadowColor: '#101828', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3 },
+      android: { elevation: 1 },
       default: {},
     }),
   },
-  invoiceActionIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  invoiceActionText: { fontSize: 12, fontWeight: '600', color: TEXT },
+  invoiceActionIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  invoiceActionText: { fontSize: 11.5, fontWeight: '600', color: TEXT },
 
   /* Footer */
   footer: {
     flexDirection: 'row', gap: 10,
-    paddingHorizontal: 20, paddingTop: 14,
+    paddingHorizontal: 16, paddingTop: 12,
     backgroundColor: CARD,
-    borderTopWidth: 1, borderTopColor: BORDER,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: BORDER,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.06, shadowRadius: 12 },
-      android: { elevation: 8 },
-      default: { boxShadow: '0 -4px 12px rgba(0,0,0,0.06)' },
-    }),
-  },
-  footerBack: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingVertical: 14, paddingHorizontal: 18,
-    borderRadius: 16, borderWidth: 1.5, borderColor: BORDER,
-    backgroundColor: BG,
-  },
-  footerBackDisabled: { opacity: 0.4 },
-  footerBackText: { fontSize: 14, fontWeight: '600', color: TEXT },
-  footerNext: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 14, borderRadius: 16,
-    backgroundColor: PRIMARY,
-    ...Platform.select({
-      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.05, shadowRadius: 8 },
       android: { elevation: 6 },
       default: {},
     }),
   },
-  footerNextText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  footerBack: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: 13, paddingHorizontal: 16,
+    borderRadius: 11, borderWidth: 1, borderColor: BORDER,
+    backgroundColor: '#F3F4F6',
+  },
+  footerBackDisabled: { opacity: 0.35 },
+  footerBackText: { fontSize: 14, fontWeight: '600', color: TEXT },
+  footerNext: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 7, paddingVertical: 13, borderRadius: 11,
+    backgroundColor: PRIMARY,
+    ...Platform.select({
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8 },
+      android: { elevation: 5 },
+      default: {},
+    }),
+  },
+  footerNextText: { fontSize: 14.5, fontWeight: '700', color: '#fff' },
 });
