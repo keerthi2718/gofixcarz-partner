@@ -23,14 +23,6 @@ const BORDER    = '#E2E8F0';
 const DIVIDER   = '#F1F5F9';
 const TINT      = '#FEF2F2';
 
-const ALL_SERVICES = [
-  'Oil Change', 'Tyre Rotation', 'Wheel Alignment', 'Wheel Balancing',
-  'Battery Replacement', 'Brake Service', 'AC Service', 'AC Repair',
-  'Engine Tune-Up', 'Suspension Repair', 'Clutch Repair', 'Gearbox Service',
-  'Denting & Painting', 'Car Wash', 'Detailing', 'Insurance Repair',
-  'Electrical Repair', 'Windshield Repair', 'Exhaust Repair', 'Full Service',
-];
-
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 /* ─── Helpers ─────────────────────────────────────────────────────────── */
@@ -211,9 +203,6 @@ export default function GarageProfileScreen() {
   const [closeTime, setCloseTime] = useState(dateFromHHMM('19:00'));
   const [workDays,  setWorkDays]  = useState<string[]>([]);
 
-  /* services */
-  const [services, setServices] = useState<string[]>([]);
-
   const [saving, setSaving] = useState(false);
 
   // guard: only auto-populate once
@@ -282,13 +271,6 @@ export default function GarageProfileScreen() {
   function toggleDay(d: string) {
     setWorkDays(prev =>
       prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]
-    );
-  }
-
-  /* ── Service toggle ── */
-  function toggleService(s: string) {
-    setServices(prev =>
-      prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
     );
   }
 
@@ -465,28 +447,6 @@ export default function GarageProfileScreen() {
             </View>
           </View>
 
-          {/* ── Services ── */}
-          <View style={[s.section, SHADOW_CARD]}>
-            <View style={s.sectionHeader}>
-              <Text style={s.sectionLabel}>Services Offered</Text>
-            </View>
-            <View style={s.chipsWrap}>
-              {ALL_SERVICES.map(svc => {
-                const on = services.includes(svc);
-                return (
-                  <TouchableOpacity
-                    key={svc}
-                    style={[s.chip, on && s.chipOn]}
-                    onPress={() => toggleService(svc)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[s.chipText, on && s.chipTextOn]}>{svc}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
           {/* ── Save Button ── */}
           <TouchableOpacity
             style={[s.saveBtn, saving && { opacity: 0.65 }]}
@@ -646,35 +606,6 @@ const s = StyleSheet.create({
   },
   dayTimeClosed: {
     color: SUBLABEL,
-  },
-
-  /* Services chips */
-  chipsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: BG,
-  },
-  chipOn: {
-    backgroundColor: TINT,
-    borderColor: PRIMARY,
-  },
-  chipText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: MUTED,
-  },
-  chipTextOn: {
-    color: PRIMARY,
   },
 
   /* Save button */
