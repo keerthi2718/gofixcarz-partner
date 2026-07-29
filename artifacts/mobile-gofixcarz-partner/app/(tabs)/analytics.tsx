@@ -158,7 +158,7 @@ function Sparkline({ data, color, w = 64, h = 24 }: { data: number[]; color: str
 /* ─── Revenue trend chart ─────────────────────────────────── */
 function RevenueTrendChart({ period }: { period: Period }) {
   const { width } = useWindowDimensions();
-  const pd = PERIOD_DATA[period];
+  const pd = PERIOD_DATA[period] ?? PERIOD_DATA['Daily'];
   const chartW = width - 72;   // mx-4 (32) + p-4 card (32) + y-axis (8 extra)
   const chartH = 140;
   const padL   = 40;            // space for Y labels
@@ -412,7 +412,7 @@ const PERIOD_LABEL: Record<Period, string> = {
 export default function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
   const [period, setPeriod] = useState<Period>('Monthly');
-  const pd = PERIOD_DATA[period];
+  const pd = PERIOD_DATA[period] ?? PERIOD_DATA['Monthly'];
 
   return (
     <View style={s.root}>

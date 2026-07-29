@@ -471,6 +471,7 @@ export default function RegisterScreen() {
         terms_accepted: true,
       });
       setShowSuccess(true);
+      setTimeout(() => router.replace('/(auth)/login' as never), 2000);
     } catch {
       // error handled by useEffect above
     }
