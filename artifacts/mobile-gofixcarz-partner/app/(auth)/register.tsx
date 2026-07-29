@@ -340,7 +340,7 @@ const wn = StyleSheet.create({
 /* ════════════════════ Main ══════════════════ */
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
-  const { signUp, isLoading, error, clearError } = useAuth();
+  const { signUp, isLoading, clearError } = useAuth();
   const scrollRef = useRef<ScrollView>(null);
 
   const [snackbar,     setSnackbar]     = useState<string | null>(null);
@@ -415,13 +415,6 @@ export default function RegisterScreen() {
     (!form.zipcode || form.zipcode.length === 6)
   );
 
-  /* ── Show non-conflict API errors in snackbar ── */
-  useEffect(() => {
-    if (!error) return;
-    const msg = error.toLowerCase();
-    const isNetwork = msg.includes('network') || msg.includes('connection');
-    setSnackbar(isNetwork ? 'Something went wrong. Please check your connection and retry.' : error);
-  }, [error]);
 
   const handleSubmit = useCallback(async () => {
     setTouched(t => ({ ...t, firstName: true, workshopName: true, phone: true, email: !!form.email, zipcode: !!form.zipcode }));
@@ -444,12 +437,23 @@ export default function RegisterScreen() {
       });
       // AuthContext.signUp() navigates to /(auth)/otp automatically on success
     } catch (err: unknown) {
-      // 409 = phone already registered → show inline error near phone field
-      if (isAxiosError(err) && err.response?.status === 409) {
-        setPhoneExists(true);
-        setSnackbar(null); // suppress the snackbar echo
+      if (isAxiosError(err)) {
+        const status = err.response?.status;
+        if (status === 409) {
+          // Phone already registered — show inline error under the phone field
+          setPhoneExists(true);
+        } else if (!err.response || err.code === 'ECONNABORTED') {
+          setSnackbar('Something went wrong. Please check your connection and retry.');
+        } else {
+          const msg: string =
+            err.response?.data?.message ??
+            err.response?.data?.error ??
+            'Registration failed. Please try again.';
+          setSnackbar(msg);
+        }
+      } else {
+        setSnackbar('Registration failed. Please try again.');
       }
-      // all other errors are shown via the useEffect → snackbar
     }
   }, [form, isValid, signUp]);
 
