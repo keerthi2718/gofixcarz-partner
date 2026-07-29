@@ -14,7 +14,7 @@ import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import JobService from '@/src/services/job.service';
-import { Filter, Plus, Wrench } from 'lucide-react-native';
+import { Filter, Plus, Wrench, Clock, User } from 'lucide-react-native';
 
 /* ─────────────── Status config ─────────────── */
 // Muted, desaturated — status communicates without shouting
@@ -222,40 +222,46 @@ export default function JobsScreen() {
             filteredJobs.map(item => {
               const st = JOB_STATUS[item.status] ?? { label: item.status, color: '#475569', bg: '#F3F4F6', dot: '#94A3B8' };
               const vehicleLine = [item.brand, item.vehicle_model].filter(Boolean).join(' ');
-              const serviceNames = item.services?.map(s => s.name).join(', ') ?? '';
+              const serviceNames = item.services?.map(s => s.name).join(' · ') ?? '';
               const techName = item.customer_name ?? '—';
-              const jobRef = item.job_number ?? `#${item.id.substring(0, 8)}`;
+              const jobRef = item.job_number ?? `JC-${item.id.substring(0, 4).toUpperCase()}`;
+              // Format plate with spaces for readability
+              const plate = item.registration_number
+                ? item.registration_number.toUpperCase().replace(/([A-Z]{2})(\d{2})([A-Z]{1,2})(\d{4})/, '$1 $2 $3 $4')
+                : null;
 
               return (
                 <TouchableOpacity
                   key={item.id}
-                  activeOpacity={0.75}
+                  activeOpacity={0.78}
                   style={styles.card}
                   onPress={() => router.push(`/(tabs)/jobs/${item.id}` as any)}
                 >
-                  {/* Meta row: job ref (ghost) + status chip */}
-                  <View style={styles.cardMeta}>
-                    <Text style={styles.jobRef}>{jobRef}</Text>
-                    <View style={[styles.statusChip, { backgroundColor: st.bg }]}>
+                  {/* Top strip: status property (plain text, no chip) + job ref */}
+                  <View style={styles.cardTop}>
+                    <View style={styles.statusInline}>
                       <View style={[styles.statusDot, { backgroundColor: st.dot }]} />
-                      <Text style={[styles.statusLabel, { color: st.color }]}>{st.label}</Text>
+                      <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
                     </View>
+                    <Text style={styles.jobRef}>{jobRef}</Text>
                   </View>
 
-                  {/* Primary: vehicle — the headline of the card */}
+                  {/* Vehicle — dominant headline, largest element */}
                   <Text style={styles.vehicleName} numberOfLines={1}>
-                    {vehicleLine || 'Unknown Vehicle'}
+                    {vehicleLine || 'Vehicle'}
                   </Text>
-                  {!!item.registration_number && (
-                    <Text style={styles.vehicleReg}>{item.registration_number}</Text>
+
+                  {/* Plate — styled like an actual plate number */}
+                  {!!plate && (
+                    <Text style={styles.plateBadge}>{plate}</Text>
                   )}
 
-                  {/* Secondary: service */}
+                  {/* Services — inline, muted, dot-separated */}
                   {!!serviceNames && (
-                    <Text style={styles.serviceText} numberOfLines={2}>{serviceNames}</Text>
+                    <Text style={styles.serviceText} numberOfLines={1}>{serviceNames}</Text>
                   )}
 
-                  {/* Footer: tech + est time */}
+                  {/* Footer — meta strip: tech + time, minimal */}
                   <View style={styles.cardFooter}>
                     <View style={styles.cardTechRow}>
                       <View style={styles.techAvatar}>
@@ -263,7 +269,10 @@ export default function JobsScreen() {
                       </View>
                       <Text style={styles.techName} numberOfLines={1}>{techName}</Text>
                     </View>
-                    <Text style={styles.estTime}>2h est.</Text>
+                    <View style={styles.estWrap}>
+                      <Clock size={10} color="#94A3B8" strokeWidth={2} />
+                      <Text style={styles.estTime}>2h</Text>
+                    </View>
                   </View>
                 </TouchableOpacity>
               );
@@ -472,117 +481,127 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  /* Job card — refined craft */
+  /* ── Job card ─────────────────────────────────────────────
+     Designed to be scanned in 0.5 seconds.
+     Eye lands on: vehicle → plate → service → tech
+     Status is a property, not a badge. No chips, no accent bars.
+  ────────────────────────────────────────────────────────── */
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 14,
+    paddingTop: 13,
+    paddingHorizontal: 15,
+    paddingBottom: 13,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 16,
+    borderColor: '#EAECF0',
     ...Platform.select({
-      ios:     { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
+      ios:     { shadowColor: '#101828', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3 },
       android: { elevation: 1 },
       default: {},
     }),
   },
 
-  /* Meta: job ref + status — smallest visual weight, top */
-  cardMeta: {
+  /* Status + job ref — both tertiary, never compete with content */
+  cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 9,
   },
-  jobRef: {
-    fontSize: 11,
-    color: '#94A3B8',
-    letterSpacing: 0.3,
-    fontVariant: ['tabular-nums'] as any,
-  },
-  statusChip: {
+  statusInline: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
   },
   statusDot: {
-    width: 5,
-    height: 5,
+    width: 6,
+    height: 6,
     borderRadius: 3,
   },
-  statusLabel: {
+  statusText: {
     fontSize: 11,
     fontWeight: '500',
     letterSpacing: 0.1,
   },
+  jobRef: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    letterSpacing: 0.5,
+    fontVariant: ['tabular-nums'] as any,
+  },
 
-  /* Vehicle — the primary headline */
+  /* Vehicle — the loudest element on the card */
   vehicleName: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '700',
-    color: '#0F172A',
-    letterSpacing: -0.2,
-    lineHeight: 20,
+    color: '#111827',
+    letterSpacing: -0.4,
+    lineHeight: 22,
   },
-  vehicleReg: {
+
+  /* Plate — spaced like a physical plate, distinct from other text */
+  plateBadge: {
     fontSize: 12,
-    color: '#64748B',
-    marginTop: 3,
-    letterSpacing: 0.4,
+    color: '#6B7280',
+    letterSpacing: 1.8,
+    marginTop: 4,
+    fontVariant: ['tabular-nums'] as any,
   },
 
-  /* Service — secondary, toned down */
+  /* Services — compact, one line, separator dot from the data */
   serviceText: {
-    fontSize: 13,
-    color: '#475569',
-    marginTop: 8,
-    lineHeight: 18,
+    fontSize: 12.5,
+    color: '#4B5563',
+    marginTop: 7,
+    lineHeight: 17,
   },
 
-  /* Footer: tech + est — supporting info, visually lightest */
+  /* Footer — the quietest row. Not a feature, a footnote. */
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F8FAFC',
+    marginTop: 13,
+    paddingTop: 11,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E5E7EB',
   },
   cardTechRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 6,
     flex: 1,
+    minWidth: 0,
   },
   techAvatar: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   techInitials: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: '#64748B',
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#6B7280',
+    letterSpacing: 0.3,
   },
   techName: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#9CA3AF',
     flex: 1,
+  },
+  estWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    flexShrink: 0,
   },
   estTime: {
     fontSize: 11,
-    color: '#94A3B8',
-    flexShrink: 0,
+    color: '#9CA3AF',
   },
 
   /* FAB */
