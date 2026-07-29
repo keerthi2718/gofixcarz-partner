@@ -880,63 +880,146 @@ export default function CreateJobScreen() {
                 ))}
               </SectionCard>
 
+              {/* ── Labour Details ── */}
               <SectionCard title="Labour Details" iconBg="#FEF3C7" Icon={Clock} iconColor={WARN}>
-                <View style={s.twoCol}>
-                  <View style={{ flex: 1 }}>
-                    <InlineInput
-                      label="Est. Hours"
-                      value={estHours}
-                      onChangeText={setEstHours}
-                      placeholder="2"
-                      keyboardType="number-pad"
-                      Icon={Clock}
-                    />
+                <View style={s.labourGrid}>
+
+                  {/* Estimated Hours — stepper */}
+                  <View style={s.labourTile}>
+                    <View style={s.labourTileTop}>
+                      <View style={[s.labourTileIcon, { backgroundColor: '#FEF3C7' }]}>
+                        <Clock size={14} color={WARN} strokeWidth={2} />
+                      </View>
+                      <Text style={s.labourTileLabel}>EST. HOURS</Text>
+                    </View>
+                    <View style={s.stepperRow}>
+                      <TouchableOpacity
+                        style={s.stepperBtn}
+                        onPress={() => setEstHours(String(Math.max(0, parseFloat(estHours || '0') - 0.5)))}
+                        activeOpacity={0.75}
+                      >
+                        <Minus size={15} color={TEXT} strokeWidth={2.5} />
+                      </TouchableOpacity>
+                      <View style={s.stepperVal}>
+                        <Text style={s.stepperNum}>{parseFloat(estHours || '0').toFixed(1)}</Text>
+                        <Text style={s.stepperUnit}>hrs</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={s.stepperBtn}
+                        onPress={() => setEstHours(String(parseFloat(estHours || '0') + 0.5))}
+                        activeOpacity={0.75}
+                      >
+                        <Plus size={15} color={TEXT} strokeWidth={2.5} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <InlineInput
-                      label="Labour Charge (₹)"
-                      value={labourCharge}
-                      onChangeText={setLabourCharge}
-                      placeholder="500"
-                      keyboardType="number-pad"
-                      Icon={Hash}
-                    />
+
+                  {/* Labour Charge — currency input */}
+                  <View style={s.labourTile}>
+                    <View style={s.labourTileTop}>
+                      <View style={[s.labourTileIcon, { backgroundColor: '#FEE2E2' }]}>
+                        <Hash size={14} color={PRIMARY} strokeWidth={2} />
+                      </View>
+                      <Text style={s.labourTileLabel}>CHARGE (₹)</Text>
+                    </View>
+                    <View style={s.labourAmtRow}>
+                      <Text style={s.labourRupee}>₹</Text>
+                      <TextInput
+                        style={s.labourAmtInput}
+                        value={labourCharge}
+                        onChangeText={setLabourCharge}
+                        placeholder="0"
+                        placeholderTextColor="#C4C9D4"
+                        keyboardType="number-pad"
+                      />
+                    </View>
+                    {labourCharge !== '' && parseFloat(labourCharge) > 0 && (
+                      <Text style={s.labourAmtHint}>
+                        + GST = {formatCurrency(parseFloat(labourCharge) * 1.18)}
+                      </Text>
+                    )}
                   </View>
+
                 </View>
               </SectionCard>
 
+              {/* ── Expected Delivery ── */}
               <SectionCard title="Expected Delivery" iconBg="#FFF7ED" Icon={Calendar} iconColor="#F97316">
-                <View style={s.twoCol}>
-                  <TouchableOpacity style={s.pickerBtn} onPress={() => setShowDatePicker(true)} activeOpacity={0.8}>
-                    <View style={s.pickerIconWrap}>
-                      <Calendar size={16} color={PRIMARY} strokeWidth={2} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.pickerLabel}>DATE</Text>
-                      <Text style={[s.pickerVal, !deliveryDate && s.pickerPlaceholder]}>
-                        {deliveryDate
-                          ? deliveryDate.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' })
-                          : 'Select date'}
-                      </Text>
-                    </View>
-                    <ChevronDown size={14} color={MUTED} strokeWidth={2} />
-                  </TouchableOpacity>
 
-                  <TouchableOpacity style={s.pickerBtn} onPress={() => setShowTimePicker(true)} activeOpacity={0.8}>
-                    <View style={s.pickerIconWrap}>
-                      <Clock size={16} color={PRIMARY} strokeWidth={2} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.pickerLabel}>TIME</Text>
-                      <Text style={[s.pickerVal, !deliveryTime && s.pickerPlaceholder]}>
-                        {deliveryTime
-                          ? deliveryTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
-                          : 'Select time'}
+                {/* Date row */}
+                <TouchableOpacity
+                  style={[s.deliveryRow, deliveryDate && s.deliveryRowSet]}
+                  onPress={() => setShowDatePicker(true)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[s.deliveryIconWrap, { backgroundColor: deliveryDate ? '#FFF7ED' : '#F3F4F6' }]}>
+                    <Calendar size={18} color={deliveryDate ? '#F97316' : '#9CA3AF'} strokeWidth={2} />
+                  </View>
+                  <View style={s.deliveryContent}>
+                    <Text style={s.deliveryLabel}>DELIVERY DATE</Text>
+                    {deliveryDate ? (
+                      <Text style={s.deliveryValue}>
+                        {deliveryDate.toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
                       </Text>
+                    ) : (
+                      <Text style={s.deliveryPlaceholder}>Tap to choose a date</Text>
+                    )}
+                  </View>
+                  {deliveryDate ? (
+                    <View style={s.deliveryCheckBadge}>
+                      <Check size={11} color={SUCCESS} strokeWidth={3} />
                     </View>
-                    <ChevronDown size={14} color={MUTED} strokeWidth={2} />
-                  </TouchableOpacity>
-                </View>
+                  ) : (
+                    <ChevronDown size={16} color="#9CA3AF" strokeWidth={2} />
+                  )}
+                </TouchableOpacity>
+
+                <View style={s.deliveryDivider} />
+
+                {/* Time row */}
+                <TouchableOpacity
+                  style={[s.deliveryRow, deliveryTime && s.deliveryRowSet, { marginBottom: 0 }]}
+                  onPress={() => setShowTimePicker(true)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[s.deliveryIconWrap, { backgroundColor: deliveryTime ? '#EDE9FE' : '#F3F4F6' }]}>
+                    <Clock size={18} color={deliveryTime ? '#7C3AED' : '#9CA3AF'} strokeWidth={2} />
+                  </View>
+                  <View style={s.deliveryContent}>
+                    <Text style={s.deliveryLabel}>PICKUP TIME</Text>
+                    {deliveryTime ? (
+                      <Text style={s.deliveryValue}>
+                        {deliveryTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                      </Text>
+                    ) : (
+                      <Text style={s.deliveryPlaceholder}>Tap to choose a time</Text>
+                    )}
+                  </View>
+                  {deliveryTime ? (
+                    <View style={s.deliveryCheckBadge}>
+                      <Check size={11} color={SUCCESS} strokeWidth={3} />
+                    </View>
+                  ) : (
+                    <ChevronDown size={16} color="#9CA3AF" strokeWidth={2} />
+                  )}
+                </TouchableOpacity>
+
+                {/* Confirmation summary */}
+                {deliveryDate && deliveryTime && (
+                  <View style={s.deliverySummary}>
+                    <CheckCircle size={13} color={SUCCESS} strokeWidth={2} />
+                    <Text style={s.deliverySummaryText}>
+                      Scheduled for{' '}
+                      <Text style={{ fontWeight: '700' }}>
+                        {deliveryDate.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' })}
+                      </Text>
+                      {' at '}
+                      <Text style={{ fontWeight: '700' }}>
+                        {deliveryTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                      </Text>
+                    </Text>
+                  </View>
+                )}
 
                 {/* Android native pickers */}
                 {Platform.OS === 'android' && showDatePicker && (
@@ -948,12 +1031,15 @@ export default function CreateJobScreen() {
                     onChange={(_: DateTimePickerEvent, date?: Date) => { setShowTimePicker(false); if (date) setDeliveryTime(date); }} />
                 )}
 
-                {/* iOS Modal picker */}
+                {/* iOS bottom-sheet picker */}
                 <Modal visible={Platform.OS === 'ios' && (showDatePicker || showTimePicker)} transparent animationType="slide">
                   <View style={s.pickerModal}>
                     <View style={s.pickerSheet}>
                       <View style={s.pickerSheetHeader}>
-                        <Text style={s.pickerSheetTitle}>{showDatePicker ? 'Select Date' : 'Select Time'}</Text>
+                        <TouchableOpacity onPress={() => { setShowDatePicker(false); setShowTimePicker(false); }}>
+                          <Text style={s.pickerCancel}>Cancel</Text>
+                        </TouchableOpacity>
+                        <Text style={s.pickerSheetTitle}>{showDatePicker ? 'Delivery Date' : 'Pickup Time'}</Text>
                         <TouchableOpacity onPress={() => { setShowDatePicker(false); setShowTimePicker(false); }}>
                           <Text style={s.pickerDone}>Done</Text>
                         </TouchableOpacity>
@@ -972,15 +1058,18 @@ export default function CreateJobScreen() {
                   </View>
                 </Modal>
 
-                <Text style={[s.areaLabel, { marginTop: 4 }]}>ADDITIONAL NOTES</Text>
+              </SectionCard>
+
+              {/* ── Additional Notes ── */}
+              <SectionCard title="Additional Notes" iconBg="#F0FDF4" Icon={Clipboard} iconColor={SUCCESS}>
                 <View style={[s.areaWrap, { marginBottom: 0 }]}>
                   <TextInput
-                    style={[s.area, { minHeight: 80 }]}
+                    style={[s.area, { minHeight: 90 }]}
                     value={additionalNotes}
                     onChangeText={setAdditionalNotes}
-                    placeholder="Special instructions for the technician…"
+                    placeholder="Special instructions for the technician, parts to order, etc."
                     placeholderTextColor="#9CA3AF"
-                    multiline numberOfLines={3}
+                    multiline numberOfLines={4}
                     textAlignVertical="top"
                   />
                 </View>
@@ -1348,6 +1437,72 @@ const s = StyleSheet.create({
 
   /* Two column layout */
   twoCol: { flexDirection: 'row', gap: 12 },
+
+  /* ── Labour tiles ──────────────────────────────────────── */
+  labourGrid: { flexDirection: 'row', gap: 12 },
+  labourTile: {
+    flex: 1, backgroundColor: '#F9FAFB',
+    borderRadius: 14, borderWidth: 1, borderColor: BORDER,
+    padding: 14, gap: 12,
+  },
+  labourTileTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  labourTileIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  labourTileLabel: { fontSize: 10, fontWeight: '800', color: MUTED, letterSpacing: 0.6, textTransform: 'uppercase' },
+
+  /* Stepper */
+  stepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  stepperBtn: {
+    width: 34, height: 34, borderRadius: 10,
+    backgroundColor: CARD, borderWidth: 1, borderColor: BORDER,
+    alignItems: 'center', justifyContent: 'center',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3 },
+      android: { elevation: 1 },
+      default: {},
+    }),
+  },
+  stepperVal: { alignItems: 'center' },
+  stepperNum: { fontSize: 22, fontWeight: '800', color: TEXT, letterSpacing: -0.5 },
+  stepperUnit: { fontSize: 10, fontWeight: '600', color: MUTED, marginTop: -2 },
+
+  /* Labour charge input */
+  labourAmtRow: {
+    flexDirection: 'row', alignItems: 'baseline', gap: 3,
+    borderBottomWidth: 2, borderBottomColor: BORDER, paddingBottom: 6,
+  },
+  labourRupee: { fontSize: 20, fontWeight: '700', color: MUTED },
+  labourAmtInput: { flex: 1, fontSize: 28, fontWeight: '800', color: TEXT, letterSpacing: -0.5, paddingVertical: 0 },
+  labourAmtHint: { fontSize: 10.5, color: MUTED, fontWeight: '500' },
+
+  /* ── Delivery rows ──────────────────────────────────────── */
+  deliveryRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingVertical: 14, marginBottom: 0,
+  },
+  deliveryRowSet: { /* no extra style needed — driven by child colors */ },
+  deliveryIconWrap: {
+    width: 44, height: 44, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  deliveryContent: { flex: 1 },
+  deliveryLabel: { fontSize: 10, fontWeight: '800', color: MUTED, letterSpacing: 0.7, textTransform: 'uppercase', marginBottom: 4 },
+  deliveryValue: { fontSize: 15, fontWeight: '700', color: TEXT, letterSpacing: -0.2 },
+  deliveryPlaceholder: { fontSize: 14, color: '#9CA3AF', fontWeight: '400' },
+  deliveryCheckBadge: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#BBF7D0',
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  deliveryDivider: { height: StyleSheet.hairlineWidth, backgroundColor: BORDER, marginHorizontal: -18 },
+  deliverySummary: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginTop: 14, padding: 12, borderRadius: 10,
+    backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0',
+  },
+  deliverySummaryText: { fontSize: 12.5, color: '#166534', flex: 1, lineHeight: 18 },
+
+  /* Picker modal */
+  pickerCancel: { fontSize: 15, fontWeight: '500', color: MUTED },
 
   /* Technician */
   techCard: {
