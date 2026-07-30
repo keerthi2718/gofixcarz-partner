@@ -16,7 +16,7 @@ import {
   User, Phone, Hash, Truck, Tag, GitBranch, Navigation,
   Droplet, Clipboard, Camera, Search, Plus, Minus, Trash2,
   Users, Clock, Calendar, Wrench, Image as ImageIcon, Upload,
-  FileText, Download, Share2, Activity, X, CheckCircle,
+  FileText, Download, Share2, Activity, X, CheckCircle, RotateCcw,
 } from 'lucide-react-native';
 import JobService from '@/src/services/job.service';
 import SelectDropdown from '@/src/components/ui/SelectDropdown';
@@ -444,6 +444,47 @@ export default function CreateJobScreen() {
     if (step === 0) { router.back(); return; }
     setStep(s => s - 1);
     scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }
+
+  function handleReset() {
+    Alert.alert(
+      'Reset Job Card',
+      'All entered details will be cleared. Start fresh?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: () => {
+            setStep(0);
+            setErrors({});
+            setCreateError(null);
+            setCustomerName('');
+            setCustomerPhone('');
+            setRegNumber('');
+            setBrand('');
+            setModel('');
+            setFuelType('Petrol');
+            setOdometer('');
+            setFuelLevel('1/2');
+            setComplaint('');
+            setInspectionNotes('');
+            setBeforePhotos([]);
+            setDocuments([]);
+            setServiceSearch('');
+            setServices([]);
+            setSelectedTechId(null);
+            setSelectedTechName('');
+            setEstHours('');
+            setLabourCharge('');
+            setDeliveryDate(null);
+            setDeliveryTime(null);
+            setAdditionalNotes('');
+            scrollRef.current?.scrollTo({ y: 0, animated: false });
+          },
+        },
+      ],
+    );
   }
 
   const nextLabel = step === 3 ? 'Create Job Card' : step === 5 ? 'Done' : 'Continue';
@@ -1249,6 +1290,17 @@ export default function CreateJobScreen() {
           <Text style={[s.footerBackText, step === 0 && { color: '#9CA3AF' }]}>Back</Text>
         </TouchableOpacity>
 
+        {step <= 3 && (
+          <TouchableOpacity
+            style={s.footerReset}
+            onPress={handleReset}
+            activeOpacity={0.8}
+          >
+            <RotateCcw size={15} color={DANGER} strokeWidth={2.5} />
+            <Text style={s.footerResetText}>Reset</Text>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           style={[s.footerNext, isPending && { opacity: 0.65 }, step === 5 && { backgroundColor: SUCCESS }]}
           onPress={step === 5 ? () => router.replace('/(tabs)/jobs') : handleNext}
@@ -1672,6 +1724,12 @@ const s = StyleSheet.create({
     borderRadius: 13, borderWidth: 1.5, borderColor: BORDER, backgroundColor: '#F3F4F6',
   },
   footerBackText: { fontSize: 14, fontWeight: '600', color: TEXT },
+  footerReset: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingVertical: 15, paddingHorizontal: 16,
+    borderRadius: 13, borderWidth: 1.5, borderColor: '#FECACA', backgroundColor: '#FFF5F5',
+  },
+  footerResetText: { fontSize: 14, fontWeight: '600', color: DANGER },
   footerNext: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 15, borderRadius: 13, backgroundColor: PRIMARY,
