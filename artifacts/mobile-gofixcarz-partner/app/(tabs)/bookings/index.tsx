@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Search, Clock, Phone, CalendarClock } from 'lucide-react-native';
+import { Search, Clock, Phone, CalendarClock, X } from 'lucide-react-native';
 import { MOCK_BOOKINGS } from '@/src/data/mockBookings';
 import type { BookingStatus } from '@/src/types';
 
@@ -238,6 +238,11 @@ export default function BookingsScreen() {
                 placeholderTextColor="#94A3B8"
                 autoFocus
               />
+              {!!search && (
+                <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <X size={15} color="#94A3B8" strokeWidth={2.5} />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}
@@ -265,6 +270,18 @@ export default function BookingsScreen() {
               </TouchableOpacity>
             );
           })}
+
+          {/* Clear chip — shown when any filter is active */}
+          {(filter !== '' || !!search) && (
+            <TouchableOpacity
+              onPress={() => { setFilter(''); setSearch(''); setSearchOpen(false); }}
+              activeOpacity={0.75}
+              style={styles.clearChip}
+            >
+              <X size={11} color="#C41E3A" strokeWidth={3} />
+              <Text style={styles.clearChipText}>Clear</Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
 
         {/* ── TODAY section ── */}
@@ -398,6 +415,25 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: '#FFFFFF',
+  },
+
+  /* Clear chip */
+  clearChip: {
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: '#FFF1F3',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  clearChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#C41E3A',
   },
 
   /* Section */

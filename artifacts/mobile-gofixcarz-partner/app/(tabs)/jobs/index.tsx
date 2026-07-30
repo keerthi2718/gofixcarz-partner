@@ -6,6 +6,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -14,7 +15,9 @@ import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import JobService from '@/src/services/job.service';
-import { Filter, Plus, Wrench, Clock, ChevronRight } from 'lucide-react-native';
+import { Filter, Plus, Wrench, Clock, ChevronRight, Search, X } from 'lucide-react-native';
+
+const DEFAULT_STAGE = 'In Progress';
 
 /* ─────────────── Status config ─────────────── */
 // Muted, desaturated — status communicates without shouting
@@ -80,8 +83,18 @@ function getAvatarColor(name?: string): { bg: string; fg: string } {
 /* ─────────────── Component ─────────────── */
 export default function JobsScreen() {
   const insets = useSafeAreaInsets();
-  const [activeStage, setActiveStage] = useState('In Progress');
-  const [activeTech, setActiveTech] = useState('All Techs');
+  const [activeStage, setActiveStage] = useState(DEFAULT_STAGE);
+  const [activeTech, setActiveTech]   = useState('All Techs');
+  const [search,     setSearch]       = useState('');
+  const [searchOpen, setSearchOpen]   = useState(false);
+
+  const isFiltered = activeStage !== DEFAULT_STAGE || !!search;
+
+  function resetFilters() {
+    setActiveStage(DEFAULT_STAGE);
+    setSearch('');
+    setSearchOpen(false);
+  }
 
   const { data, isLoading, isRefetching, refetch } = useQuery({
     queryKey: QUERY_KEYS.JOBS({}),
@@ -102,7 +115,17 @@ export default function JobsScreen() {
 
   /* Filtered jobs */
   const activeStatuses = STAGE_STATUS_MAP[activeStage] ?? [];
-  const filteredJobs = allItems.filter(j => activeStatuses.includes(j.status));
+  const filteredJobs = allItems
+    .filter(j => activeStatuses.includes(j.status))
+    .filter(j => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return (
+        (j.registration_number ?? '').toLowerCase().includes(q) ||
+        (j.customer_name ?? '').toLowerCase().includes(q) ||
+        (j.job_number ?? '').toLowerCase().includes(q)
+      );
+    });
 
   return (
     <View style={styles.root}>
@@ -113,8 +136,13 @@ export default function JobsScreen() {
         <Text style={styles.headerTitle}>Workshop</Text>
         <View style={styles.headerRight}>
           <Text style={styles.headerSub}>Today, {allItems.length} jobs</Text>
-          <TouchableOpacity style={styles.filterBtn} activeOpacity={0.7}>
-            <Filter size={16} color="#64748B" strokeWidth={2} />
+          <TouchableOpacity
+            style={[styles.filterBtn, (searchOpen || isFiltered) && styles.filterBtnActive]}
+            activeOpacity={0.7}
+            onPress={() => { setSearchOpen(v => !v); if (searchOpen) setSearch(''); }}
+          >
+            <Search size={16} color={searchOpen || isFiltered ? '#C41E3A' : '#64748B'} strokeWidth={2} />
+            {isFiltered && <View style={styles.filterDot} />}
           </TouchableOpacity>
         </View>
       </View>
@@ -135,6 +163,28 @@ export default function JobsScreen() {
           { paddingBottom: insets.bottom + 140 },
         ]}
       >
+        {/* ── Search bar ── */}
+        {searchOpen && (
+          <View style={styles.searchWrap}>
+            <View style={styles.searchBox}>
+              <Search size={15} color="#94A3B8" strokeWidth={2} />
+              <TextInput
+                style={styles.searchInput}
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search plate, name, job #..."
+                placeholderTextColor="#94A3B8"
+                autoFocus
+              />
+              {!!search && (
+                <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <X size={15} color="#94A3B8" strokeWidth={2.5} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* ── Pipeline strip ── */}
         <ScrollView
           horizontal
@@ -142,6 +192,13 @@ export default function JobsScreen() {
           style={styles.stageScroll}
           contentContainerStyle={styles.stageRow}
         >
+          {/* Reset pill — shown when non-default stage is active */}
+          {activeStage !== DEFAULT_STAGE && (
+            <TouchableOpacity style={styles.resetPill} onPress={resetFilters} activeOpacity={0.75}>
+              <X size={11} color="#C41E3A" strokeWidth={3} />
+              <Text style={styles.resetPillText}>Reset</Text>
+            </TouchableOpacity>
+          )}
           {STAGES.map(stage => {
             const isActive = activeStage === stage;
             const count = stageCount(stage);
@@ -365,6 +422,61 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    position: 'relative',
+  },
+  filterBtnActive: {
+    borderColor: '#FECDD3',
+    backgroundColor: '#FFF1F3',
+  },
+  filterDot: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#C41E3A',
+  },
+
+  /* Search bar */
+  searchWrap: {
+    marginHorizontal: 16,
+    marginTop: 12,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    height: 40,
+    paddingHorizontal: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+
+  /* Reset pill */
+  resetPill: {
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    backgroundColor: '#FFF1F3',
+    borderColor: '#FECDD3',
+  },
+  resetPillText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#C41E3A',
   },
 
   /* Body */
