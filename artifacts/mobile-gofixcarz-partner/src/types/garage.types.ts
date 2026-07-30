@@ -6,6 +6,7 @@ export interface GarageResponse {
   id: string;
   user_id: string;
   name: string;
+  logo_url?: string | null;
   owner: string;
   phone: string | null;
   email: string | null;

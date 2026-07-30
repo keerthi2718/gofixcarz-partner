@@ -6,11 +6,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { useAuth } from '@/src/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
+import { STORAGE_KEYS } from '@/src/constants/storage';
+import StorageService from '@/src/services/storage.service';
 import ProfileService from '@/src/services/profile.service';
 import GarageService from '@/src/services/garage.service';
 import type { WorkingHours } from '@/src/types';
@@ -359,6 +362,14 @@ export default function ProfileScreen() {
       const first = Object.values(garage.working_hours).find(v => !v.closed);
       if (first) { setOpenTime(dateFromHHMM(first.open)); setCloseTime(dateFromHHMM(first.close)); }
     }
+    // Prefer server logo_url; fall back to locally cached URI
+    if (garage.logo_url) {
+      setLogoUri(garage.logo_url);
+    } else {
+      StorageService.get(STORAGE_KEYS.GARAGE_LOGO).then((cached: string | null) => {
+        if (cached) setLogoUri(cached);
+      });
+    }
     garagePopulated.current = true;
   }, [garage]);
 
@@ -377,7 +388,35 @@ export default function ProfileScreen() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission needed', 'Allow photo library access to upload a logo.'); return; }
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85 });
-    if (!res.canceled && res.assets[0]) setLogoUri(res.assets[0].uri);
+    if (res.canceled || !res.assets[0]) return;
+
+    const picked = res.assets[0].uri;
+
+    // Copy to persistent app directory so the URI survives across sessions
+    const ext  = picked.split('.').pop()?.toLowerCase() ?? 'jpg';
+    const dest = `${FileSystem.documentDirectory}garage_logo.${ext}`;
+    try {
+      await FileSystem.copyAsync({ from: picked, to: dest });
+    } catch {
+      // If copy fails, fall back to the original temp URI
+    }
+    const persistentUri = dest;
+
+    // Show immediately in UI
+    setLogoUri(persistentUri);
+
+    // Cache locally so it survives component unmount
+    await StorageService.set(STORAGE_KEYS.GARAGE_LOGO, persistentUri);
+
+    // Upload to server (silently — non-blocking)
+    GarageService.uploadLogo(persistentUri).then(serverUrl => {
+      if (serverUrl) {
+        setLogoUri(serverUrl);
+        StorageService.set(STORAGE_KEYS.GARAGE_LOGO, serverUrl);
+      }
+    }).catch(() => {
+      // Server upload failed (endpoint may not be live yet); local cache still works
+    });
   }
 
   /* ── Validate ── */

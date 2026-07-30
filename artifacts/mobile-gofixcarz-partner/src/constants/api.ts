@@ -27,6 +27,7 @@ export const ENDPOINTS = {
   ANALYTICS: '/analytics',
 
   GARAGE: '/garage',
+  GARAGE_LOGO: '/garage/logo',
 
   PROFILE: '/profile',
 

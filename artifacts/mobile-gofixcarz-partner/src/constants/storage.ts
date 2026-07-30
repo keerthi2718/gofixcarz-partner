@@ -10,6 +10,7 @@ export const STORAGE_KEYS = {
   ONBOARDING_COMPLETE: '@gofixcarz_partner:onboarding_complete',
   THEME: '@gofixcarz_partner:theme',
   PUSH_TOKEN: '@gofixcarz_partner:push_token',
+  GARAGE_LOGO: '@gofixcarz_partner:garage_logo_uri',
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];
