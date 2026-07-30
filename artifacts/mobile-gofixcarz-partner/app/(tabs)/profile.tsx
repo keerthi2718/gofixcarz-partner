@@ -563,7 +563,9 @@ export default function ProfileScreen() {
 
           {/* ── Working Hours ── */}
           <SectionHeader title="Working Hours" />
-          <Text style={s.microLabel}>Working Days</Text>
+
+          {/* Step 1 — day selection */}
+          <Text style={s.microLabel}>Select Working Days</Text>
           <View style={s.daysRow}>
             {DAYS.map(d => (
               <DayPill key={d} label={d} on={workDays.includes(d)}
@@ -576,28 +578,41 @@ export default function ProfileScreen() {
               <Text style={s.daysErrorTxt}>{errors.workDays}</Text>
             </View>
           ) : null}
-          <View style={[s.timesRow, { marginTop: 16 }]}>
+
+          {/* Step 2 — unified hours for all selected days */}
+          <View style={s.hoursHeaderRow}>
+            <Text style={s.microLabel}>Opening & Closing Time</Text>
+            <Text style={s.hoursNote}>Same hours apply to all selected days</Text>
+          </View>
+          <View style={s.timesRow}>
             <TouchableOpacity style={s.timeBtn} onPress={() => setPickerFor('open')} activeOpacity={0.8}>
               <Sun size={14} color="#F97316" strokeWidth={2} />
-              <Text style={s.timeBtnLabel}>Opens at</Text>
+              <Text style={s.timeBtnLabel}>Opens</Text>
               <Text style={s.timeBtnValue}>{fmt12(openTime)}</Text>
               <ChevronRight size={14} color={MUTED} strokeWidth={2} />
             </TouchableOpacity>
             <View style={s.timeDivider} />
             <TouchableOpacity style={s.timeBtn} onPress={() => setPickerFor('close')} activeOpacity={0.8}>
               <Moon size={14} color="#7C3AED" strokeWidth={2} />
-              <Text style={s.timeBtnLabel}>Closes at</Text>
+              <Text style={s.timeBtnLabel}>Closes</Text>
               <Text style={s.timeBtnValue}>{fmt12(closeTime)}</Text>
               <ChevronRight size={14} color={MUTED} strokeWidth={2} />
             </TouchableOpacity>
           </View>
+
+          {/* Live schedule summary */}
           {workDays.length > 0 && (
             <View style={s.hoursSummary}>
-              <CheckCircle size={12} color={SUCCESS} strokeWidth={2} />
-              <Text style={s.hoursSummaryTxt}>
-                <Text style={{ fontWeight: '700' }}>{workDays.join(' · ')}</Text>
-                {'  ·  '}{fmt12(openTime)} – {fmt12(closeTime)}
-              </Text>
+              <CheckCircle size={13} color={SUCCESS} strokeWidth={2} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.hoursSummaryTitle}>Your garage schedule</Text>
+                <Text style={s.hoursSummaryTxt}>
+                  {workDays.join(' · ')}
+                </Text>
+                <Text style={s.hoursSummaryTime}>
+                  {fmt12(openTime)}{'  –  '}{fmt12(closeTime)}
+                </Text>
+              </View>
             </View>
           )}
 
@@ -671,13 +686,19 @@ const s = StyleSheet.create({
   timeBtnValue: { fontSize: 14, fontWeight: '700', color: TEXT },
   timeDivider:  { width: 1.5, backgroundColor: LINE },
 
+  /* Hours header row */
+  hoursHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18, marginBottom: 10 },
+  hoursNote: { fontSize: 11, color: '#6B7280', fontStyle: 'italic' },
+
   /* Hours summary */
   hoursSummary: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    marginTop: 10, padding: 11,
-    backgroundColor: '#F0FDF4', borderRadius: 9, borderWidth: 1, borderColor: '#BBF7D0',
+    flexDirection: 'row', alignItems: 'flex-start', gap: 9,
+    marginTop: 12, padding: 12,
+    backgroundColor: '#F0FDF4', borderRadius: 10, borderWidth: 1, borderColor: '#BBF7D0',
   },
-  hoursSummaryTxt: { flex: 1, fontSize: 12, color: '#166534', lineHeight: 18 },
+  hoursSummaryTitle: { fontSize: 10.5, fontWeight: '700', color: '#166534', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 3 },
+  hoursSummaryTxt:  { fontSize: 12.5, fontWeight: '600', color: '#166534', lineHeight: 18 },
+  hoursSummaryTime: { fontSize: 13, fontWeight: '700', color: '#14532D', marginTop: 2 },
 
   /* Logout */
   logout: {
