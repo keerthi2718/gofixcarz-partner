@@ -199,16 +199,19 @@ const addr = StyleSheet.create({
 /* ─────────────── DayPill ────────────── */
 function DayPill({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   return (
-    <TouchableOpacity style={[dp.pill, on && dp.pillOn]} onPress={onPress} activeOpacity={0.75}>
-      <Text style={[dp.lbl, on && dp.lblOn]}>{label[0]}</Text>
+    <TouchableOpacity style={[dp.pill, on && dp.pillOn]} onPress={onPress} activeOpacity={0.72}>
+      <Text style={[dp.lbl, on && dp.lblOn]}>{label}</Text>
+      <View style={[dp.dot, on && dp.dotOn]} />
     </TouchableOpacity>
   );
 }
 const dp = StyleSheet.create({
-  pill:   { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8, borderWidth: 1.5, borderColor: LINE, backgroundColor: '#F9FAFB' },
+  pill:   { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10, borderWidth: 1.5, borderColor: LINE, backgroundColor: '#F9FAFB', gap: 5 },
   pillOn: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  lbl:    { fontSize: 13, fontWeight: '800', color: MUTED },
+  lbl:    { fontSize: 10, fontWeight: '700', color: MUTED, letterSpacing: 0.2 },
   lblOn:  { color: '#fff' },
+  dot:    { width: 4, height: 4, borderRadius: 2, backgroundColor: LINE },
+  dotOn:  { backgroundColor: 'rgba(255,255,255,0.55)' },
 });
 
 /* ─────────────── TimePickerModal ─────── */
@@ -564,57 +567,64 @@ export default function ProfileScreen() {
           {/* ── Working Hours ── */}
           <SectionHeader title="Working Hours" />
 
-          {/* Step 1 — day selection */}
-          <Text style={s.microLabel}>Select Working Days</Text>
-          <View style={s.daysRow}>
-            {DAYS.map(d => (
-              <DayPill key={d} label={d} on={workDays.includes(d)}
-                onPress={() => { setWorkDays(p => p.includes(d) ? p.filter(x => x !== d) : [...p, d]); clearError('workDays'); }} />
-            ))}
-          </View>
-          {errors.workDays ? (
-            <View style={s.daysError}>
-              <AlertTriangle size={13} color={DANGER} strokeWidth={2} />
-              <Text style={s.daysErrorTxt}>{errors.workDays}</Text>
+          <View style={s.hoursCard}>
+            {/* ── Working Days ── */}
+            <Text style={s.hoursCardLabel}>Working Days</Text>
+            <View style={s.daysRow}>
+              {DAYS.map(d => (
+                <DayPill key={d} label={d} on={workDays.includes(d)}
+                  onPress={() => { setWorkDays(p => p.includes(d) ? p.filter(x => x !== d) : [...p, d]); clearError('workDays'); }} />
+              ))}
             </View>
-          ) : null}
-
-          {/* Step 2 — unified hours for all selected days */}
-          <View style={s.hoursHeaderRow}>
-            <Text style={s.microLabel}>Opening & Closing Time</Text>
-            <Text style={s.hoursNote}>Same hours apply to all selected days</Text>
-          </View>
-          <View style={s.timesRow}>
-            <TouchableOpacity style={s.timeBtn} onPress={() => setPickerFor('open')} activeOpacity={0.8}>
-              <Sun size={14} color="#F97316" strokeWidth={2} />
-              <Text style={s.timeBtnLabel}>Opens</Text>
-              <Text style={s.timeBtnValue}>{fmt12(openTime)}</Text>
-              <ChevronRight size={14} color={MUTED} strokeWidth={2} />
-            </TouchableOpacity>
-            <View style={s.timeDivider} />
-            <TouchableOpacity style={s.timeBtn} onPress={() => setPickerFor('close')} activeOpacity={0.8}>
-              <Moon size={14} color="#7C3AED" strokeWidth={2} />
-              <Text style={s.timeBtnLabel}>Closes</Text>
-              <Text style={s.timeBtnValue}>{fmt12(closeTime)}</Text>
-              <ChevronRight size={14} color={MUTED} strokeWidth={2} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Live schedule summary */}
-          {workDays.length > 0 && (
-            <View style={s.hoursSummary}>
-              <CheckCircle size={13} color={SUCCESS} strokeWidth={2} />
-              <View style={{ flex: 1 }}>
-                <Text style={s.hoursSummaryTitle}>Your garage schedule</Text>
-                <Text style={s.hoursSummaryTxt}>
-                  {workDays.join(' · ')}
-                </Text>
-                <Text style={s.hoursSummaryTime}>
-                  {fmt12(openTime)}{'  –  '}{fmt12(closeTime)}
-                </Text>
+            {errors.workDays ? (
+              <View style={s.daysError}>
+                <AlertTriangle size={12} color={DANGER} strokeWidth={2} />
+                <Text style={s.daysErrorTxt}>{errors.workDays}</Text>
               </View>
+            ) : null}
+
+            <View style={s.hoursDivider} />
+
+            {/* ── Time pickers ── */}
+            <View style={s.hoursTimeLabelRow}>
+              <Text style={s.hoursCardLabel}>Opening & Closing Time</Text>
+              <Text style={s.hoursNoteInline}>applies to all days</Text>
             </View>
-          )}
+            <View style={s.timeCardsRow}>
+              <TouchableOpacity style={s.timeCard} onPress={() => setPickerFor('open')} activeOpacity={0.8}>
+                <View style={[s.timeCardIconWrap, { backgroundColor: '#FFF7ED' }]}>
+                  <Sun size={15} color="#F97316" strokeWidth={2.5} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.timeCardLabel}>Opens at</Text>
+                  <Text style={s.timeCardValue}>{fmt12(openTime)}</Text>
+                </View>
+                <ChevronRight size={14} color={MUTED} strokeWidth={2} />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={s.timeCard} onPress={() => setPickerFor('close')} activeOpacity={0.8}>
+                <View style={[s.timeCardIconWrap, { backgroundColor: '#F5F3FF' }]}>
+                  <Moon size={15} color="#7C3AED" strokeWidth={2.5} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.timeCardLabel}>Closes at</Text>
+                  <Text style={s.timeCardValue}>{fmt12(closeTime)}</Text>
+                </View>
+                <ChevronRight size={14} color={MUTED} strokeWidth={2} />
+              </TouchableOpacity>
+            </View>
+
+            {/* ── Live summary ── */}
+            {workDays.length > 0 && (
+              <View style={s.hoursSummary}>
+                <View style={s.hoursSummaryLeft}>
+                  <CheckCircle size={13} color={SUCCESS} strokeWidth={2.5} />
+                  <Text style={s.hoursSummaryDays}>{workDays.join(' · ')}</Text>
+                </View>
+                <Text style={s.hoursSummaryTime}>{fmt12(openTime)} – {fmt12(closeTime)}</Text>
+              </View>
+            )}
+          </View>
 
           <TimePickerModal visible={pickerFor === 'open'}  label="Opening Time" value={openTime}
             onConfirm={d => { setOpenTime(d); setPickerFor(null); }}  onCancel={() => setPickerFor(null)} />
@@ -673,32 +683,45 @@ const s = StyleSheet.create({
   },
   logoHint: { fontSize: 12, color: MUTED, marginTop: 10 },
 
+  /* Working Hours card */
+  hoursCard: {
+    backgroundColor: '#F8FAFC', borderRadius: 14,
+    borderWidth: 1, borderColor: '#E2E8F0',
+    padding: 16, marginBottom: 4,
+  },
+  hoursCardLabel: { fontSize: 10.5, fontWeight: '700', color: MUTED, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10 },
+  hoursDivider:   { height: 1, backgroundColor: '#E2E8F0', marginVertical: 16 },
+
+  hoursTimeLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  hoursNoteInline:   { fontSize: 10.5, color: '#94A3B8', fontStyle: 'italic' },
+
   /* Days */
   microLabel: { fontSize: 10.5, fontWeight: '700', color: MUTED, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
   daysRow:    { flexDirection: 'row', gap: 5 },
   daysError:  { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
   daysErrorTxt: { fontSize: 11.5, color: DANGER },
 
-  /* Times */
-  timesRow:     { flexDirection: 'row', borderWidth: 1.5, borderColor: LINE, borderRadius: 10, overflow: 'hidden' },
-  timeBtn:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 13, paddingHorizontal: 14 },
-  timeBtnLabel: { flex: 1, fontSize: 13, color: MUTED },
-  timeBtnValue: { fontSize: 14, fontWeight: '700', color: TEXT },
-  timeDivider:  { width: 1.5, backgroundColor: LINE },
+  /* Time cards */
+  timeCardsRow: { gap: 10 },
+  timeCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#FFFFFF', borderRadius: 12,
+    borderWidth: 1.5, borderColor: '#E2E8F0',
+    paddingVertical: 13, paddingHorizontal: 14,
+  },
+  timeCardIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  timeCardLabel:    { fontSize: 11, color: MUTED, fontWeight: '500', marginBottom: 2 },
+  timeCardValue:    { fontSize: 16, fontWeight: '700', color: TEXT, letterSpacing: -0.3 },
 
-  /* Hours header row */
-  hoursHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18, marginBottom: 10 },
-  hoursNote: { fontSize: 11, color: '#6B7280', fontStyle: 'italic' },
-
-  /* Hours summary */
+  /* Hours summary strip */
   hoursSummary: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 9,
-    marginTop: 12, padding: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: 14, paddingVertical: 10, paddingHorizontal: 12,
     backgroundColor: '#F0FDF4', borderRadius: 10, borderWidth: 1, borderColor: '#BBF7D0',
   },
-  hoursSummaryTitle: { fontSize: 10.5, fontWeight: '700', color: '#166534', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 3 },
-  hoursSummaryTxt:  { fontSize: 12.5, fontWeight: '600', color: '#166534', lineHeight: 18 },
-  hoursSummaryTime: { fontSize: 13, fontWeight: '700', color: '#14532D', marginTop: 2 },
+  hoursSummaryLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  hoursSummaryDays: { fontSize: 12, fontWeight: '600', color: '#166534', flex: 1 },
+  hoursSummaryTime: { fontSize: 12.5, fontWeight: '700', color: '#14532D' },
 
   /* Logout */
   logout: {
