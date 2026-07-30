@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Platform, ScrollView, StatusBar, StyleSheet, Text,
   TouchableOpacity, View,
@@ -8,6 +8,8 @@ import { router } from 'expo-router';
 import { Feather } from '@/src/components/ui/FeatherIcon';
 import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
+import { STORAGE_KEYS } from '@/src/constants/storage';
+import StorageService from '@/src/services/storage.service';
 import ProfileService from '@/src/services/profile.service';
 import GarageService from '@/src/services/garage.service';
 import { useAuth } from '@/src/context/AuthContext';
@@ -112,6 +114,18 @@ export default function MoreScreen() {
   const name   = profile?.name ?? garage?.owner ?? 'Garage Owner';
   const mobile = profile?.mobile ?? '';
 
+  /* ── Logo: prefer server URL, fall back to local AsyncStorage cache ── */
+  const [logoUri, setLogoUri] = useState<string | null>(null);
+  useEffect(() => {
+    if (garage?.logo_url) {
+      setLogoUri(garage.logo_url);
+    } else {
+      StorageService.get(STORAGE_KEYS.GARAGE_LOGO).then((cached: string | null) => {
+        if (cached) setLogoUri(cached);
+      });
+    }
+  }, [garage]);
+
   return (
     <View style={[styles.root, { backgroundColor: BG }]}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
@@ -131,7 +145,7 @@ export default function MoreScreen() {
           onPress={() => router.push('/(tabs)/profile' as never)}
           activeOpacity={0.88}
         >
-          <Avatar name={name} size={54} />
+          <Avatar name={name} uri={logoUri} size={54} />
           <View style={{ flex: 1 }}>
             <Text style={styles.profileName}>{name}</Text>
             {mobile ? <Text style={styles.profileMobile}>{mobile}</Text> : null}
