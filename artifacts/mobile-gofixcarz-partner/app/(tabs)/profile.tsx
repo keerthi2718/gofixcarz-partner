@@ -196,23 +196,13 @@ const addr = StyleSheet.create({
   sub:        { fontSize: 11, color: MUTED, marginTop: 1 },
 });
 
-/* ─────────────── DayPill ────────────── */
-function DayPill({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
-  return (
-    <TouchableOpacity style={[dp.pill, on && dp.pillOn]} onPress={onPress} activeOpacity={0.72}>
-      <Text style={[dp.lbl, on && dp.lblOn]}>{label}</Text>
-      <View style={[dp.dot, on && dp.dotOn]} />
-    </TouchableOpacity>
+/* ─────────────── DaySched type ─────── */
+type DaySched = { open: Date; close: Date; active: boolean };
+function makeDefaultSchedules(): Record<string, DaySched> {
+  return Object.fromEntries(
+    DAYS.map(d => [d, { open: makeTime(9), close: makeTime(19), active: d !== 'Sun' }])
   );
 }
-const dp = StyleSheet.create({
-  pill:   { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10, borderWidth: 1.5, borderColor: LINE, backgroundColor: '#F9FAFB', gap: 5 },
-  pillOn: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  lbl:    { fontSize: 10, fontWeight: '700', color: MUTED, letterSpacing: 0.2 },
-  lblOn:  { color: '#fff' },
-  dot:    { width: 4, height: 4, borderRadius: 2, backgroundColor: LINE },
-  dotOn:  { backgroundColor: 'rgba(255,255,255,0.55)' },
-});
 
 /* ─────────────── TimePickerModal ─────── */
 function TimePickerModal({ visible, label, value, onConfirm, onCancel }: {
@@ -318,10 +308,8 @@ export default function ProfileScreen() {
   const [city,        setCity]        = useState('');
   const [stateVal,    setStateVal]    = useState('');
   const [zipcode,     setZipcode]     = useState('');
-  const [workDays,    setWorkDays]    = useState<string[]>([]);
-  const [openTime,    setOpenTime]    = useState(makeTime(9));
-  const [closeTime,   setCloseTime]   = useState(makeTime(19));
-  const [pickerFor,   setPickerFor]   = useState<'open' | 'close' | null>(null);
+  const [schedules,   setSchedules]   = useState<Record<string, DaySched>>(makeDefaultSchedules);
+  const [pickerFor,   setPickerFor]   = useState<{ day: string; slot: 'open' | 'close' } | null>(null);
 
   const [saving,      setSaving]      = useState(false);
   const [errors,      setErrors]      = useState<Record<string, string>>({});
@@ -360,10 +348,11 @@ export default function ProfileScreen() {
     setStateVal((garage as any).state ?? '');
     setZipcode(garage.zipcode ?? '');
     if (garage.working_hours) {
-      const active = Object.entries(garage.working_hours).filter(([, v]) => !v.closed).map(([d]) => d);
-      setWorkDays(active);
-      const first = Object.values(garage.working_hours).find(v => !v.closed);
-      if (first) { setOpenTime(dateFromHHMM(first.open)); setCloseTime(dateFromHHMM(first.close)); }
+      const updated = makeDefaultSchedules();
+      Object.entries(garage.working_hours).forEach(([day, v]) => {
+        updated[day] = { open: dateFromHHMM(v.open), close: dateFromHHMM(v.close), active: !v.closed };
+      });
+      setSchedules(updated);
     }
     // Prefer server logo_url; fall back to locally cached URI
     if (garage.logo_url) {
@@ -434,7 +423,7 @@ export default function ProfileScreen() {
     if (!stateVal.trim())                           e.state       = 'State is required.';
     if (!zipcode.trim())                            e.zipcode     = 'PIN code is required.';
     else if (zipcode.replace(/\D/g,'').length < 6) e.zipcode     = 'Enter a valid 6-digit PIN code.';
-    if (workDays.length === 0)                      e.workDays    = 'Select at least one working day.';
+    if (!DAYS.some(d => schedules[d].active))       e.workDays    = 'Select at least one working day.';
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -450,7 +439,7 @@ export default function ProfileScreen() {
     try {
       const working_hours: WorkingHours = {};
       DAYS.forEach(day => {
-        working_hours[day] = { open: fmt24(openTime), close: fmt24(closeTime), closed: !workDays.includes(day) };
+        working_hours[day] = { open: fmt24(schedules[day].open), close: fmt24(schedules[day].close), closed: !schedules[day].active };
       });
       await Promise.all([
         profileMut.mutateAsync({ name: name.trim() || null, email: email.trim() || null }),
@@ -568,68 +557,84 @@ export default function ProfileScreen() {
           <SectionHeader title="Working Hours" />
 
           <View style={s.hoursCard}>
-            {/* ── Working Days ── */}
-            <Text style={s.hoursCardLabel}>Working Days</Text>
-            <View style={s.daysRow}>
-              {DAYS.map(d => (
-                <DayPill key={d} label={d} on={workDays.includes(d)}
-                  onPress={() => { setWorkDays(p => p.includes(d) ? p.filter(x => x !== d) : [...p, d]); clearError('workDays'); }} />
-              ))}
+            {/* ── Header row ── */}
+            <View style={s.hoursCardHeaderRow}>
+              <Text style={s.hoursCardTitle}>Set Hours Per Day</Text>
+              <Text style={s.hoursCardHint}>Tap a time to edit</Text>
             </View>
+
+            {/* ── One row per day ── */}
+            {DAYS.map((day, idx) => {
+              const sched = schedules[day];
+              return (
+                <View key={day}>
+                  {idx > 0 && <View style={s.dayDivider} />}
+                  <View style={s.dayRow}>
+                    {/* Toggle chip */}
+                    <TouchableOpacity
+                      style={[s.dayChip, sched.active && s.dayChipOn]}
+                      onPress={() => { setSchedules(p => ({ ...p, [day]: { ...p[day], active: !p[day].active } })); clearError('workDays'); }}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={[s.dayChipTxt, sched.active && s.dayChipTxtOn]}>{day}</Text>
+                    </TouchableOpacity>
+
+                    {sched.active ? (
+                      <View style={s.dayTimesRow}>
+                        {/* Open time */}
+                        <TouchableOpacity
+                          style={s.dayTimeBtn}
+                          onPress={() => setPickerFor({ day, slot: 'open' })}
+                          activeOpacity={0.75}
+                        >
+                          <Sun size={11} color="#F97316" strokeWidth={2.5} />
+                          <Text style={s.dayTimeTxt}>{fmt12(sched.open)}</Text>
+                        </TouchableOpacity>
+
+                        <Text style={s.dayTimeSep}>–</Text>
+
+                        {/* Close time */}
+                        <TouchableOpacity
+                          style={s.dayTimeBtn}
+                          onPress={() => setPickerFor({ day, slot: 'close' })}
+                          activeOpacity={0.75}
+                        >
+                          <Moon size={11} color="#7C3AED" strokeWidth={2.5} />
+                          <Text style={s.dayTimeTxt}>{fmt12(sched.close)}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View style={s.dayClosedBadge}>
+                        <Text style={s.dayClosedTxt}>Closed</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+
+            {/* ── Validation error ── */}
             {errors.workDays ? (
               <View style={s.daysError}>
                 <AlertTriangle size={12} color={DANGER} strokeWidth={2} />
                 <Text style={s.daysErrorTxt}>{errors.workDays}</Text>
               </View>
             ) : null}
-
-            <View style={s.hoursDivider} />
-
-            {/* ── Time pickers ── */}
-            <View style={s.hoursTimeLabelRow}>
-              <Text style={s.hoursCardLabel}>Opening & Closing Time</Text>
-              <Text style={s.hoursNoteInline}>applies to all days</Text>
-            </View>
-            <View style={s.timeCardsRow}>
-              <TouchableOpacity style={s.timeCard} onPress={() => setPickerFor('open')} activeOpacity={0.8}>
-                <View style={[s.timeCardIconWrap, { backgroundColor: '#FFF7ED' }]}>
-                  <Sun size={15} color="#F97316" strokeWidth={2.5} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.timeCardLabel}>Opens at</Text>
-                  <Text style={s.timeCardValue}>{fmt12(openTime)}</Text>
-                </View>
-                <ChevronRight size={14} color={MUTED} strokeWidth={2} />
-              </TouchableOpacity>
-
-              <TouchableOpacity style={s.timeCard} onPress={() => setPickerFor('close')} activeOpacity={0.8}>
-                <View style={[s.timeCardIconWrap, { backgroundColor: '#F5F3FF' }]}>
-                  <Moon size={15} color="#7C3AED" strokeWidth={2.5} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.timeCardLabel}>Closes at</Text>
-                  <Text style={s.timeCardValue}>{fmt12(closeTime)}</Text>
-                </View>
-                <ChevronRight size={14} color={MUTED} strokeWidth={2} />
-              </TouchableOpacity>
-            </View>
-
-            {/* ── Live summary ── */}
-            {workDays.length > 0 && (
-              <View style={s.hoursSummary}>
-                <View style={s.hoursSummaryLeft}>
-                  <CheckCircle size={13} color={SUCCESS} strokeWidth={2.5} />
-                  <Text style={s.hoursSummaryDays}>{workDays.join(' · ')}</Text>
-                </View>
-                <Text style={s.hoursSummaryTime}>{fmt12(openTime)} – {fmt12(closeTime)}</Text>
-              </View>
-            )}
           </View>
 
-          <TimePickerModal visible={pickerFor === 'open'}  label="Opening Time" value={openTime}
-            onConfirm={d => { setOpenTime(d); setPickerFor(null); }}  onCancel={() => setPickerFor(null)} />
-          <TimePickerModal visible={pickerFor === 'close'} label="Closing Time" value={closeTime}
-            onConfirm={d => { setCloseTime(d); setPickerFor(null); }} onCancel={() => setPickerFor(null)} />
+          {/* Single shared time picker modal */}
+          <TimePickerModal
+            visible={!!pickerFor}
+            label={pickerFor
+              ? `${pickerFor.day} — ${pickerFor.slot === 'open' ? 'Opening' : 'Closing'} Time`
+              : ''}
+            value={pickerFor ? schedules[pickerFor.day][pickerFor.slot] : makeTime(9)}
+            onConfirm={d => {
+              if (pickerFor) setSchedules(p => ({ ...p, [pickerFor.day]: { ...p[pickerFor.day], [pickerFor.slot]: d } }));
+              setPickerFor(null);
+            }}
+            onCancel={() => setPickerFor(null)}
+          />
 
           {/* ── Notifications ── */}
           <SectionHeader title="Notifications" />
@@ -685,43 +690,57 @@ const s = StyleSheet.create({
 
   /* Working Hours card */
   hoursCard: {
-    backgroundColor: '#F8FAFC', borderRadius: 14,
+    backgroundColor: '#F8FAFC', borderRadius: 16,
     borderWidth: 1, borderColor: '#E2E8F0',
-    padding: 16, marginBottom: 4,
+    overflow: 'hidden', marginBottom: 4,
   },
-  hoursCardLabel: { fontSize: 10.5, fontWeight: '700', color: MUTED, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10 },
-  hoursDivider:   { height: 1, backgroundColor: '#E2E8F0', marginVertical: 16 },
-
-  hoursTimeLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  hoursNoteInline:   { fontSize: 10.5, color: '#94A3B8', fontStyle: 'italic' },
-
-  /* Days */
-  microLabel: { fontSize: 10.5, fontWeight: '700', color: MUTED, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
-  daysRow:    { flexDirection: 'row', gap: 5 },
-  daysError:  { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
-  daysErrorTxt: { fontSize: 11.5, color: DANGER },
-
-  /* Time cards */
-  timeCardsRow: { gap: 10 },
-  timeCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#FFFFFF', borderRadius: 12,
-    borderWidth: 1.5, borderColor: '#E2E8F0',
-    paddingVertical: 13, paddingHorizontal: 14,
-  },
-  timeCardIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  timeCardLabel:    { fontSize: 11, color: MUTED, fontWeight: '500', marginBottom: 2 },
-  timeCardValue:    { fontSize: 16, fontWeight: '700', color: TEXT, letterSpacing: -0.3 },
-
-  /* Hours summary strip */
-  hoursSummary: {
+  hoursCardHeaderRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginTop: 14, paddingVertical: 10, paddingHorizontal: 12,
-    backgroundColor: '#F0FDF4', borderRadius: 10, borderWidth: 1, borderColor: '#BBF7D0',
+    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10,
+    borderBottomWidth: 1, borderBottomColor: '#E2E8F0',
   },
-  hoursSummaryLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
-  hoursSummaryDays: { fontSize: 12, fontWeight: '600', color: '#166534', flex: 1 },
-  hoursSummaryTime: { fontSize: 12.5, fontWeight: '700', color: '#14532D' },
+  hoursCardTitle: { fontSize: 12, fontWeight: '700', color: TEXT },
+  hoursCardHint:  { fontSize: 11, color: MUTED, fontStyle: 'italic' },
+
+  /* Per-day row */
+  dayDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#E2E8F0', marginLeft: 16 },
+  dayRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 14, paddingVertical: 11, gap: 10,
+  },
+
+  /* Day toggle chip */
+  dayChip: {
+    width: 46, height: 28, borderRadius: 8,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#F1F5F9', borderWidth: 1.5, borderColor: '#E2E8F0',
+  },
+  dayChipOn:    { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  dayChipTxt:   { fontSize: 11, fontWeight: '700', color: MUTED },
+  dayChipTxtOn: { color: '#fff' },
+
+  /* Times */
+  dayTimesRow:  { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dayTimeBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    backgroundColor: '#fff', borderRadius: 8,
+    borderWidth: 1, borderColor: '#E2E8F0',
+    paddingVertical: 6, paddingHorizontal: 8,
+  },
+  dayTimeTxt:  { fontSize: 12, fontWeight: '600', color: TEXT },
+  dayTimeSep:  { fontSize: 13, color: MUTED, fontWeight: '300' },
+
+  /* Closed badge */
+  dayClosedBadge: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#F1F5F9', borderRadius: 8,
+    paddingVertical: 6, borderWidth: 1, borderColor: '#E2E8F0',
+  },
+  dayClosedTxt: { fontSize: 12, color: MUTED, fontWeight: '500', letterSpacing: 0.3 },
+
+  /* Error */
+  daysError:    { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingBottom: 10 },
+  daysErrorTxt: { fontSize: 11.5, color: DANGER },
 
   /* Logout */
   logout: {
