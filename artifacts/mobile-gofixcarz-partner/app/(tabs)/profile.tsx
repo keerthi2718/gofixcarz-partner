@@ -350,8 +350,8 @@ export default function ProfileScreen() {
     if (garagePopulated.current || !garage) return;
     setGarageName(garage.name ?? '');
     setOwner(garage.owner ?? '');
-    setGaragePhone((garage as any).phone ?? '');
-    setGarageEmail((garage as any).email ?? '');
+    setGaragePhone((garage as any).phone || profile?.mobile || '');
+    setGarageEmail((garage as any).email || profile?.email || '');
     setAddress(garage.address ?? '');
     setCity(garage.city ?? '');
     setStateVal((garage as any).state ?? '');
