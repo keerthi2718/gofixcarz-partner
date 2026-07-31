@@ -21,6 +21,7 @@ import {
   FileText, Download, Share2, Activity, X, CheckCircle, RotateCcw,
 } from 'lucide-react-native';
 import JobService from '@/src/services/job.service';
+import GarageService from '@/src/services/garage.service';
 import SelectDropdown from '@/src/components/ui/SelectDropdown';
 import { VEHICLE_BRANDS, getModelsForBrand } from '@/src/data/vehicleData';
 import { formatCurrency } from '@/src/utils/helpers';
@@ -195,6 +196,16 @@ export default function CreateJobScreen() {
   const qc         = useQueryClient();
   const invoiceNum  = useRef(`INV-${Date.now().toString().slice(-6)}`).current;
 
+  /* Garage profile — used for invoice branding */
+  const { data: garage } = useQuery({
+    queryKey: QUERY_KEYS.GARAGE,
+    queryFn:  GarageService.get,
+    staleTime: 1000 * 60 * 10,
+  });
+  const garageName    = garage?.name    || 'My Garage';
+  const garageAddress = [garage?.address, garage?.city, garage?.state].filter(Boolean).join(', ');
+  const garagePhone   = garage?.phone   || '';
+
   /* Service packages — used for quick-add chips on the Services step */
   const { data: pkgsData } = useQuery({
     queryKey: QUERY_KEYS.SERVICE_PACKAGES({}),
@@ -311,7 +322,7 @@ export default function CreateJobScreen() {
 </style></head><body><div class="page">
   <div class="header">
     <div class="header-row">
-      <div><div class="brand-name">GoFixCarz</div><div class="brand-tag">Smart Garage Management</div></div>
+      <div><div class="brand-name">${garageName}</div>${garageAddress ? `<div class="brand-tag">${garageAddress}</div>` : ''}${garagePhone ? `<div class="brand-tag">${garagePhone}</div>` : ''}</div>
       <div class="inv-block"><div class="inv-word">Tax Invoice</div><div class="inv-number">${invoiceNum}</div><div class="inv-date">Issued ${dateStr}</div></div>
     </div>
     <div class="status-row">
@@ -340,7 +351,7 @@ export default function CreateJobScreen() {
   </div>
   ${additionalNotes ? `<div class="notes-block"><div class="notes-label">Workshop Notes</div><div class="notes-text">${additionalNotes}</div></div>` : ''}
   <div class="footer">
-    <div><div class="footer-brand">GoFixCarz Partner</div><div class="thank-you">Thank you for your business!</div></div>
+    <div><div class="footer-brand">${garageName}</div><div class="thank-you">Thank you for your business!</div></div>
     <div class="footer-right"><div>Computer-generated invoice.</div><div style="margin-top:2px;">No signature required.</div></div>
   </div>
 </div></body></html>`;
@@ -1197,8 +1208,8 @@ export default function CreateJobScreen() {
                 <View style={s.invoiceCircle} />
                 <View style={s.invoiceHeroTop}>
                   <View>
-                    <Text style={s.invBrand}>GoFixCarz</Text>
-                    <Text style={s.invTag}>Smart Garage Management</Text>
+                    <Text style={s.invBrand}>{garageName}</Text>
+                    {garageAddress ? <Text style={s.invTag}>{garageAddress}</Text> : null}
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={s.invNumLabel}>INVOICE</Text>
