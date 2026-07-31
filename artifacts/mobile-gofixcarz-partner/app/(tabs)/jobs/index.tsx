@@ -136,6 +136,17 @@ export default function JobsScreen() {
         <Text style={styles.headerTitle}>Workshop</Text>
         <View style={styles.headerRight}>
           <Text style={styles.headerSub}>Today, {allItems.length} jobs</Text>
+          {isFiltered && (
+            <TouchableOpacity
+              onPress={resetFilters}
+              activeOpacity={0.7}
+              style={styles.headerResetBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <X size={12} color="#C41E3A" strokeWidth={3} />
+              <Text style={styles.headerResetText}>Reset</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={[styles.filterBtn, (searchOpen || isFiltered) && styles.filterBtnActive]}
             activeOpacity={0.7}
@@ -192,8 +203,8 @@ export default function JobsScreen() {
           style={styles.stageScroll}
           contentContainerStyle={styles.stageRow}
         >
-          {/* Reset pill — shown when non-default stage is active */}
-          {activeStage !== DEFAULT_STAGE && (
+          {/* Reset pill — shown when any filter or search is active */}
+          {isFiltered && (
             <TouchableOpacity style={styles.resetPill} onPress={resetFilters} activeOpacity={0.75}>
               <X size={11} color="#C41E3A" strokeWidth={3} />
               <Text style={styles.resetPillText}>Reset</Text>
@@ -416,6 +427,22 @@ const styles = StyleSheet.create({
   headerSub: {
     fontSize: 12,
     color: '#64748B',
+  },
+  headerResetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#FFF1F3',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  headerResetText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#C41E3A',
   },
   filterBtn: {
     padding: 6,

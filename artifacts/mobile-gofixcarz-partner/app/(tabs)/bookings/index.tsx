@@ -210,14 +210,27 @@ export default function BookingsScreen() {
           <Text style={styles.headerTitle}>Bookings</Text>
           <Text style={styles.headerDate}>{formatTodayHeader()}</Text>
         </View>
-        <TouchableOpacity
-          onPress={() => { setSearchOpen(v => !v); setSearch(''); }}
-          activeOpacity={0.7}
-          style={styles.searchToggleBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Search size={20} color="#0F172A" strokeWidth={2} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          {(filter !== '' || !!search || searchOpen) && (
+            <TouchableOpacity
+              onPress={() => { setFilter(''); setSearch(''); setSearchOpen(false); }}
+              activeOpacity={0.7}
+              style={styles.headerClearBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <X size={12} color="#C41E3A" strokeWidth={3} />
+              <Text style={styles.headerClearText}>Clear</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={() => { setSearchOpen(v => !v); setSearch(''); }}
+            activeOpacity={0.7}
+            style={styles.searchToggleBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Search size={20} color={searchOpen || !!search ? '#C41E3A' : '#0F172A'} strokeWidth={2} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -351,6 +364,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     marginTop: 2,
+  },
+  headerClearBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#FFF1F3',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  headerClearText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#C41E3A',
   },
   searchToggleBtn: {
     padding: 8,
