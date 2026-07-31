@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   Platform, ScrollView, StatusBar, StyleSheet, Text,
   TouchableOpacity, View,
@@ -114,17 +115,17 @@ export default function MoreScreen() {
   const name   = profile?.name ?? garage?.owner ?? 'Garage Owner';
   const mobile = profile?.mobile ?? '';
 
-  /* ── Logo: prefer server URL, fall back to local AsyncStorage cache ── */
+  /* ── Logo: re-read on every focus so a newly-uploaded logo shows immediately ── */
   const [logoUri, setLogoUri] = useState<string | null>(null);
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (garage?.logo_url) {
       setLogoUri(garage.logo_url);
     } else {
       StorageService.get(STORAGE_KEYS.GARAGE_LOGO).then((cached: string | null) => {
-        if (cached) setLogoUri(cached);
+        setLogoUri(cached ?? null);
       });
     }
-  }, [garage]);
+  }, [garage]));
 
   return (
     <View style={[styles.root, { backgroundColor: BG }]}>
