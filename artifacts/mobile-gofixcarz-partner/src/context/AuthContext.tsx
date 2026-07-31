@@ -5,6 +5,7 @@ import { STORAGE_KEYS } from '@/src/constants/storage';
 import AuthService from '@/src/services/auth.service';
 import StorageService from '@/src/services/storage.service';
 import { useAuthStore } from '@/src/store/auth.store';
+import { useLogoStore } from '@/src/store/logo.store';
 import type { SignUpPayload } from '@/src/types';
 
 /** Extract a user-friendly message from any thrown error. */
@@ -127,6 +128,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const refreshToken = await StorageService.get(STORAGE_KEYS.REFRESH_TOKEN);
       await AuthService.logout({ refresh_token: refreshToken }).catch(() => {});
     } finally {
+      // Clear the logo so the next user who logs in starts fresh
+      useLogoStore.getState().setLogoUri(null);
+      StorageService.remove(STORAGE_KEYS.GARAGE_LOGO).catch(() => {});
       storeLogout();
       router.replace('/(auth)/welcome');
     }
