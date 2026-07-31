@@ -1,5 +1,4 @@
-import React, { useCallback, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
+import React from 'react';
 import {
   Platform, ScrollView, StatusBar, StyleSheet, Text,
   TouchableOpacity, View,
@@ -7,7 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Feather } from '@/src/components/ui/FeatherIcon';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import StorageService from '@/src/services/storage.service';
@@ -115,17 +114,22 @@ export default function MoreScreen() {
   const name   = profile?.name ?? garage?.owner ?? 'Garage Owner';
   const mobile = profile?.mobile ?? '';
 
-  /* ── Logo: re-read on every focus so a newly-uploaded logo shows immediately ── */
-  const [logoUri, setLogoUri] = useState<string | null>(null);
-  useFocusEffect(useCallback(() => {
-    if (garage?.logo_url) {
-      setLogoUri(garage.logo_url);
-    } else {
-      StorageService.get(STORAGE_KEYS.GARAGE_LOGO).then((cached: string | null) => {
-        setLogoUri(cached ?? null);
-      });
-    }
-  }, [garage]));
+  /* ── Logo: read from shared React Query cache (profile screen writes here on pick) ── */
+  const qc = useQueryClient();
+  const { data: logoUri = null } = useQuery<string | null>({
+    queryKey: QUERY_KEYS.LOGO,
+    queryFn: async () => {
+      // Prefer server URL, fall back to AsyncStorage cached local file
+      if (garage?.logo_url) return garage.logo_url;
+      return StorageService.get(STORAGE_KEYS.GARAGE_LOGO);
+    },
+    // Seed immediately when garage data arrives with a server URL
+    initialData: () => {
+      const d = qc.getQueryData<string | null>(QUERY_KEYS.LOGO);
+      return d ?? garage?.logo_url ?? null;
+    },
+    staleTime: Infinity, // only refresh when profile screen explicitly sets it
+  });
 
   return (
     <View style={[styles.root, { backgroundColor: BG }]}>

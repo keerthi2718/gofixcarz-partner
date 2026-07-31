@@ -76,6 +76,7 @@ export const QUERY_KEYS = {
   ANALYTICS: (period: string) => ['analytics', period],
   GARAGE: ['garage'],
   PROFILE: ['profile'],
+  LOGO: ['logo'],
   BOOKINGS: (params?: object) => ['bookings', params ?? {}],
   BOOKING: (id: string) => ['booking', id],
   JOBS: (params?: object) => ['jobs', params ?? {}],
