@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PaperProvider } from 'react-native-paper';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider } from '@/src/context/AuthContext';
+import { useLogoStore } from '@/src/store/logo.store';
 import { NotificationProvider } from '@/src/context/NotificationContext';
 import {
   Inter_400Regular, Inter_500Medium,
@@ -52,6 +53,9 @@ export default function RootLayout() {
       setAppReady(true);
       SplashScreen.hideAsync();
     }
+
+    // Seed logo from AsyncStorage so the avatar shows on first paint
+    useLogoStore.getState().initializeLogo();
 
     loadFontsAndStart();
   }, []);

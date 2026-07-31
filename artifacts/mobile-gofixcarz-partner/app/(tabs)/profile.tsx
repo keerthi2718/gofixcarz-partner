@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import StorageService from '@/src/services/storage.service';
+import { useLogoStore } from '@/src/store/logo.store';
 import ProfileService from '@/src/services/profile.service';
 import GarageService from '@/src/services/garage.service';
 import type { WorkingHours } from '@/src/types';
@@ -288,6 +289,7 @@ export default function ProfileScreen() {
   const { logout } = useAuth();
   const qc = useQueryClient();
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  const setLogoUri_store = useLogoStore(s => s.setLogoUri);
 
   /* ── Logo state ── */
   const [logoUri,     setLogoUri]     = useState<string | null>(null);
@@ -358,17 +360,17 @@ export default function ProfileScreen() {
     profilePopulated.current = true;
   }, [profile, garage]);
 
-  /* ── Logo — seed both local state and shared RQ cache whenever garage data arrives ── */
+  /* ── Logo — seed local state + global store whenever garage data arrives ── */
   useEffect(() => {
     if (!garage) return;
     const apply = (uri: string) => {
       setLogoUri(uri);
-      qc.setQueryData(QUERY_KEYS.LOGO, uri);
+      setLogoUri_store(uri);  // Zustand store → More screen updates instantly
     };
-    // Prefer the AsyncStorage value — it retains the ?v=<ts> cache-buster set by pickLogo.
-    // Only fall back to garage.logo_url (bare URL, no cache-buster) when nothing is stored.
+    // Prefer AsyncStorage (holds the ?v=<ts> cache-busted URL set by pickLogo).
+    // Fall back to server URL only when nothing is locally stored.
     StorageService.get(STORAGE_KEYS.GARAGE_LOGO).then((cached: string | null) => {
-      if (cached)            apply(cached);
+      if (cached)               apply(cached);
       else if (garage.logo_url) apply(garage.logo_url);
     });
   }, [garage]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -396,8 +398,9 @@ export default function ProfileScreen() {
 
     // Helper: update all logo sinks at once
     const applyLogo = async (uri: string, persist: boolean) => {
-      setLogoUri(uri);
-      qc.setQueryData(QUERY_KEYS.LOGO, uri);   // shared cache → more screen updates instantly
+      console.log('[Profile] applyLogo →', uri);
+      setLogoUri(uri);             // local screen state
+      setLogoUri_store(uri);       // Zustand store → More screen re-renders instantly
       if (persist) await StorageService.set(STORAGE_KEYS.GARAGE_LOGO, uri);
     };
 
