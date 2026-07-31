@@ -191,16 +191,11 @@ export default function BookingsScreen() {
       (b.customer_mobile ?? '').includes(search),
     );
 
-  /* Group by date */
-  const todayBookings     = filtered.filter(b => b.booking_date && isToday(b.booking_date));
-  const tomorrowBookings  = filtered.filter(b => b.booking_date && isTomorrow(b.booking_date));
-  const otherBookings     = filtered.filter(b => !b.booking_date || (!isToday(b.booking_date) && !isTomorrow(b.booking_date)));
-
-  /* If nothing has a booking_date, show all under "TODAY" */
-  const showAllAsToday = filtered.every(b => !b.booking_date);
-  const displayToday    = showAllAsToday ? filtered : todayBookings;
-  const displayTomorrow = showAllAsToday ? [] : tomorrowBookings;
-  const displayOther    = showAllAsToday ? [] : otherBookings;
+  /* Group by date — bookings with no booking_date go to "Unscheduled" */
+  const todayBookings       = filtered.filter(b => b.booking_date && isToday(b.booking_date));
+  const tomorrowBookings    = filtered.filter(b => b.booking_date && isTomorrow(b.booking_date));
+  const upcomingBookings    = filtered.filter(b => b.booking_date && !isToday(b.booking_date) && !isTomorrow(b.booking_date));
+  const unscheduledBookings = filtered.filter(b => !b.booking_date);
 
   const onRefresh = () => { refetch(); };
 
@@ -302,18 +297,23 @@ export default function BookingsScreen() {
         </ScrollView>
 
         {/* ── TODAY section ── */}
-        {displayToday.length > 0 && (
-          <Section label="TODAY" bookings={displayToday} />
+        {todayBookings.length > 0 && (
+          <Section label="TODAY" bookings={todayBookings} />
         )}
 
         {/* ── TOMORROW section ── */}
-        {displayTomorrow.length > 0 && (
-          <Section label="TOMORROW" bookings={displayTomorrow} />
+        {tomorrowBookings.length > 0 && (
+          <Section label="TOMORROW" bookings={tomorrowBookings} />
         )}
 
-        {/* ── OTHER section ── */}
-        {displayOther.length > 0 && (
-          <Section label="UPCOMING" bookings={displayOther} />
+        {/* ── UPCOMING section ── */}
+        {upcomingBookings.length > 0 && (
+          <Section label="UPCOMING" bookings={upcomingBookings} />
+        )}
+
+        {/* ── UNSCHEDULED section — bookings with no date set ── */}
+        {unscheduledBookings.length > 0 && (
+          <Section label="UNSCHEDULED" bookings={unscheduledBookings} />
         )}
 
         {/* ── Empty state ── */}

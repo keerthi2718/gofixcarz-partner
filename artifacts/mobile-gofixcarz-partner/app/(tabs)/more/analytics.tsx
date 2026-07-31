@@ -87,22 +87,6 @@ const cardSt = StyleSheet.create({
   body:     { padding: 18 },
 });
 
-function NoDataRow({ label }: { label: string }) {
-  return (
-    <View style={ph.row}>
-      <View style={ph.dot} />
-      <Text style={ph.label}>{label}</Text>
-      <Text style={ph.value}>—</Text>
-    </View>
-  );
-}
-const ph = StyleSheet.create({
-  row:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8,
-           borderBottomWidth: 1, borderBottomColor: '#F8FAFC' },
-  dot:   { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E2E8F0' },
-  label: { flex: 1, fontSize: 13, color: MUTED },
-  value: { fontSize: 13, fontWeight: '700', color: MUTED },
-});
 
 export default function MoreAnalyticsScreen() {
   const insets = useSafeAreaInsets();
@@ -325,54 +309,6 @@ export default function MoreAnalyticsScreen() {
           )}
         </SectionCard>
 
-        {/* Service Performance */}
-        <SectionCard icon="tool" title="Service Performance" iconBg="#F0FDF4" iconFg={SUCCESS}>
-          {isLoading ? (
-            <View style={{ gap: 12 }}>
-              {[1,2,3].map(i => <SkeletonBlock key={i} height={14} radius={7} />)}
-            </View>
-          ) : (
-            <View>
-              <NoDataRow label="Most Popular Service" />
-              <NoDataRow label="Avg Service Duration" />
-              <NoDataRow label="Services This Period" />
-              <Text style={styles.comingSoonNote}>Detailed service breakdown coming soon.</Text>
-            </View>
-          )}
-        </SectionCard>
-
-        {/* Technician Performance */}
-        <SectionCard icon="users" title="Technician Performance" iconBg="#FFFBEB" iconFg={WARNING}>
-          {isLoading ? (
-            <View style={{ gap: 12 }}>
-              {[1,2].map(i => <SkeletonBlock key={i} height={14} radius={7} />)}
-            </View>
-          ) : (
-            <View>
-              <NoDataRow label="Top Technician" />
-              <NoDataRow label="Jobs Assigned" />
-              <NoDataRow label="Avg Resolution Time" />
-              <Text style={styles.comingSoonNote}>Technician analytics coming soon.</Text>
-            </View>
-          )}
-        </SectionCard>
-
-        {/* Customer Insights */}
-        <SectionCard icon="user-check" title="Customer Insights" iconBg="#FEE2E2" iconFg={INDIGO}>
-          {isLoading ? (
-            <View style={{ gap: 12 }}>
-              {[1,2,3].map(i => <SkeletonBlock key={i} height={14} radius={7} />)}
-            </View>
-          ) : (
-            <View>
-              <NoDataRow label="Total Customers" />
-              <NoDataRow label="Repeat Customers" />
-              <NoDataRow label="Avg Revenue / Customer" />
-              <Text style={styles.comingSoonNote}>Customer analytics coming soon.</Text>
-            </View>
-          )}
-        </SectionCard>
-
         <View style={styles.infoChip}>
           <Feather name="info" size={13} color={PRIMARY} />
           <Text style={styles.infoChipText}>
@@ -489,8 +425,4 @@ const styles = StyleSheet.create({
   },
   infoChipText: { flex: 1, fontSize: 13, color: PRIMARY, lineHeight: 18 },
 
-  comingSoonNote: {
-    fontSize: 11, color: '#94A3B8', textAlign: 'center',
-    marginTop: 10, fontStyle: 'italic',
-  },
 });
