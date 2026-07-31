@@ -338,32 +338,43 @@ export default function ProfileScreen() {
   }, [profile]);
 
   useEffect(() => {
-    if (garagePopulated.current || !garage) return;
-    setGarageName(garage.name ?? '');
-    setOwner(garage.owner ?? '');
-    setGaragePhone((garage as any).phone || profile?.mobile || '');
-    setGarageEmail((garage as any).email || profile?.email || '');
-    setAddress(garage.address ?? '');
-    setCity(garage.city ?? '');
-    setStateVal((garage as any).state ?? '');
-    setZipcode(garage.zipcode ?? '');
-    if (garage.working_hours) {
-      const updated = makeDefaultSchedules();
-      Object.entries(garage.working_hours).forEach(([day, v]) => {
-        updated[day] = { open: dateFromHHMM(v.open), close: dateFromHHMM(v.close), active: !v.closed };
-      });
-      setSchedules(updated);
+    if (!garage) return;
+
+    if (!garagePopulated.current) {
+      // First run: populate all garage fields
+      setGarageName(garage.name ?? '');
+      setOwner(garage.owner ?? '');
+      setAddress(garage.address ?? '');
+      setCity(garage.city ?? '');
+      setStateVal((garage as any).state ?? '');
+      setZipcode(garage.zipcode ?? '');
+      if (garage.working_hours) {
+        const updated = makeDefaultSchedules();
+        Object.entries(garage.working_hours).forEach(([day, v]) => {
+          updated[day] = { open: dateFromHHMM(v.open), close: dateFromHHMM(v.close), active: !v.closed };
+        });
+        setSchedules(updated);
+      }
+      if (garage.logo_url) {
+        setLogoUri(garage.logo_url);
+      } else {
+        StorageService.get(STORAGE_KEYS.GARAGE_LOGO).then((cached: string | null) => {
+          if (cached) setLogoUri(cached);
+        });
+      }
+      garagePopulated.current = true;
     }
-    // Prefer server logo_url; fall back to locally cached URI
-    if (garage.logo_url) {
-      setLogoUri(garage.logo_url);
-    } else {
-      StorageService.get(STORAGE_KEYS.GARAGE_LOGO).then((cached: string | null) => {
-        if (cached) setLogoUri(cached);
-      });
-    }
-    garagePopulated.current = true;
-  }, [garage]);
+
+    // Always (re-)apply phone/email: garage value takes priority, profile is fallback.
+    // This runs on every [garage, profile] change so a late-loading profile still fills blanks.
+    setGaragePhone(p => (p || (garage as any).phone || profile?.mobile || ''));
+    setGarageEmail(p => {
+      if (p) return p; // user already has something typed — don't clobber
+      const raw = ((garage as any).email || profile?.email || '').trim();
+      // Only accept it if it looks like a valid email; otherwise leave blank
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) ? raw : '';
+    });
+  }, [garage, profile]);
 
   /* ── Mutations ── */
   const profileMut = useMutation({
