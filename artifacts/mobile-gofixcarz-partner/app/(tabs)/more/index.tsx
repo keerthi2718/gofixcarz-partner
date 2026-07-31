@@ -1,10 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   Platform, ScrollView, StatusBar, StyleSheet, Text,
   TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { useFocusEffect, router } from 'expo-router';
 import { Feather } from '@/src/components/ui/FeatherIcon';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
@@ -117,24 +117,27 @@ export default function MoreScreen() {
   /* ── Logo ── */
   const qc = useQueryClient();
 
-  // Subscribe to the shared LOGO cache — profile screen writes here via setQueryData on pick/upload
+  // Subscribe to the shared LOGO cache so the avatar updates instantly when
+  // the profile screen calls setQueryData (e.g. right after pickLogo).
   const { data: logoUri = null } = useQuery<string | null>({
     queryKey: QUERY_KEYS.LOGO,
     queryFn: () => StorageService.get(STORAGE_KEYS.GARAGE_LOGO),
-    staleTime: Infinity, // only refreshed via setQueryData or this seeding effect
+    staleTime: Infinity,
   });
 
-  // Self-sufficient seeding: whenever garage data arrives or changes (e.g. after Save),
-  // push the correct logo URI into the shared cache ourselves.
-  // This means the More screen works correctly even if the Profile tab was never opened.
-  useEffect(() => {
-    if (!garage) return;
-    StorageService.get(STORAGE_KEYS.GARAGE_LOGO).then((stored: string | null) => {
-      // AsyncStorage has the ?v=<ts> cache-busted URL set by pickLogo; prefer it.
-      // Fall back to bare server URL only when nothing has been stored yet.
-      qc.setQueryData(QUERY_KEYS.LOGO, stored ?? garage.logo_url ?? null);
-    });
-  }, [garage?.logo_url]); // re-runs whenever the server URL changes (post-save refetch)
+  // Refresh the logo cache every time this screen comes into focus.
+  // This covers: navigating back from Edit Profile after saving, app resume,
+  // and first-load when the Profile tab was never opened.
+  // Prefer AsyncStorage (holds the ?v=<ts> cache-busted URL set by pickLogo)
+  // and fall back to the server URL from the garage response.
+  useFocusEffect(
+    useCallback(() => {
+      StorageService.get(STORAGE_KEYS.GARAGE_LOGO).then((stored: string | null) => {
+        const uri = stored ?? garage?.logo_url ?? null;
+        if (uri) qc.setQueryData(QUERY_KEYS.LOGO, uri);
+      });
+    }, [garage?.logo_url, qc]),
+  );
 
   return (
     <View style={[styles.root, { backgroundColor: BG }]}>
