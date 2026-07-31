@@ -32,11 +32,6 @@ type FormData = {
   is_active: boolean;
 };
 
-/* Quick-pick category suggestions */
-const SUGGESTIONS = [
-  'Oil Change', 'Brake Service', 'AC Service', 'Wheel Alignment',
-  'Battery Check', 'Tyre Rotation', 'Full Car Wash', 'Engine Tune-up',
-];
 
 function SectionCard({ icon, title, iconBg = '#FEE2E2', iconFg = PRIMARY, children }: {
   icon: React.ComponentProps<typeof Feather>['name'];
@@ -152,24 +147,6 @@ export default function CreateServiceScreen() {
             )}
           />
 
-          {/* Quick suggestions */}
-          {!nameVal && (
-            <>
-              <Text style={styles.suggestLabel}>Quick pick</Text>
-              <View style={styles.suggestWrap}>
-                {SUGGESTIONS.map(s => (
-                  <TouchableOpacity
-                    key={s}
-                    style={styles.suggestChip}
-                    onPress={() => setValue('name', s)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.suggestChipText}>{s}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </>
-          )}
 
           <Controller
             control={control}
@@ -334,14 +311,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5, textTransform: 'uppercase',
     marginBottom: 10, marginTop: 4,
   },
-  suggestWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  suggestChip: {
-    paddingHorizontal: 12, paddingVertical: 7,
-    borderRadius: 20, borderWidth: 1.5,
-    borderColor: 'rgba(37,99,235,0.3)',
-    backgroundColor: '#FEE2E2',
-  },
-  suggestChipText: { fontSize: 12, fontWeight: '600', color: PRIMARY },
 
   /* Description */
   fieldLabel: { fontSize: 14, fontWeight: '600', color: '#475569', marginBottom: 8 },

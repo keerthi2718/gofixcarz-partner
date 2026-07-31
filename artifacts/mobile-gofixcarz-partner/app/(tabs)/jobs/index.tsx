@@ -84,7 +84,6 @@ function getAvatarColor(name?: string): { bg: string; fg: string } {
 export default function JobsScreen() {
   const insets = useSafeAreaInsets();
   const [activeStage, setActiveStage] = useState(DEFAULT_STAGE);
-  const [activeTech, setActiveTech]   = useState('All Techs');
   const [search,     setSearch]       = useState('');
   const [searchOpen, setSearchOpen]   = useState(false);
 
@@ -109,9 +108,6 @@ export default function JobsScreen() {
     return allItems.filter(j => statuses.includes(j.status)).length;
   };
 
-  /* Unique tech names — there's no assigned_technician field in the API,
-     so we derive from customer_name as a stand-in for demo purposes */
-  const techNames: string[] = ['All Techs'];
 
   /* Filtered jobs */
   const activeStatuses = STAGE_STATUS_MAP[activeStage] ?? [];
@@ -251,37 +247,6 @@ export default function JobsScreen() {
           })}
         </ScrollView>
 
-        {/* ── Tech filter row ── */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.techScroll}
-          contentContainerStyle={styles.techRow}
-        >
-          {techNames.map(tech => {
-            const isActive = activeTech === tech;
-            return (
-              <TouchableOpacity
-                key={tech}
-                activeOpacity={0.7}
-                style={[
-                  styles.techPill,
-                  isActive ? styles.techPillActive : styles.techPillInactive,
-                ]}
-                onPress={() => setActiveTech(tech)}
-              >
-                <Text
-                  style={[
-                    styles.techPillText,
-                    isActive ? styles.techPillTextActive : styles.techPillTextInactive,
-                  ]}
-                >
-                  {tech}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
 
         {/* ── Job Cards ── */}
         <View style={styles.cardList}>
@@ -572,44 +537,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   stageBadgeTextInactive: {
-    color: '#64748B',
-  },
-
-  /* Tech filter */
-  techScroll: {
-    marginTop: 12,
-    flexGrow: 0,
-    flexShrink: 0,
-  },
-  techRow: {
-    paddingHorizontal: 16,
-    paddingBottom: 4,
-    gap: 8,
-    flexDirection: 'row',
-  },
-  techPill: {
-    flexShrink: 0,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  techPillActive: {
-    backgroundColor: '#FFF1F3',
-    borderColor: '#C41E3A',
-  },
-  techPillInactive: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-  },
-  techPillText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  techPillTextActive: {
-    color: '#C41E3A',
-  },
-  techPillTextInactive: {
     color: '#64748B',
   },
 

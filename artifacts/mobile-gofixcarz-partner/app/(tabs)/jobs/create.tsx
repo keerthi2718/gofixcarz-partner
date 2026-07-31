@@ -7,8 +7,9 @@ import DateTimePicker, { type DateTimePickerEvent } from '@react-native-communit
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
+import ServicePackageService from '@/src/services/service-package.service';
 import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -193,6 +194,14 @@ export default function CreateJobScreen() {
 
   const qc         = useQueryClient();
   const invoiceNum  = useRef(`INV-${Date.now().toString().slice(-6)}`).current;
+
+  /* Service packages — used for quick-add chips on the Services step */
+  const { data: pkgsData } = useQuery({
+    queryKey: QUERY_KEYS.SERVICE_PACKAGES({}),
+    queryFn:  () => ServicePackageService.list({ page_size: 20 }),
+    staleTime: 1000 * 60 * 5,
+  });
+  const servicePackages = pkgsData?.items ?? [];
 
   /* Step 0 */
   const [customerName,  setCustomerName]  = useState('');
@@ -831,20 +840,24 @@ export default function CreateJobScreen() {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={s.chipLabel}>QUICK ADD</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
-                  {['Oil Change', 'AC Service', 'Wheel Alignment', 'Brake Service', 'Battery Check'].map(sv => (
-                    <TouchableOpacity
-                      key={sv}
-                      style={s.suggestChip}
-                      onPress={() => { setServices(prev => [...prev, { name: sv, price: 0, qty: 1 }]); clearFieldError('services'); }}
-                      activeOpacity={0.8}
-                    >
-                      <Plus size={11} color={PRIMARY} strokeWidth={2.5} />
-                      <Text style={s.suggestChipText}>{sv}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                {servicePackages.length > 0 && (
+                  <>
+                    <Text style={s.chipLabel}>YOUR SERVICES</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
+                      {servicePackages.map(pkg => (
+                        <TouchableOpacity
+                          key={pkg.id}
+                          style={s.suggestChip}
+                          onPress={() => { setServices(prev => [...prev, { name: pkg.name, price: pkg.price ?? 0, qty: 1 }]); clearFieldError('services'); }}
+                          activeOpacity={0.8}
+                        >
+                          <Plus size={11} color={PRIMARY} strokeWidth={2.5} />
+                          <Text style={s.suggestChipText}>{pkg.name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </>
+                )}
               </SectionCard>
 
               {services.length > 0 && (
