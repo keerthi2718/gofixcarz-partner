@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Platform, ScrollView, StatusBar, StyleSheet, Text,
   TouchableOpacity, View,
@@ -8,6 +8,8 @@ import { router } from 'expo-router';
 import { Feather } from '@/src/components/ui/FeatherIcon';
 import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
+import { STORAGE_KEYS } from '@/src/constants/storage';
+import StorageService from '@/src/services/storage.service';
 import ProfileService from '@/src/services/profile.service';
 import GarageService from '@/src/services/garage.service';
 import { useLogoStore } from '@/src/store/logo.store';
@@ -113,14 +115,30 @@ export default function MoreScreen() {
   const name   = profile?.name ?? garage?.owner ?? 'Garage Owner';
   const mobile = profile?.mobile ?? '';
 
-  /* ── Logo — single source of truth via Zustand ── */
-  // The logo store is written by profile.tsx (pickLogo → applyLogo) and seeded
-  // from AsyncStorage on app boot (_layout.tsx → initializeLogo).
-  // Zustand subscriptions are synchronous, so this re-renders the instant
-  // the profile screen calls setLogoUri_store — no navigation or restart needed.
-  const logoUri = useLogoStore(s => s.logoUri);
+  /* ── Logo ── */
+  // Primary source: Zustand store (written by pickLogo, seeded on boot from AsyncStorage).
+  // Fallback: garage.logo_url from the server — covers the case where the logo was
+  // uploaded in a previous session before we started writing to AsyncStorage, or where
+  // AsyncStorage was cleared (e.g. fresh Expo Go install).
+  const storedLogoUri = useLogoStore(s => s.logoUri);
+  const setLogoUri_store = useLogoStore(s => s.setLogoUri);
 
-  console.log('[More] logoUri from store =', logoUri);
+  // Seed the store + AsyncStorage from garage.logo_url whenever:
+  //  • the store is still empty (nothing picked yet this session)
+  //  • AND the server has a logo URL
+  // This runs once per garage data load, so it self-corrects after any profile save.
+  useEffect(() => {
+    if (storedLogoUri || !garage?.logo_url) return;
+    console.log('[More] seeding logo from garage.logo_url:', garage.logo_url);
+    setLogoUri_store(garage.logo_url);
+    StorageService.set(STORAGE_KEYS.GARAGE_LOGO, garage.logo_url).catch(() => {});
+  }, [garage?.logo_url]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Derive final URI: prefer the (locally-picked or cached) store value,
+  // fall back to the server URL so something always shows when a logo exists.
+  const logoUri = storedLogoUri ?? garage?.logo_url ?? null;
+
+  console.log('[More] storedLogoUri =', storedLogoUri, '| garage.logo_url =', garage?.logo_url, '| final =', logoUri);
 
   return (
     <View style={[styles.root, { backgroundColor: BG }]}>

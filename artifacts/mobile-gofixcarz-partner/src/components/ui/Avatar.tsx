@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Image, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { typography } from '@/constants/theme';
@@ -13,14 +13,25 @@ interface Props {
 
 export default function Avatar({ name, uri, size = 40, style, color }: Props) {
   const colors = useColors();
+  const [imgError, setImgError] = useState(false);
   const letter = (name ?? '?').trim().charAt(0).toUpperCase();
   const bg = color ?? colors.primaryLight;
   const fg = color ? '#fff' : colors.primary;
 
-  if (uri) {
+  // Reset error state when uri changes so a corrected uri gets a fresh attempt
+  React.useEffect(() => { setImgError(false); }, [uri]);
+
+  if (uri && !imgError) {
     return (
       <View style={[{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden' }, style]}>
-        <Image source={{ uri }} style={{ width: size, height: size }} />
+        <Image
+          source={{ uri }}
+          style={{ width: size, height: size }}
+          onError={() => {
+            console.warn('[Avatar] image failed to load:', uri);
+            setImgError(true);
+          }}
+        />
       </View>
     );
   }

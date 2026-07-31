@@ -404,31 +404,37 @@ export default function ProfileScreen() {
       if (persist) await StorageService.set(STORAGE_KEYS.GARAGE_LOGO, uri);
     };
 
-    // Show picked image immediately (ImagePicker always gives a unique temp URI)
-    await applyLogo(picked, false);
+    // Step 1 — show immediately AND persist the picked URI right away.
+    // Persisting here ensures the More screen sees the logo even if the copy
+    // or server upload later fails silently (both have been swallowing errors).
+    await applyLogo(picked, true);
 
-    // Copy to a TIMESTAMPED stable path so React Native's image cache treats it as a new resource
-    const ext  = picked.split('.').pop()?.toLowerCase() ?? 'jpg';
+    // Step 2 — copy to a TIMESTAMPED stable path in documentDirectory.
+    // On iOS, ImagePicker may return a ph:// or file:///tmp URI that survives
+    // only for the current session; copying gives us a durable local file.
+    const ext  = (picked.split('?')[0].split('.').pop() ?? 'jpg').toLowerCase();
     const dest = `${FileSystem.documentDirectory}garage_logo_${ts}.${ext}`;
     let savedUri: string | null = null;
     try {
-      // Clean up previous stable copy to avoid accumulating files
       const prevPath = await StorageService.get(STORAGE_KEYS.GARAGE_LOGO) as string | null;
       if (prevPath && FileSystem.documentDirectory && prevPath.startsWith(FileSystem.documentDirectory)) {
         await FileSystem.deleteAsync(prevPath, { idempotent: true });
       }
       await FileSystem.copyAsync({ from: picked, to: dest });
       savedUri = dest;
-      await applyLogo(dest, true);             // switch to stable path + persist
-    } catch {
-      // Copy failed — temp URI stays for this session; don't persist a dead path
+      console.log('[Profile] FileSystem copy succeeded →', dest);
+      await applyLogo(dest, true);   // upgrade to durable path
+    } catch (copyErr) {
+      console.warn('[Profile] FileSystem.copyAsync failed — keeping temp URI:', String(copyErr));
     }
 
-    // Upload to server — append ?v=<ts> so React Native doesn't serve a stale cached image
+    // Step 3 — upload to server.
+    // Use the stable local copy if available, otherwise the temp URI.
     GarageService.uploadLogo(savedUri ?? picked).then(async serverUrl => {
+      console.log('[Profile] uploadLogo result:', serverUrl);
       if (serverUrl) await applyLogo(`${serverUrl}?v=${ts}`, true);
-    }).catch(() => {
-      // Server upload failed; stable local file is the fallback
+    }).catch((uploadErr) => {
+      console.warn('[Profile] uploadLogo failed:', String(uploadErr));
     });
   }
 
