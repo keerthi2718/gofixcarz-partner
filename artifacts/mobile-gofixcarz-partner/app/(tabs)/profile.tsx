@@ -289,10 +289,9 @@ export default function ProfileScreen() {
   const { logout } = useAuth();
   const qc = useQueryClient();
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+  /* ── Logo — read from Zustand store (single source of truth) ── */
+  const logoUri          = useLogoStore(s => s.logoUri);
   const setLogoUri_store = useLogoStore(s => s.setLogoUri);
-
-  /* ── Logo state ── */
-  const [logoUri,     setLogoUri]     = useState<string | null>(null);
 
   /* ── Personal state ── */
   const [name,        setName]        = useState('');
@@ -360,20 +359,23 @@ export default function ProfileScreen() {
     profilePopulated.current = true;
   }, [profile, garage]);
 
-  /* ── Logo — seed local state + global store whenever garage data arrives ── */
+  /* ── Logo — seed Zustand store when garage data arrives and store is still empty ── */
   useEffect(() => {
-    if (!garage) return;
-    const apply = (uri: string) => {
-      setLogoUri(uri);
-      setLogoUri_store(uri);  // Zustand store → More screen updates instantly
-    };
-    // Prefer AsyncStorage (holds the ?v=<ts> cache-busted URL set by pickLogo).
-    // Fall back to server URL only when nothing is locally stored.
+    if (!garage?.logo_url) return;
+    // If the store already has a value (set by initializeLogo on boot or by a prior
+    // pickLogo call this session), don't overwrite it with a potentially stale server URL.
+    if (useLogoStore.getState().logoUri) return;
+    // Nothing in the store yet — check AsyncStorage first (may have a cache-busted URL),
+    // then fall back to the server URL.  Either way, write back to AsyncStorage so future
+    // boots don't need to reach the network to show the logo.
     StorageService.get(STORAGE_KEYS.GARAGE_LOGO).then((cached: string | null) => {
-      if (cached)               apply(cached);
-      else if (garage.logo_url) apply(garage.logo_url);
+      const uri = cached || garage!.logo_url;
+      if (uri) {
+        setLogoUri_store(uri);
+        if (!cached) StorageService.set(STORAGE_KEYS.GARAGE_LOGO, uri).catch(() => {});
+      }
     });
-  }, [garage]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [garage?.logo_url]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Mutations ── */
   const profileMut = useMutation({
@@ -399,8 +401,7 @@ export default function ProfileScreen() {
     // Helper: update all logo sinks at once
     const applyLogo = async (uri: string, persist: boolean) => {
       console.log('[Profile] applyLogo →', uri);
-      setLogoUri(uri);             // local screen state
-      setLogoUri_store(uri);       // Zustand store → More screen re-renders instantly
+      setLogoUri_store(uri);       // Zustand store → all screens re-render instantly
       if (persist) await StorageService.set(STORAGE_KEYS.GARAGE_LOGO, uri);
     };
 

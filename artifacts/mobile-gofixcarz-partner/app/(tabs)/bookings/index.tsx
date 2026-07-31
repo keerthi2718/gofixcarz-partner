@@ -13,8 +13,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Search, Clock, Phone, CalendarClock, X } from 'lucide-react-native';
-import { MOCK_BOOKINGS } from '@/src/data/mockBookings';
-import type { BookingStatus } from '@/src/types';
+import { useQuery } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/src/constants/api';
+import BookingService from '@/src/services/booking.service';
+import type { BookingStatus, BookingDetailResponse } from '@/src/types';
 
 /* ── Filter definitions ── */
 const FILTERS: { label: string; value: BookingStatus | '' }[] = [
@@ -82,7 +84,7 @@ function isTomorrow(iso: string): boolean {
 }
 
 /* ── Booking Card ── */
-type Booking = (typeof MOCK_BOOKINGS)[number];
+type Booking = BookingDetailResponse;
 
 function BookingCard({ item }: { item: Booking }) {
   const st = STATUS_MAP[item.status] ?? { label: item.status, color: '#64748B', bg: '#F3F4F6' };
@@ -167,16 +169,21 @@ export default function BookingsScreen() {
   const [filter, setFilter] = useState<BookingStatus | ''>('');
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+
+  const { data: bookingsData, isLoading, isRefetching, refetch } = useQuery({
+    queryKey: QUERY_KEYS.BOOKINGS({}),
+    queryFn:  () => BookingService.list({ page_size: 100 }),
+  });
+  const allBookings = bookingsData?.items ?? [];
 
   /* Counts per status */
   const counts: Record<string, number> = {};
-  for (const b of MOCK_BOOKINGS) {
+  for (const b of allBookings) {
     counts[b.status] = (counts[b.status] ?? 0) + 1;
   }
 
   /* Filtered list */
-  const filtered = MOCK_BOOKINGS
+  const filtered = allBookings
     .filter(b => !filter || b.status === filter)
     .filter(b =>
       !search ||
@@ -195,10 +202,7 @@ export default function BookingsScreen() {
   const displayTomorrow = showAllAsToday ? [] : tomorrowBookings;
   const displayOther    = showAllAsToday ? [] : otherBookings;
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 600);
-  };
+  const onRefresh = () => { refetch(); };
 
   return (
     <View style={styles.root}>
@@ -236,7 +240,7 @@ export default function BookingsScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#C41E3A" />}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor="#C41E3A" />}
       >
         {/* ── Search bar ── */}
         {searchOpen && (
@@ -268,7 +272,7 @@ export default function BookingsScreen() {
           style={styles.chipScrollView}
         >
           {FILTERS.map(f => {
-            const count = f.value ? (counts[f.value] ?? 0) : MOCK_BOOKINGS.length;
+            const count = f.value ? (counts[f.value] ?? 0) : allBookings.length;
             const isActive = filter === f.value;
             return (
               <TouchableOpacity

@@ -7,68 +7,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@/src/components/ui/FeatherIcon';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getMockBooking, updateMockBookingStatus } from '@/src/data/mockBookings';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/src/constants/api';
+import BookingService from '@/src/services/booking.service';
 import Avatar from '@/src/components/ui/Avatar';
 import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 import { formatDate, formatDateTime } from '@/src/utils/helpers';
-
-/* ── Seeded mock history ── */
-const PAST_SERVICES = [
-  { service: 'Oil Change & Filter',        amount: 1800,  tech: 'Suresh Kumar' },
-  { service: 'Brake Pad Replacement',      amount: 4500,  tech: 'Mahesh Reddy' },
-  { service: 'AC Gas Refill',              amount: 3200,  tech: 'Ganesh Patel' },
-  { service: 'Full Car Service',           amount: 7500,  tech: 'Suresh Kumar' },
-  { service: 'Tyre Rotation & Balancing',  amount: 1200,  tech: 'Mahesh Reddy' },
-  { service: 'Battery Replacement',        amount: 5800,  tech: 'Ganesh Patel' },
-  { service: 'Engine Diagnostics',         amount: 2000,  tech: 'Suresh Kumar' },
-  { service: 'Wheel Alignment',            amount: 900,   tech: 'Mahesh Reddy' },
-  { service: 'Clutch Plate Replacement',   amount: 9500,  tech: 'Ganesh Patel' },
-  { service: 'Coolant Flush',              amount: 1500,  tech: 'Suresh Kumar' },
-  { service: 'Suspension Check & Repair',  amount: 6200,  tech: 'Mahesh Reddy' },
-  { service: 'Spark Plug Replacement',     amount: 2400,  tech: 'Ganesh Patel' },
-];
-
-const PAST_STATUS = ['COMPLETED', 'COMPLETED', 'COMPLETED', 'COMPLETED', 'CANCELLED'];
-const VEHICLES    = ['MH12 AB 1234', 'KA05 XY 9876', 'DL8C 4321', 'TN09 PQ 5678', 'GJ01 ZZ 1111'];
-
-// Simple seeded RNG (mulberry32) — same seed → same output every render
-function seededRng(seed: number) {
-  let s = seed;
-  return () => { s |= 0; s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-}
-
-function idToSeed(id: string) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
-function getVisitHistory(bookingId: string) {
-  const rng   = seededRng(idToSeed(bookingId));
-  const count = 2 + Math.floor(rng() * 3); // 2–4 past visits
-  const now   = new Date('2026-07-27');
-  const visits = [];
-  let daysBack = 30 + Math.floor(rng() * 20);
-
-  for (let i = 0; i < count; i++) {
-    daysBack += 40 + Math.floor(rng() * 60);
-    const date     = new Date(now.getTime() - daysBack * 86400000);
-    const svcIdx   = Math.floor(rng() * PAST_SERVICES.length);
-    const stIdx    = Math.floor(rng() * PAST_STATUS.length);
-    const vehIdx   = Math.floor(rng() * VEHICLES.length);
-    const jitter   = 1 + (rng() * 0.4 - 0.2);          // ±20% price variation
-    visits.push({
-      date,
-      service:  PAST_SERVICES[svcIdx].service,
-      amount:   Math.round(PAST_SERVICES[svcIdx].amount * jitter / 100) * 100,
-      tech:     PAST_SERVICES[svcIdx].tech,
-      status:   PAST_STATUS[stIdx],
-      vehicle:  VEHICLES[vehIdx],
-      jobId:    `JOB-${1000 + Math.floor(rng() * 8000)}`,
-    });
-  }
-  return visits;
-}
 
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
@@ -123,13 +67,50 @@ export default function BookingDetailScreen() {
   const insets = useSafeAreaInsets();
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
-  // Local state tracks status changes so the UI re-renders immediately
-  const [, tick] = useState(0);
-  const rerender = () => tick(n => n + 1);
-
   const [confirmAction, setConfirmAction] = useState<'accept' | 'reject' | 'create-job' | null>(null);
 
-  const booking = getMockBooking(id ?? '');
+  const qc = useQueryClient();
+  const { data: booking, isLoading, refetch } = useQuery({
+    queryKey: QUERY_KEYS.BOOKING(id ?? ''),
+    queryFn:  () => BookingService.getById(id ?? ''),
+    enabled:  !!id,
+  });
+
+  const invalidateBookings = () => {
+    qc.invalidateQueries({ queryKey: QUERY_KEYS.BOOKINGS({}) });
+    refetch();
+  };
+
+  const acceptMutation = useMutation({
+    mutationFn: () => BookingService.accept(id ?? ''),
+    onSuccess:  invalidateBookings,
+    onError:    () => Alert.alert('Error', 'Could not accept booking. Please try again.'),
+  });
+  const rejectMutation = useMutation({
+    mutationFn: () => BookingService.reject(id ?? ''),
+    onSuccess:  invalidateBookings,
+    onError:    () => Alert.alert('Error', 'Could not reject booking. Please try again.'),
+  });
+  const createJobMutation = useMutation({
+    mutationFn: () => BookingService.createJob(id ?? ''),
+    onSuccess:  () => {
+      invalidateBookings();
+      Alert.alert(
+        'Job Card Created',
+        `A job card has been created for ${booking?.customer_name ?? 'this customer'}.`,
+        [{ text: 'Go to Jobs', onPress: () => router.replace('/(tabs)/jobs') }, { text: 'Stay', style: 'cancel' }],
+      );
+    },
+    onError: () => Alert.alert('Error', 'Could not create job card. Please try again.'),
+  });
+
+  if (isLoading) {
+    return (
+      <View style={[styles.root, { backgroundColor: BG, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: MUTED, fontSize: 14 }}>Loading booking…</Text>
+      </View>
+    );
+  }
 
   if (!booking) {
     return (
@@ -143,26 +124,12 @@ export default function BookingDetailScreen() {
     );
   }
 
-  const st      = STATUS_META[booking.status] ?? { label: booking.status, color: MUTED, bg: '#F3F4F6', icon: 'circle' };
-  const history = getVisitHistory(booking.id);
+  const st = STATUS_META[booking.status] ?? { label: booking.status, color: MUTED, bg: '#F3F4F6', icon: 'circle' };
 
   function handleConfirm() {
-    if (!booking) return;
-    if (confirmAction === 'accept') {
-      updateMockBookingStatus(booking.id, 'ACCEPTED');
-      rerender();
-    } else if (confirmAction === 'reject') {
-      updateMockBookingStatus(booking.id, 'REJECTED');
-      rerender();
-    } else if (confirmAction === 'create-job') {
-      updateMockBookingStatus(booking.id, 'CONVERTED');
-      rerender();
-      Alert.alert(
-        'Job Card Created',
-        `A new job card has been created for ${booking.customer_name ?? 'this customer'}.`,
-        [{ text: 'Go to Jobs', onPress: () => router.replace('/(tabs)/jobs') }, { text: 'Stay', style: 'cancel' }],
-      );
-    }
+    if (confirmAction === 'accept')     acceptMutation.mutate();
+    else if (confirmAction === 'reject')      rejectMutation.mutate();
+    else if (confirmAction === 'create-job') createJobMutation.mutate();
     setConfirmAction(null);
   }
 
@@ -255,72 +222,6 @@ export default function BookingDetailScreen() {
             <Text style={styles.notesText}>{booking.notes}</Text>
           </SectionCard>
         ) : null}
-
-        {/* ── Visit History ── */}
-        <SectionCard icon="clock" title="Visit History" iconBg="#F0FDF4" iconFg={SUCCESS}>
-          {history.map((visit, i) => {
-            const isCompleted = visit.status === 'COMPLETED';
-            const isLast      = i === history.length - 1;
-            return (
-              <View key={visit.jobId} style={[styles.historyItem, !isLast && styles.historyItemBorder]}>
-                {/* Left: date column */}
-                <View style={styles.historyDateCol}>
-                  <Text style={styles.historyDay}>
-                    {visit.date.toLocaleDateString('en-IN', { day: '2-digit' })}
-                  </Text>
-                  <Text style={styles.historyMonth}>
-                    {visit.date.toLocaleDateString('en-IN', { month: 'short' })}
-                  </Text>
-                  <Text style={styles.historyYear}>
-                    {visit.date.getFullYear()}
-                  </Text>
-                </View>
-
-                {/* Divider line */}
-                <View style={styles.historyDivider} />
-
-                {/* Right: details */}
-                <View style={styles.historyDetails}>
-                  <View style={styles.historyTopRow}>
-                    <Text style={styles.historyService} numberOfLines={1}>{visit.service}</Text>
-                    <View style={[
-                      styles.historyStatusPill,
-                      { backgroundColor: isCompleted ? '#ECFDF5' : '#FEF2F2' },
-                    ]}>
-                      <Text style={[
-                        styles.historyStatusText,
-                        { color: isCompleted ? SUCCESS : DANGER },
-                      ]}>
-                        {isCompleted ? 'Done' : 'Cancelled'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.historyMetaRow}>
-                    <View style={styles.historyMetaItem}>
-                      <Feather name="user" size={10} color={MUTED} />
-                      <Text style={styles.historyMetaText}>{visit.tech}</Text>
-                    </View>
-                    <View style={styles.historyMetaItem}>
-                      <Feather name="tag" size={10} color={MUTED} />
-                      <Text style={styles.historyMetaText}>{visit.jobId}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.historyBottomRow}>
-                    <View style={styles.historyMetaItem}>
-                      <Feather name="truck" size={10} color={MUTED} />
-                      <Text style={styles.historyMetaText}>{visit.vehicle}</Text>
-                    </View>
-                    <Text style={[styles.historyAmount, { color: isCompleted ? PRIMARY : MUTED }]}>
-                      {isCompleted ? `₹${visit.amount.toLocaleString('en-IN')}` : '—'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            );
-          })}
-        </SectionCard>
 
         {/* ── Timeline ── */}
         <SectionCard icon="activity" title="Status Timeline" iconBg="#F5F3FF" iconFg={PURPLE}>

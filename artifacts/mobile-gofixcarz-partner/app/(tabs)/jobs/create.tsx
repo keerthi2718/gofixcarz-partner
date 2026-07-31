@@ -215,7 +215,6 @@ export default function CreateJobScreen() {
   const [services,      setServices]      = useState<ServiceItem[]>([]);
 
   /* Step 3 */
-  const [selectedTechId,   setSelectedTechId]   = useState<string | null>(null);
   const [selectedTechName, setSelectedTechName] = useState('');
   const [estHours,         setEstHours]         = useState('');
   const [labourCharge,     setLabourCharge]      = useState('');
@@ -227,12 +226,6 @@ export default function CreateJobScreen() {
 
   /* Step 4/5 */
   const [createdJobId, setCreatedJobId] = useState<string | null>(null);
-
-  const mockTechs = [
-    { id: 't1', name: 'Suresh Kumar', role: 'Senior Mechanic', available: true  },
-    { id: 't2', name: 'Mahesh Reddy', role: 'Electrician',     available: true  },
-    { id: 't3', name: 'Ganesh Patel', role: 'AC Specialist',   available: false },
-  ];
 
   const servicesTotal = services.reduce((sum, s) => sum + s.price * s.qty, 0);
   const labourTotal   = parseFloat(labourCharge) || 0;
@@ -915,33 +908,14 @@ export default function CreateJobScreen() {
               )}
 
               <SectionCard title="Assign Technician" iconBg="#EDE9FE" Icon={Users} iconColor="#7C3AED">
-                {mockTechs.map(t => (
-                  <TouchableOpacity
-                    key={t.id}
-                    style={[s.techCard, selectedTechId === t.id && s.techCardActive]}
-                    onPress={() => { setSelectedTechId(t.id); setSelectedTechName(t.name); clearFieldError('technician'); }}
-                    activeOpacity={0.85}
-                  >
-                    <View style={[s.techAvatar, selectedTechId === t.id && { backgroundColor: PRIMARY }]}>
-                      <Text style={[s.techAvatarText, selectedTechId === t.id && { color: '#fff' }]}>
-                        {t.name.charAt(0)}
-                      </Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.techName}>{t.name}</Text>
-                      <Text style={s.techRole}>{t.role}</Text>
-                    </View>
-                    <View style={[s.availBadge, { backgroundColor: t.available ? '#ECFDF5' : '#FEF2F2' }]}>
-                      <View style={[s.availDot, { backgroundColor: t.available ? SUCCESS : DANGER }]} />
-                      <Text style={[s.availText, { color: t.available ? SUCCESS : DANGER }]}>
-                        {t.available ? 'Available' : 'Busy'}
-                      </Text>
-                    </View>
-                    {selectedTechId === t.id && (
-                      <CheckCircle size={18} color={PRIMARY} strokeWidth={2} style={{ marginLeft: 6 }} />
-                    )}
-                  </TouchableOpacity>
-                ))}
+                <InlineInput
+                  label="Technician Name"
+                  value={selectedTechName}
+                  onChangeText={v => { setSelectedTechName(v); clearFieldError('technician'); }}
+                  placeholder="Enter technician name"
+                  autoCapitalize="words"
+                  Icon={Users}
+                />
               </SectionCard>
 
               {/* ── Labour Details ── */}
@@ -1160,7 +1134,7 @@ export default function CreateJobScreen() {
             <SectionCard title="Job Timeline" iconBg="#F0FDF4" Icon={Activity} iconColor={SUCCESS}>
               {[
                 { label: 'Job Created',         desc: 'Job card successfully created',  done: true  },
-                { label: 'Technician Assigned', desc: selectedTechName || '—',          done: !!selectedTechId },
+                { label: 'Technician Assigned', desc: selectedTechName || '—',          done: !!selectedTechName },
                 { label: 'Work Started',        desc: 'Vehicle under service',          current: true },
                 { label: 'Quality Check',       desc: '',                               done: false },
                 { label: 'Ready for Delivery',  desc: '',                               done: false },

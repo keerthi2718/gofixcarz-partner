@@ -8,24 +8,13 @@ import {
   Text,
   TouchableOpacity,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import Svg, {
-  Path,
-  Circle,
-  Defs,
-  LinearGradient as SvgLinearGradient,
-  Stop,
-} from 'react-native-svg';
 import {
   Bell,
-  ArrowUp,
-  Star,
   Calendar,
-  FileText,
   Wrench,
   BarChart2,
 } from 'lucide-react-native';
@@ -52,31 +41,6 @@ const BOOKING_STATUS: Record<string, { label: string; color: string; bg: string;
   REJECTED:  { label: 'Cancelled', color: '#DC2626', bg: '#FEF2F2', bar: '#DC2626' },
 };
 
-/* ─── Sparkline data (static representative 7-day points) ──────────────── */
-// viewBox: 0 0 280 100  →  y=100 is bottom (₹0), y=0 is top (₹15k)
-const SPARKLINE_POINTS = [
-  { x: 0,     y: 80 },  // Mon  ~₹3k
-  { x: 46.6,  y: 60 },  // Tue  ~₹6k
-  { x: 93.3,  y: 75 },  // Wed  ~₹3.75k
-  { x: 140,   y: 40 },  // Thu  ~₹9k
-  { x: 186.6, y: 50 },  // Fri  ~₹7.5k
-  { x: 233.3, y: 20 },  // Sat  ~₹12k
-  { x: 280,   y: 30 },  // Sun  ~₹10.5k
-];
-
-function buildLinePath(pts: { x: number; y: number }[]) {
-  return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
-}
-function buildAreaPath(pts: { x: number; y: number }[]) {
-  const line = buildLinePath(pts);
-  const last = pts[pts.length - 1];
-  const first = pts[0];
-  return `${line} L ${last.x},100 L ${first.x},100 Z`;
-}
-
-const SPARKLINE_LINE = buildLinePath(SPARKLINE_POINTS);
-const SPARKLINE_AREA = buildAreaPath(SPARKLINE_POINTS);
-const SPARKLINE_LAST = SPARKLINE_POINTS[SPARKLINE_POINTS.length - 1];
 
 /* ─── Quick actions ─────────────────────────────────────────────────────── */
 const QUICK_ACTIONS = [
@@ -89,10 +53,6 @@ const QUICK_ACTIONS = [
 /* ─── Component ─────────────────────────────────────────────────────────── */
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  // Chart width: full screen minus horizontal card padding (mx-4 = 16 each side)
-  // but the sparkline lives inside a card that has px-4 (16) so inner available ≈ width - 32 - 32 (outer mx) - left y-axis (~28)
-  const chartOuterWidth = width - 32; // card width (mx-4 on each side)
 
   /* ── Queries ── */
   const {
@@ -117,7 +77,7 @@ export default function DashboardScreen() {
 
   const { unreadCount } = useNotificationContext();
 
-  const garageName = garage?.name ?? 'Krishna Motors';
+  const garageName = garage?.name ?? '';
   const bookings   = bookingsData?.items ?? [];
 
   return (
@@ -164,12 +124,8 @@ export default function DashboardScreen() {
           <View style={[styles.kpiCard, SHADOW_CARD]}>
             <Text style={styles.kpiLabel}>Today's Revenue</Text>
             <Text style={[styles.kpiValue, { color: '#C41E3A' }]}>
-              {dashLoading ? '—' : formatCurrency(data?.revenue_today ?? 12480)}
+              {dashLoading ? '—' : formatCurrency(data?.revenue_today ?? 0)}
             </Text>
-            <View style={styles.kpiSubRow}>
-              <ArrowUp size={12} color="#059669" strokeWidth={2.5} />
-              <Text style={[styles.kpiSubText, { color: '#059669' }]}>18% vs yesterday</Text>
-            </View>
           </View>
 
           {/* Active Jobs */}
@@ -178,10 +134,12 @@ export default function DashboardScreen() {
             <Text style={[styles.kpiValue, { color: '#0F172A' }]}>
               {dashLoading ? '—' : (data?.open_jobs ?? 0)}
             </Text>
-            <View style={styles.kpiSubRow}>
-              <View style={styles.urgentDot} />
-              <Text style={[styles.kpiSubText, { color: '#D97706' }]}>2 urgent</Text>
-            </View>
+            {!dashLoading && !!data?.in_progress_jobs && (
+              <View style={styles.kpiSubRow}>
+                <View style={styles.urgentDot} />
+                <Text style={[styles.kpiSubText, { color: '#D97706' }]}>{data.in_progress_jobs} in progress</Text>
+              </View>
+            )}
           </View>
 
           {/* Bookings */}
@@ -196,79 +154,6 @@ export default function DashboardScreen() {
           </View>
 
 
-        </View>
-
-        {/* ── Sparkline ── */}
-        <View style={[styles.sparkCard, SHADOW_CARD]}>
-          <View style={styles.sparkHeader}>
-            <Text style={styles.sparkTitle}>Revenue this week</Text>
-          </View>
-
-          {/* Chart body: y-axis + SVG + x-labels */}
-          <View style={styles.sparkBody}>
-            {/* Y-axis labels */}
-            <View style={styles.yAxis}>
-              <Text style={styles.axisLabel}>15k</Text>
-              <Text style={styles.axisLabel}>10k</Text>
-              <Text style={styles.axisLabel}>5k</Text>
-              <Text style={styles.axisLabel}>0</Text>
-            </View>
-
-            {/* SVG + x-labels */}
-            <View style={styles.sparkChartArea}>
-              {/* SVG sparkline */}
-              <View style={styles.sparkSvgWrap}>
-                <Svg
-                  width="100%"
-                  height="100%"
-                  viewBox="0 0 280 100"
-                  preserveAspectRatio="none"
-                >
-                  <Defs>
-                    <SvgLinearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-                      <Stop offset="0%" stopColor="#C41E3A" stopOpacity={0.12} />
-                      <Stop offset="100%" stopColor="#C41E3A" stopOpacity={0.01} />
-                    </SvgLinearGradient>
-                  </Defs>
-                  {/* Area fill */}
-                  <Path d={SPARKLINE_AREA} fill="url(#sparkGrad)" />
-                  {/* Line */}
-                  <Path
-                    d={SPARKLINE_LINE}
-                    fill="none"
-                    stroke="#C41E3A"
-                    strokeWidth={2.5}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  {/* Current day dot */}
-                  <Circle
-                    cx={SPARKLINE_LAST.x}
-                    cy={SPARKLINE_LAST.y}
-                    r={4.5}
-                    fill="#C41E3A"
-                    stroke="#FFFFFF"
-                    strokeWidth={2}
-                  />
-                </Svg>
-              </View>
-
-              {/* X-axis labels */}
-              <View style={styles.xAxis}>
-                {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day, i) => (
-                  <Text
-                    key={day}
-                    style={[
-                      styles.axisLabel,
-                      i === 6 && styles.axisLabelActive,
-                    ]}
-                  >
-                    {day}
-                  </Text>
-                ))}
-              </View>
-            </View>
-          </View>
         </View>
 
         {/* ── Quick Actions ── */}

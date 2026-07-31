@@ -1,0 +1,1 @@
+- [Logo store pattern](logo-store-pattern.md) — profile screen must read logoUri from Zustand store, not local useState; local state causes drift on re-renders
