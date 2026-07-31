@@ -88,11 +88,12 @@ export default function JobsScreen() {
   const [search,     setSearch]       = useState('');
   const [searchOpen, setSearchOpen]   = useState(false);
 
-  const isFiltered = activeStage !== DEFAULT_STAGE || !!search;
+  const isFiltered = activeStage !== DEFAULT_STAGE || !!search || searchOpen;
 
   function resetFilters() {
     setActiveStage(DEFAULT_STAGE);
     setSearch('');
+    setSearchOpen(false);
   }
 
   const { data, isLoading, isRefetching, refetch } = useQuery({
