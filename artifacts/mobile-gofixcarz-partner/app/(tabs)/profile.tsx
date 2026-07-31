@@ -314,7 +314,6 @@ export default function ProfileScreen() {
   const [saving,      setSaving]      = useState(false);
   const [errors,      setErrors]      = useState<Record<string, string>>({});
   const profilePopulated = useRef(false);
-  const garagePopulated  = useRef(false);
 
   /* ── Queries ── */
   const { data: profile, isLoading: loadingProfile } = useQuery({
@@ -328,53 +327,44 @@ export default function ProfileScreen() {
 
   const isLoading = loadingProfile || loadingGarage;
 
-  /* ── Populate from queries ── */
+  /* ── Populate form once both queries have resolved ── */
   useEffect(() => {
-    if (profilePopulated.current || !profile) return;
+    if (profilePopulated.current) return;   // already done
+    if (!profile || !garage) return;        // wait for both
+
+    // Personal
     setName(profile.name ?? '');
     setEmail(profile.email ?? '');
     setPhone(profile.mobile ?? '');
-    profilePopulated.current = true;
-  }, [profile]);
 
-  useEffect(() => {
-    if (!garage) return;
+    // Garage — garage value takes priority; fall back to profile for phone/email
+    setGarageName(garage.name ?? '');
+    setOwner(garage.owner ?? '');
+    setGaragePhone(garage.phone || profile.mobile || '');
+    setGarageEmail(garage.email || profile.email || '');
+    setAddress(garage.address ?? '');
+    setCity(garage.city ?? '');
+    setStateVal(garage.state ?? '');
+    setZipcode(garage.zipcode ?? '');
 
-    if (!garagePopulated.current) {
-      // First run: populate all garage fields
-      setGarageName(garage.name ?? '');
-      setOwner(garage.owner ?? '');
-      setAddress(garage.address ?? '');
-      setCity(garage.city ?? '');
-      setStateVal((garage as any).state ?? '');
-      setZipcode(garage.zipcode ?? '');
-      if (garage.working_hours) {
-        const updated = makeDefaultSchedules();
-        Object.entries(garage.working_hours).forEach(([day, v]) => {
-          updated[day] = { open: dateFromHHMM(v.open), close: dateFromHHMM(v.close), active: !v.closed };
-        });
-        setSchedules(updated);
-      }
-      if (garage.logo_url) {
-        setLogoUri(garage.logo_url);
-      } else {
-        StorageService.get(STORAGE_KEYS.GARAGE_LOGO).then((cached: string | null) => {
-          if (cached) setLogoUri(cached);
-        });
-      }
-      garagePopulated.current = true;
+    if (garage.working_hours) {
+      const updated = makeDefaultSchedules();
+      Object.entries(garage.working_hours).forEach(([day, v]) => {
+        updated[day] = { open: dateFromHHMM(v.open), close: dateFromHHMM(v.close), active: !v.closed };
+      });
+      setSchedules(updated);
     }
 
-    // Always (re-)apply phone/email: garage value takes priority, profile is fallback.
-    // This runs on every [garage, profile] change so a late-loading profile still fills blanks.
-    setGaragePhone(p => (p || (garage as any).phone || profile?.mobile || ''));
-    setGarageEmail(p => {
-      if (p) return p; // user already has something typed — don't clobber
-      const raw = ((garage as any).email || profile?.email || '').trim();
-      // Only accept it if it looks like a valid email; otherwise leave blank
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) ? raw : '';
-    });
-  }, [garage, profile]);
+    if (garage.logo_url) {
+      setLogoUri(garage.logo_url);
+    } else {
+      StorageService.get(STORAGE_KEYS.GARAGE_LOGO).then((cached: string | null) => {
+        if (cached) setLogoUri(cached);
+      });
+    }
+
+    profilePopulated.current = true;
+  }, [profile, garage]);
 
   /* ── Mutations ── */
   const profileMut = useMutation({
