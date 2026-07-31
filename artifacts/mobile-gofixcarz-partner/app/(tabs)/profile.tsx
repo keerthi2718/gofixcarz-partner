@@ -388,27 +388,28 @@ export default function ProfileScreen() {
     // Copy to persistent app directory so the URI survives across sessions
     const ext  = picked.split('.').pop()?.toLowerCase() ?? 'jpg';
     const dest = `${FileSystem.documentDirectory}garage_logo.${ext}`;
+    let persistentUri = picked; // default: use original if copy fails
     try {
       await FileSystem.copyAsync({ from: picked, to: dest });
+      persistentUri = dest;
     } catch {
-      // If copy fails, fall back to the original temp URI
+      // Copy failed — fall back to original picked URI for this session
     }
-    const persistentUri = dest;
 
     // Show immediately in UI
     setLogoUri(persistentUri);
 
-    // Cache locally so it survives component unmount
+    // Cache locally so it survives component unmount/restart
     await StorageService.set(STORAGE_KEYS.GARAGE_LOGO, persistentUri);
 
-    // Upload to server (silently — non-blocking)
+    // Upload to server — updates logo_url on the backend
     GarageService.uploadLogo(persistentUri).then(serverUrl => {
       if (serverUrl) {
         setLogoUri(serverUrl);
         StorageService.set(STORAGE_KEYS.GARAGE_LOGO, serverUrl);
       }
     }).catch(() => {
-      // Server upload failed (endpoint may not be live yet); local cache still works
+      // Server upload failed; local URI is shown for this session
     });
   }
 
