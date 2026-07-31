@@ -66,8 +66,8 @@ export default function DashboardScreen() {
   });
 
   const { data: bookingsData, isLoading: bookingsLoading } = useQuery({
-    queryKey: QUERY_KEYS.BOOKINGS({ page_size: 5 }),
-    queryFn:  () => BookingService.list({ page_size: 5 }),
+    queryKey: QUERY_KEYS.BOOKINGS({ page_size: 50 }),
+    queryFn:  () => BookingService.list({ page_size: 50 }),
   });
 
   const { data: garage } = useQuery({
@@ -78,7 +78,19 @@ export default function DashboardScreen() {
   const { unreadCount } = useNotificationContext();
 
   const garageName = garage?.name ?? '';
-  const bookings   = bookingsData?.items ?? [];
+
+  /* Filter to only today's bookings for the dashboard section */
+  const today = new Date();
+  const allBookings = bookingsData?.items ?? [];
+  const bookings = allBookings.filter(b => {
+    if (!b.booking_date) return false;
+    const d = new Date(b.booking_date);
+    return (
+      d.getFullYear() === today.getFullYear() &&
+      d.getMonth()    === today.getMonth()    &&
+      d.getDate()     === today.getDate()
+    );
+  });
 
   return (
     <View style={styles.root}>
@@ -197,7 +209,7 @@ export default function DashboardScreen() {
           </View>
         ) : bookings.length === 0 ? (
           <View style={styles.emptyWrap}>
-            <Text style={styles.emptyText}>No bookings yet</Text>
+            <Text style={styles.emptyText}>No bookings scheduled for today</Text>
           </View>
         ) : (
           <View style={styles.jobsList}>
