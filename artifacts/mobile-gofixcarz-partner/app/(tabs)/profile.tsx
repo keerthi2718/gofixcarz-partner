@@ -418,6 +418,7 @@ export default function ProfileScreen() {
     if (!garageName.trim())                         e.garageName  = 'Garage name is required.';
     if (!garagePhone.trim())                        e.garagePhone = 'Phone number is required.';
     else if (garagePhone.replace(/\D/g,'').length < 10) e.garagePhone = 'Enter a valid 10-digit phone number.';
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))             e.email       = 'Enter a valid email address.';
     if (garageEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(garageEmail.trim())) e.garageEmail = 'Enter a valid email address.';
     if (!address.trim())                            e.address     = 'Street address is required.';
     if (!city.trim())                               e.city        = 'City is required.';
@@ -488,6 +489,20 @@ export default function ProfileScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+
+          {/* ── Personal Info ── */}
+          <SectionHeader title="Personal Info" />
+          <UnderlineInput label="Full Name" value={name}
+            onChange={v => { setName(v); clearError('name'); }}
+            capitalize="words" />
+          <View style={s.gap} />
+          <UnderlineInput label="Email ID" value={email}
+            onChange={v => { setEmail(v.trim()); clearError('email'); }}
+            keyboard="email-address" capitalize="none" error={errors.email} />
+          <View style={s.gap} />
+          <UnderlineInput label="Mobile Number" value={phone}
+            onChange={() => {}} keyboard="phone-pad" prefix="🇮🇳 +91"
+            readOnly />
 
           {/* ── Garage Logo ── */}
           <View style={s.logoSection}>
