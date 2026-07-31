@@ -490,20 +490,6 @@ export default function ProfileScreen() {
           showsVerticalScrollIndicator={false}
         >
 
-          {/* ── Personal Info ── */}
-          <SectionHeader title="Personal Info" />
-          <UnderlineInput label="Full Name" value={name}
-            onChange={v => { setName(v); clearError('name'); }}
-            capitalize="words" />
-          <View style={s.gap} />
-          <UnderlineInput label="Email ID" value={email}
-            onChange={v => { setEmail(v.trim()); clearError('email'); }}
-            keyboard="email-address" capitalize="none" error={errors.email} />
-          <View style={s.gap} />
-          <UnderlineInput label="Mobile Number" value={phone}
-            onChange={() => {}} keyboard="phone-pad" prefix="🇮🇳 +91"
-            readOnly />
-
           {/* ── Garage Logo ── */}
           <View style={s.logoSection}>
             <TouchableOpacity style={s.logoWrap} onPress={pickLogo} activeOpacity={0.85}>
@@ -533,10 +519,6 @@ export default function ProfileScreen() {
           <UnderlineInput label="Phone Number*" value={garagePhone}
             onChange={v => { setGaragePhone(v.replace(/\D/g,'').slice(0,10)); clearError('garagePhone'); }}
             keyboard="phone-pad" prefix="🇮🇳 +91" error={errors.garagePhone} />
-          <View style={s.gap} />
-          <UnderlineInput label="Garage Email ID" value={garageEmail}
-            onChange={v => { setGarageEmail(v); clearError('garageEmail'); }}
-            keyboard="email-address" capitalize="none" error={errors.garageEmail} />
 
           {/* ── Location ── */}
           <SectionHeader title="Location" />
