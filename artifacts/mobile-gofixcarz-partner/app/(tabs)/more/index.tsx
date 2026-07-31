@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Platform, ScrollView, StatusBar, StyleSheet, Text,
   TouchableOpacity, View,
@@ -114,22 +114,27 @@ export default function MoreScreen() {
   const name   = profile?.name ?? garage?.owner ?? 'Garage Owner';
   const mobile = profile?.mobile ?? '';
 
-  /* ── Logo: read from shared React Query cache (profile screen writes here on pick) ── */
+  /* ── Logo ── */
   const qc = useQueryClient();
+
+  // Subscribe to the shared LOGO cache — profile screen writes here via setQueryData on pick/upload
   const { data: logoUri = null } = useQuery<string | null>({
     queryKey: QUERY_KEYS.LOGO,
-    queryFn: async () => {
-      // Prefer server URL, fall back to AsyncStorage cached local file
-      if (garage?.logo_url) return garage.logo_url;
-      return StorageService.get(STORAGE_KEYS.GARAGE_LOGO);
-    },
-    // Seed immediately when garage data arrives with a server URL
-    initialData: () => {
-      const d = qc.getQueryData<string | null>(QUERY_KEYS.LOGO);
-      return d ?? garage?.logo_url ?? null;
-    },
-    staleTime: Infinity, // only refresh when profile screen explicitly sets it
+    queryFn: () => StorageService.get(STORAGE_KEYS.GARAGE_LOGO),
+    staleTime: Infinity, // only refreshed via setQueryData or this seeding effect
   });
+
+  // Self-sufficient seeding: whenever garage data arrives or changes (e.g. after Save),
+  // push the correct logo URI into the shared cache ourselves.
+  // This means the More screen works correctly even if the Profile tab was never opened.
+  useEffect(() => {
+    if (!garage) return;
+    StorageService.get(STORAGE_KEYS.GARAGE_LOGO).then((stored: string | null) => {
+      // AsyncStorage has the ?v=<ts> cache-busted URL set by pickLogo; prefer it.
+      // Fall back to bare server URL only when nothing has been stored yet.
+      qc.setQueryData(QUERY_KEYS.LOGO, stored ?? garage.logo_url ?? null);
+    });
+  }, [garage?.logo_url]); // re-runs whenever the server URL changes (post-save refetch)
 
   return (
     <View style={[styles.root, { backgroundColor: BG }]}>
