@@ -213,7 +213,7 @@ export default function BookingsScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           {(filter !== '' || !!search || searchOpen) && (
             <TouchableOpacity
-              onPress={() => { setFilter(''); setSearch(''); setSearchOpen(false); }}
+              onPress={() => { setFilter(''); setSearch(''); }}
               activeOpacity={0.7}
               style={styles.headerClearBtn}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -287,7 +287,7 @@ export default function BookingsScreen() {
           {/* Clear chip — shown when any filter is active */}
           {(filter !== '' || !!search) && (
             <TouchableOpacity
-              onPress={() => { setFilter(''); setSearch(''); setSearchOpen(false); }}
+              onPress={() => { setFilter(''); setSearch(''); }}
               activeOpacity={0.75}
               style={styles.clearChip}
             >

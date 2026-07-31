@@ -93,7 +93,6 @@ export default function JobsScreen() {
   function resetFilters() {
     setActiveStage(DEFAULT_STAGE);
     setSearch('');
-    setSearchOpen(false);
   }
 
   const { data, isLoading, isRefetching, refetch } = useQuery({
