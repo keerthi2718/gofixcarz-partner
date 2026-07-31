@@ -7,7 +7,8 @@ import DateTimePicker, { type DateTimePickerEvent } from '@react-native-communit
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/src/constants/api';
 import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -190,7 +191,8 @@ export default function CreateJobScreen() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [pdfLoading,  setPdfLoading]  = useState<'download' | 'share' | null>(null);
 
-  const invoiceNum = useRef(`INV-${Date.now().toString().slice(-6)}`).current;
+  const qc         = useQueryClient();
+  const invoiceNum  = useRef(`INV-${Date.now().toString().slice(-6)}`).current;
 
   /* Step 0 */
   const [customerName,  setCustomerName]  = useState('');
@@ -398,24 +400,41 @@ export default function CreateJobScreen() {
 
   /* ── Mutation ── */
   const { mutate: createJob, isPending } = useMutation({
-    mutationFn: () => JobService.create({
-      customer_name:       customerName  || null,
-      customer_mobile:     customerPhone || null,
-      registration_number: regNumber     || null,
-      brand:               brand         || null,
-      vehicle_model:       model         || null,
-      fuel_type:           fuelType      || null,
-      odometer_km:         parseFloat(odometer) || null,
-      description: [
-        complaint       && `Complaint: ${complaint}`,
-        inspectionNotes && `Notes: ${inspectionNotes}`,
-        additionalNotes,
-      ].filter(Boolean).join('\n') || null,
-      estimated_amount: grandTotal || null,
-    }),
+    mutationFn: async () => {
+      // Step 1: create the job with customer + vehicle basics
+      const job = await JobService.create({
+        customer_name:       customerName  || null,
+        customer_mobile:     customerPhone || null,
+        registration_number: regNumber     || null,
+        brand:               brand         || null,
+        vehicle_model:       model         || null,
+        fuel_type:           fuelType      || null,
+        odometer_km:         parseFloat(odometer) || null,
+        description:         additionalNotes || null,
+        estimated_amount:    grandTotal    || null,
+      });
+
+      // Step 2: enrich the job with services, labour, and inspection data
+      // (JobCreate has no these fields — they live on JobUpdate)
+      const hasServices  = services.length > 0;
+      const hasLabour    = parseFloat(labourCharge) > 0;
+      const hasInspect   = !!(complaint || inspectionNotes);
+
+      if (job?.id && (hasServices || hasLabour || hasInspect)) {
+        await JobService.update(job.id, {
+          ...(hasInspect  && { inspection: { findings: [complaint, inspectionNotes].filter(Boolean).join('\n') } }),
+          ...(hasServices && { services: services.map(s => ({ name: s.name, price: s.price, qty: s.qty })) }),
+          ...(hasLabour   && { labour: { charge: parseFloat(labourCharge), description: estHours ? `${estHours} hrs` : null } }),
+        });
+      }
+
+      return job;
+    },
     onSuccess: (job) => {
       setCreateError(null);
       setCreatedJobId(job?.id ?? null);
+      // Invalidate list so the new job shows immediately on navigate back
+      qc.invalidateQueries({ queryKey: ['jobs'] });
       setStep(4);
     },
     onError: (err: any) => {
