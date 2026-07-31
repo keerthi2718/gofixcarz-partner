@@ -365,13 +365,12 @@ export default function ProfileScreen() {
       setLogoUri(uri);
       qc.setQueryData(QUERY_KEYS.LOGO, uri);
     };
-    if (garage.logo_url) {
-      apply(garage.logo_url);
-    } else {
-      StorageService.get(STORAGE_KEYS.GARAGE_LOGO).then((cached: string | null) => {
-        if (cached) apply(cached);
-      });
-    }
+    // Prefer the AsyncStorage value — it retains the ?v=<ts> cache-buster set by pickLogo.
+    // Only fall back to garage.logo_url (bare URL, no cache-buster) when nothing is stored.
+    StorageService.get(STORAGE_KEYS.GARAGE_LOGO).then((cached: string | null) => {
+      if (cached)            apply(cached);
+      else if (garage.logo_url) apply(garage.logo_url);
+    });
   }, [garage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Mutations ── */
@@ -392,6 +391,8 @@ export default function ProfileScreen() {
     if (res.canceled || !res.assets[0]) return;
 
     const picked = res.assets[0].uri;
+    // Timestamp used for both filename uniqueness and HTTP cache-busting
+    const ts = Date.now();
 
     // Helper: update all logo sinks at once
     const applyLogo = async (uri: string, persist: boolean) => {
@@ -400,17 +401,19 @@ export default function ProfileScreen() {
       if (persist) await StorageService.set(STORAGE_KEYS.GARAGE_LOGO, uri);
     };
 
-    // Show picked image immediately (temp URI — good for current session)
+    // Show picked image immediately (ImagePicker always gives a unique temp URI)
     await applyLogo(picked, false);
 
-    // Copy to a stable path in documentDirectory (persists across sessions)
+    // Copy to a TIMESTAMPED stable path so React Native's image cache treats it as a new resource
     const ext  = picked.split('.').pop()?.toLowerCase() ?? 'jpg';
-    const dest = `${FileSystem.documentDirectory}garage_logo.${ext}`;
+    const dest = `${FileSystem.documentDirectory}garage_logo_${ts}.${ext}`;
     let savedUri: string | null = null;
     try {
-      // Delete any previous copy first — copyAsync throws if dest already exists
-      const info = await FileSystem.getInfoAsync(dest);
-      if (info.exists) await FileSystem.deleteAsync(dest, { idempotent: true });
+      // Clean up previous stable copy to avoid accumulating files
+      const prevPath = await StorageService.get(STORAGE_KEYS.GARAGE_LOGO) as string | null;
+      if (prevPath && FileSystem.documentDirectory && prevPath.startsWith(FileSystem.documentDirectory)) {
+        await FileSystem.deleteAsync(prevPath, { idempotent: true });
+      }
       await FileSystem.copyAsync({ from: picked, to: dest });
       savedUri = dest;
       await applyLogo(dest, true);             // switch to stable path + persist
@@ -418,9 +421,9 @@ export default function ProfileScreen() {
       // Copy failed — temp URI stays for this session; don't persist a dead path
     }
 
-    // Upload to server — if it succeeds logo_url is persisted on the backend
+    // Upload to server — append ?v=<ts> so React Native doesn't serve a stale cached image
     GarageService.uploadLogo(savedUri ?? picked).then(async serverUrl => {
-      if (serverUrl) await applyLogo(serverUrl, true);
+      if (serverUrl) await applyLogo(`${serverUrl}?v=${ts}`, true);
     }).catch(() => {
       // Server upload failed; stable local file is the fallback
     });
