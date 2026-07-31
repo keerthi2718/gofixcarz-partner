@@ -341,7 +341,7 @@ export default function ProfileScreen() {
     setGarageName(garage.name ?? '');
     setOwner(garage.owner ?? '');
     setGaragePhone(garage.phone || profile.mobile || '');
-    setGarageEmail(garage.email || profile.email || '');
+    setGarageEmail((garage.email || profile.email || '').trim());
     setAddress(garage.address ?? '');
     setCity(garage.city ?? '');
     setStateVal(garage.state ?? '');
@@ -418,7 +418,7 @@ export default function ProfileScreen() {
     if (!garageName.trim())                         e.garageName  = 'Garage name is required.';
     if (!garagePhone.trim())                        e.garagePhone = 'Phone number is required.';
     else if (garagePhone.replace(/\D/g,'').length < 10) e.garagePhone = 'Enter a valid 10-digit phone number.';
-    if (garageEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(garageEmail)) e.garageEmail = 'Enter a valid email address.';
+    if (garageEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(garageEmail.trim())) e.garageEmail = 'Enter a valid email address.';
     if (!address.trim())                            e.address     = 'Street address is required.';
     if (!city.trim())                               e.city        = 'City is required.';
     if (!stateVal.trim())                           e.state       = 'State is required.';
