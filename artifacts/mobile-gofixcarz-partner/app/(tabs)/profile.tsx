@@ -355,6 +355,12 @@ export default function ProfileScreen() {
       setSchedules(updated);
     }
 
+    profilePopulated.current = true;
+  }, [profile, garage]);
+
+  /* ── Logo — resolved independently so remounts always show the best source ── */
+  useEffect(() => {
+    if (!garage) return;
     if (garage.logo_url) {
       setLogoUri(garage.logo_url);
     } else {
@@ -362,9 +368,7 @@ export default function ProfileScreen() {
         if (cached) setLogoUri(cached);
       });
     }
-
-    profilePopulated.current = true;
-  }, [profile, garage]);
+  }, [garage]);
 
   /* ── Mutations ── */
   const profileMut = useMutation({
@@ -385,31 +389,33 @@ export default function ProfileScreen() {
 
     const picked = res.assets[0].uri;
 
-    // Copy to persistent app directory so the URI survives across sessions
+    // Show the picker result immediately so the user sees it right away
+    setLogoUri(picked);
+
+    // Copy to a stable path in documentDirectory (persists across sessions)
     const ext  = picked.split('.').pop()?.toLowerCase() ?? 'jpg';
     const dest = `${FileSystem.documentDirectory}garage_logo.${ext}`;
-    let persistentUri = picked; // default: use original if copy fails
+    let savedUri: string | null = null;
     try {
+      // Delete any previous copy first — copyAsync throws if dest already exists
+      const info = await FileSystem.getInfoAsync(dest);
+      if (info.exists) await FileSystem.deleteAsync(dest, { idempotent: true });
       await FileSystem.copyAsync({ from: picked, to: dest });
-      persistentUri = dest;
+      savedUri = dest;
+      setLogoUri(dest);                                    // switch to stable path
+      await StorageService.set(STORAGE_KEYS.GARAGE_LOGO, dest);
     } catch {
-      // Copy failed — fall back to original picked URI for this session
+      // Copy failed — logo shows for this session only (temp URI)
     }
 
-    // Show immediately in UI
-    setLogoUri(persistentUri);
-
-    // Cache locally so it survives component unmount/restart
-    await StorageService.set(STORAGE_KEYS.GARAGE_LOGO, persistentUri);
-
-    // Upload to server — updates logo_url on the backend
-    GarageService.uploadLogo(persistentUri).then(serverUrl => {
+    // Upload to server — if it succeeds the logo_url is persisted on the backend
+    GarageService.uploadLogo(savedUri ?? picked).then(serverUrl => {
       if (serverUrl) {
         setLogoUri(serverUrl);
         StorageService.set(STORAGE_KEYS.GARAGE_LOGO, serverUrl);
       }
     }).catch(() => {
-      // Server upload failed; local URI is shown for this session
+      // Server upload failed; stable local file is the fallback
     });
   }
 
