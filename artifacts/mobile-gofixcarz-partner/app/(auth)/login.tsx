@@ -15,7 +15,7 @@ import {
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Wrench, Shield, Star, Users, AlertTriangle, CheckCircle, X } from 'lucide-react-native';
+import { Wrench, Shield, AlertTriangle, CheckCircle, X } from 'lucide-react-native';
 import { useAuth } from '@/src/context/AuthContext';
 
 /* ─────────────── Tokens ─────────────── */
@@ -206,16 +206,10 @@ export default function LoginScreen() {
 
         {/* Trust strip */}
         <View style={s.trustStrip}>
-          {[
-            { Icon: Shield, label: 'Secure Login' },
-            { Icon: Star,   label: '4.8 Rated' },
-            { Icon: Users,  label: '2,000+ Garages' },
-          ].map(({ Icon, label }) => (
-            <View key={label} style={s.trustItem}>
-              <Icon size={14} color={MUTED} />
-              <Text style={s.trustLabel}>{label}</Text>
-            </View>
-          ))}
+          <View style={s.trustItem}>
+            <Shield size={14} color={MUTED} />
+            <Text style={s.trustLabel}>Secure Login</Text>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

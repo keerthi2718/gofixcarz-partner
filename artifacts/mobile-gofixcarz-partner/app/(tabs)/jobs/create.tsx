@@ -1157,12 +1157,12 @@ export default function CreateJobScreen() {
           {step === 4 && (
             <SectionCard title="Job Timeline" iconBg="#F0FDF4" Icon={Activity} iconColor={SUCCESS}>
               {[
-                { label: 'Job Created',         desc: 'Job card successfully created',  done: true  },
-                { label: 'Technician Assigned', desc: selectedTechName || '—',          done: !!selectedTechName },
-                { label: 'Work Started',        desc: 'Vehicle under service',          current: true },
-                { label: 'Quality Check',       desc: '',                               done: false },
-                { label: 'Ready for Delivery',  desc: '',                               done: false },
-                { label: 'Completed',           desc: '',                               done: false },
+                { label: 'Job Created',         desc: '' },
+                { label: 'Technician Assigned', desc: selectedTechName || '' },
+                { label: 'Work Started',        desc: '' },
+                { label: 'Quality Check',       desc: '' },
+                { label: 'Ready for Delivery',  desc: '' },
+                { label: 'Completed',           desc: '' },
               ].map((item, i, arr) => (
                 <View key={i} style={s.tlRow}>
                   <View style={s.tlLeft}>
