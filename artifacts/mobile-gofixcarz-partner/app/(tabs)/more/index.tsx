@@ -1,15 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useCallback } from 'react';
 import {
   Platform, ScrollView, StatusBar, StyleSheet, Text,
   TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Feather } from '@/src/components/ui/FeatherIcon';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
-import { STORAGE_KEYS } from '@/src/constants/storage';
-import StorageService from '@/src/services/storage.service';
 import ProfileService from '@/src/services/profile.service';
 import GarageService from '@/src/services/garage.service';
 import { useLogoStore } from '@/src/store/logo.store';
@@ -107,6 +105,7 @@ const groupStyles = StyleSheet.create({
 export default function MoreScreen() {
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
+  const qc     = useQueryClient();
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
   const { data: profile } = useQuery({ queryKey: QUERY_KEYS.PROFILE, queryFn: ProfileService.get });
@@ -115,30 +114,24 @@ export default function MoreScreen() {
   const name   = profile?.name ?? garage?.owner ?? 'Garage Owner';
   const mobile = profile?.mobile ?? '';
 
+  /* ── Re-fetch profile + garage whenever this screen comes into focus ── */
+  // This ensures the avatar is always up-to-date when navigating back from the
+  // Profile screen after a logo upload, without needing a full app restart.
+  useFocusEffect(
+    useCallback(() => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.GARAGE });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.PROFILE });
+    }, [qc]),
+  );
+
   /* ── Logo ── */
-  // Primary source: Zustand store (written by pickLogo, seeded on boot from AsyncStorage).
-  // Fallback: garage.logo_url from the server — covers the case where the logo was
-  // uploaded in a previous session before we started writing to AsyncStorage, or where
-  // AsyncStorage was cleared (e.g. fresh Expo Go install).
+  // Zustand store holds the optimistic URI set immediately during an in-session
+  // upload (local file path → server URL).  Once the upload completes, pickLogo()
+  // also writes the server URL into the React Query GARAGE cache and invalidates it,
+  // so garage.logo_url becomes the authoritative source going forward.
+  // Priority: in-progress upload URI (Zustand) → server URL (React Query) → null
   const storedLogoUri = useLogoStore(s => s.logoUri);
-  const setLogoUri_store = useLogoStore(s => s.setLogoUri);
-
-  // Seed the store + AsyncStorage from garage.logo_url whenever:
-  //  • the store is still empty (nothing picked yet this session)
-  //  • AND the server has a logo URL
-  // This runs once per garage data load, so it self-corrects after any profile save.
-  useEffect(() => {
-    if (storedLogoUri || !garage?.logo_url) return;
-    console.log('[More] seeding logo from garage.logo_url:', garage.logo_url);
-    setLogoUri_store(garage.logo_url);
-    StorageService.set(STORAGE_KEYS.GARAGE_LOGO, garage.logo_url).catch(() => {});
-  }, [garage?.logo_url]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Derive final URI: prefer the (locally-picked or cached) store value,
-  // fall back to the server URL so something always shows when a logo exists.
   const logoUri = storedLogoUri ?? garage?.logo_url ?? null;
-
-  console.log('[More] storedLogoUri =', storedLogoUri, '| garage.logo_url =', garage?.logo_url, '| final =', logoUri);
 
   return (
     <View style={[styles.root, { backgroundColor: BG }]}>

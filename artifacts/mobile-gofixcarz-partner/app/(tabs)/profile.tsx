@@ -359,22 +359,14 @@ export default function ProfileScreen() {
     profilePopulated.current = true;
   }, [profile, garage]);
 
-  /* ── Logo — seed Zustand store when garage data arrives and store is still empty ── */
+  /* ── Logo — seed Zustand store from server URL when store is still empty ── */
   useEffect(() => {
     if (!garage?.logo_url) return;
-    // If the store already has a value (set by initializeLogo on boot or by a prior
-    // pickLogo call this session), don't overwrite it with a potentially stale server URL.
+    // Only seed if the store has nothing yet (initializeLogo hasn't run or found nothing).
+    // Avoids overwriting an in-progress or freshly-uploaded local URI.
     if (useLogoStore.getState().logoUri) return;
-    // Nothing in the store yet — check AsyncStorage first (may have a cache-busted URL),
-    // then fall back to the server URL.  Either way, write back to AsyncStorage so future
-    // boots don't need to reach the network to show the logo.
-    StorageService.get(STORAGE_KEYS.GARAGE_LOGO).then((cached: string | null) => {
-      const uri = cached || garage!.logo_url;
-      if (uri) {
-        setLogoUri_store(uri);
-        if (!cached) StorageService.set(STORAGE_KEYS.GARAGE_LOGO, uri).catch(() => {});
-      }
-    });
+    setLogoUri_store(garage.logo_url);
+    StorageService.set(STORAGE_KEYS.GARAGE_LOGO, garage.logo_url).catch(() => {});
   }, [garage?.logo_url]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Mutations ── */
@@ -400,7 +392,6 @@ export default function ProfileScreen() {
 
     // Helper: update all logo sinks at once
     const applyLogo = async (uri: string, persist: boolean) => {
-      console.log('[Profile] applyLogo →', uri);
       setLogoUri_store(uri);       // Zustand store → all screens re-render instantly
       if (persist) await StorageService.set(STORAGE_KEYS.GARAGE_LOGO, uri);
     };
@@ -423,7 +414,6 @@ export default function ProfileScreen() {
       }
       await FileSystem.copyAsync({ from: picked, to: dest });
       savedUri = dest;
-      console.log('[Profile] FileSystem copy succeeded →', dest);
       await applyLogo(dest, true);   // upgrade to durable path
     } catch (copyErr) {
       console.warn('[Profile] FileSystem.copyAsync failed — keeping temp URI:', String(copyErr));
@@ -432,8 +422,19 @@ export default function ProfileScreen() {
     // Step 3 — upload to server.
     // Use the stable local copy if available, otherwise the temp URI.
     GarageService.uploadLogo(savedUri ?? picked).then(async serverUrl => {
-      console.log('[Profile] uploadLogo result:', serverUrl);
-      if (serverUrl) await applyLogo(`${serverUrl}?v=${ts}`, true);
+      if (serverUrl) {
+        // Store the raw server URL — no query-param cache-busting which can break
+        // image CDNs that serve files at exact paths.
+        await applyLogo(serverUrl, true);
+        // Propagate to React Query cache so every screen reading QUERY_KEYS.GARAGE
+        // (More, Dashboard, etc.) immediately gets the new logo_url without waiting
+        // for a background refetch.
+        qc.setQueryData(QUERY_KEYS.GARAGE, (old: any) =>
+          old ? { ...old, logo_url: serverUrl } : old
+        );
+        // Background refetch to confirm the server state is consistent.
+        qc.invalidateQueries({ queryKey: QUERY_KEYS.GARAGE });
+      }
     }).catch((uploadErr) => {
       console.warn('[Profile] uploadLogo failed:', String(uploadErr));
     });

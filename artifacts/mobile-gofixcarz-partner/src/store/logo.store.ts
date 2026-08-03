@@ -27,17 +27,15 @@ export const useLogoStore = create<LogoState>()(set => ({
   logoUri: null,
 
   setLogoUri: (uri) => {
-    console.log('[LogoStore] setLogoUri →', uri);
     set({ logoUri: uri });
   },
 
   initializeLogo: async () => {
     try {
       const stored = await StorageService.get(STORAGE_KEYS.GARAGE_LOGO);
-      console.log('[LogoStore] initializeLogo ← AsyncStorage:', stored);
       if (stored) set({ logoUri: stored });
-    } catch (e) {
-      console.warn('[LogoStore] initializeLogo failed', e);
+    } catch {
+      // silently ignore — logo will load from server query
     }
   },
 }));
