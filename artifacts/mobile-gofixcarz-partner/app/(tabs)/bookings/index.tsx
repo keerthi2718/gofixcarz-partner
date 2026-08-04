@@ -35,13 +35,6 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
   REJECTED:  { label: 'Cancelled', color: '#DC2626', bg: '#FEF2F2' },
 };
 
-/* ── Shadow ── */
-const SHADOW_CARD = Platform.select({
-  ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3 },
-  android: { elevation: 2 },
-  default: {},
-});
-
 /* ── Helpers ── */
 function getInitials(name: string): string {
   return name
@@ -83,29 +76,29 @@ function isTomorrow(iso: string): boolean {
   );
 }
 
-/* ── Booking Card ── */
+/* ── Booking Row ── */
 type Booking = BookingDetailResponse;
 
-function BookingCard({ item }: { item: Booking }) {
+function BookingRow({ item, isLast }: { item: Booking; isLast: boolean }) {
   const st = STATUS_MAP[item.status] ?? { label: item.status, color: '#64748B', bg: '#F3F4F6' };
   const initials = getInitials(item.customer_name ?? '?');
   const timeStr = item.booking_date ? formatDate(item.booking_date) : '';
 
   return (
     <TouchableOpacity
-      style={[styles.card, SHADOW_CARD]}
+      style={[styles.row, isLast && styles.rowLast]}
       onPress={() => router.push(`/(tabs)/bookings/${item.id}` as any)}
-      activeOpacity={0.7}
+      activeOpacity={0.6}
     >
       {/* Top row: avatar + name + status */}
-      <View style={styles.cardTopRow}>
-        <View style={styles.cardLeft}>
+      <View style={styles.rowTopRow}>
+        <View style={styles.rowLeft}>
           {/* Avatar */}
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials}</Text>
           </View>
           {/* Name */}
-          <Text style={styles.cardName} numberOfLines={1}>{item.customer_name ?? '—'}</Text>
+          <Text style={styles.rowName} numberOfLines={1}>{item.customer_name ?? '—'}</Text>
         </View>
         {/* Status pill */}
         <View style={[styles.statusPill, { backgroundColor: st.bg }]}>
@@ -114,15 +107,15 @@ function BookingCard({ item }: { item: Booking }) {
       </View>
 
       {/* Vehicle + service row */}
-      <View style={styles.cardVehicleRow}>
-        <Text style={styles.cardVehicleText} numberOfLines={1}>
+      <View style={styles.rowVehicleRow}>
+        <Text style={styles.rowVehicleText} numberOfLines={1}>
           {item.service_requested ?? 'Service'}
         </Text>
       </View>
 
       {/* Bottom row: time + phone + view */}
-      <View style={styles.cardBottomRow}>
-        <View style={styles.cardMetaGroup}>
+      <View style={styles.rowBottomRow}>
+        <View style={styles.rowMetaGroup}>
           {timeStr ? (
             <View style={styles.metaItem}>
               <Clock size={14} color="#94A3B8" strokeWidth={2} />
@@ -152,11 +145,11 @@ function BookingCard({ item }: { item: Booking }) {
 function Section({ label, bookings }: { label: string; bookings: Booking[] }) {
   if (bookings.length === 0) return null;
   return (
-    <View>
+    <View style={styles.section}>
       <Text style={styles.sectionLabel}>{label}</Text>
-      <View style={styles.sectionCards}>
-        {bookings.map(item => (
-          <BookingCard key={item.id} item={item} />
+      <View style={styles.sectionList}>
+        {bookings.map((item, i) => (
+          <BookingRow key={item.id} item={item} isLast={i === bookings.length - 1} />
         ))}
       </View>
     </View>
@@ -470,36 +463,43 @@ const styles = StyleSheet.create({
   },
 
   /* Section */
+  section: {
+    marginTop: 20,
+  },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '600',
     color: '#94A3B8',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-    marginTop: 20,
-    marginBottom: 12,
+    marginBottom: 8,
     paddingHorizontal: 16,
   },
-  sectionCards: {
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-
-  /* Booking card */
-  card: {
+  sectionList: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
 
-  /* Card top row */
-  cardTopRow: {
+  /* Booking row */
+  row: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  rowLast: {
+    borderBottomWidth: 0,
+  },
+
+  /* Top row */
+  rowTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  cardLeft: {
+  rowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -522,8 +522,8 @@ const styles = StyleSheet.create({
     color: '#C41E3A',
   },
 
-  /* Card name */
-  cardName: {
+  /* Row name */
+  rowName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#0F172A',
@@ -544,22 +544,22 @@ const styles = StyleSheet.create({
   },
 
   /* Vehicle/service row */
-  cardVehicleRow: {
+  rowVehicleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginTop: 10,
     paddingLeft: 44,
   },
-  cardVehicleText: {
+  rowVehicleText: {
     fontSize: 14,
     color: '#64748B',
   },
 
   /* Bottom row */
-  cardBottomRow: {
-    marginTop: 14,
-    paddingTop: 12,
+  rowBottomRow: {
+    marginTop: 12,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
     flexDirection: 'row',
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingLeft: 44,
   },
-  cardMetaGroup: {
+  rowMetaGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,

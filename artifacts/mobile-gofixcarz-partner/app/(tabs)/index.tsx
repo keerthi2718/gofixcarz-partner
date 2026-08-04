@@ -231,8 +231,8 @@ export default function DashboardScreen() {
               return (
                 <TouchableOpacity
                   key={item.id}
-                  activeOpacity={0.7}
-                  style={[styles.jobCard, SHADOW_CARD]}
+                  activeOpacity={0.6}
+                  style={styles.jobCard}
                   onPress={() => router.push(`/(tabs)/bookings/${item.id}` as any)}
                 >
                   {/* Left colored bar */}
@@ -480,16 +480,17 @@ const styles = StyleSheet.create({
     color: '#C41E3A',
   },
 
-  /* Job cards */
+  /* Job list */
   jobsList: {
-    marginHorizontal: 16,
-    gap: 10,
+    marginHorizontal: 0,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
   },
   jobCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
     flexDirection: 'row',
-    overflow: 'hidden',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   jobBar: {
     width: 3,

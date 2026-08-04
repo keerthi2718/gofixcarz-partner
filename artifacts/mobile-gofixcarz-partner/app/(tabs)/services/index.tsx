@@ -294,16 +294,14 @@ const styles = StyleSheet.create({
   },
   addBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
-  /* Services list card */
+  /* Services list */
   servicesCard: {
     backgroundColor: CARD,
-    borderRadius: 20, borderWidth: 1, borderColor: BORDER,
-    paddingHorizontal: 18, paddingTop: 16, paddingBottom: 6,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10 },
-      android: { elevation: 3 },
-      default: {},
-    }),
+    borderTopWidth: 1,
+    borderTopColor: BORDER,
+    paddingHorizontal: 18,
+    paddingTop: 0,
+    paddingBottom: 6,
   },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: TEXT, marginBottom: 14 },
 

@@ -20,7 +20,6 @@ import { Filter, Plus, Wrench, Clock, ChevronRight, Search, X } from 'lucide-rea
 const DEFAULT_STAGE = 'In Progress';
 
 /* ─────────────── Status config ─────────────── */
-// Muted, desaturated — status communicates without shouting
 const JOB_STATUS: Record<string, { label: string; color: string; bg: string; dot: string }> = {
   OPEN:             { label: 'Open',        color: '#3B5FA0', bg: '#EEF2FB', dot: '#5B8DEF' },
   IN_PROGRESS:      { label: 'In Progress', color: '#0369A1', bg: '#F0F8FF', dot: '#38A0D4' },
@@ -41,13 +40,7 @@ const STAGE_STATUS_MAP: Record<string, string[]> = {
 
 const STAGES = ['Open', 'In Progress', 'Quality Check', 'Ready', 'Delivered'];
 
-/* ─────────────── Shadow ─────────────── */
-const SHADOW_CARD = Platform.select({
-  ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3 },
-  android: { elevation: 2 },
-  default: {},
-});
-
+/* ─────────────── FAB Shadow ─────────────── */
 const FAB_SHADOW = Platform.select({
   ios:     { shadowColor: '#C41E3A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12 },
   android: { elevation: 8 },
@@ -107,7 +100,6 @@ export default function JobsScreen() {
     const statuses = STAGE_STATUS_MAP[stage] ?? [];
     return allItems.filter(j => statuses.includes(j.status)).length;
   };
-
 
   /* Filtered jobs */
   const activeStatuses = STAGE_STATUS_MAP[activeStage] ?? [];
@@ -247,11 +239,10 @@ export default function JobsScreen() {
           })}
         </ScrollView>
 
-
-        {/* ── Job Cards ── */}
-        <View style={styles.cardList}>
+        {/* ── Job List ── */}
+        <View style={styles.jobList}>
           {isLoading ? (
-            /* Skeleton cards */
+            /* Skeleton rows */
             [0, 1, 2, 3].map(i => (
               <View key={i} style={styles.skeleton} />
             ))
@@ -267,7 +258,7 @@ export default function JobsScreen() {
               </Text>
             </View>
           ) : (
-            filteredJobs.map(item => {
+            filteredJobs.map((item, index) => {
               const st = JOB_STATUS[item.status] ?? { label: item.status, color: '#475569', bg: '#F3F4F6', dot: '#94A3B8' };
               const vehicleLine = [item.brand, item.vehicle_model].filter(Boolean).join(' ');
               const serviceNames = item.services?.map(s => s.name).join(' · ') ?? '';
@@ -277,30 +268,31 @@ export default function JobsScreen() {
                 ? item.registration_number.toUpperCase().replace(/([A-Z]{2})(\d{2})([A-Z]{1,2})(\d{4})/, '$1 $2 $3 $4')
                 : null;
               const avatar = getAvatarColor(techName);
+              const isLast = index === filteredJobs.length - 1;
 
               return (
                 <TouchableOpacity
                   key={item.id}
-                  activeOpacity={0.75}
-                  style={styles.card}
+                  activeOpacity={0.6}
+                  style={[styles.row, isLast && styles.rowLast]}
                   onPress={() => router.push(`/(tabs)/jobs/${item.id}` as any)}
                 >
-                  {/* Left accent strip — status at a glance without reading */}
-                  <View style={[styles.cardStrip, { backgroundColor: st.dot }]} />
+                  {/* Left accent strip — status at a glance */}
+                  <View style={[styles.rowStrip, { backgroundColor: st.dot }]} />
 
-                  {/* Card body — all content indented past the strip */}
-                  <View style={styles.cardBody}>
+                  {/* Row body */}
+                  <View style={styles.rowBody}>
 
                     {/* Row 1: vehicle name (dominant) + chevron */}
-                    <View style={styles.cardHeadRow}>
+                    <View style={styles.rowHeadRow}>
                       <Text style={styles.vehicleName} numberOfLines={1}>
                         {vehicleLine || 'Unknown Vehicle'}
                       </Text>
                       <ChevronRight size={15} color="#D1D5DB" strokeWidth={2} />
                     </View>
 
-                    {/* Row 2: plate badge + status pill — both on same line */}
-                    <View style={styles.cardSubRow}>
+                    {/* Row 2: plate badge + status pill */}
+                    <View style={styles.rowSubRow}>
                       {!!plate && (
                         <View style={styles.plateBadge}>
                           <Text style={styles.plateText}>{plate}</Text>
@@ -312,7 +304,7 @@ export default function JobsScreen() {
                       </View>
                     </View>
 
-                    {/* Row 3: services — with wrench icon */}
+                    {/* Row 3: services */}
                     {!!serviceNames && (
                       <View style={styles.servicesRow}>
                         <Wrench size={11} color="#9CA3AF" strokeWidth={2} />
@@ -321,11 +313,11 @@ export default function JobsScreen() {
                     )}
 
                     {/* Divider */}
-                    <View style={styles.cardDivider} />
+                    <View style={styles.rowDivider} />
 
                     {/* Footer: tech avatar + name, job ref, est time */}
-                    <View style={styles.cardFooter}>
-                      <View style={styles.cardTechRow}>
+                    <View style={styles.rowFooter}>
+                      <View style={styles.rowTechRow}>
                         <View style={[styles.techAvatar, { backgroundColor: avatar.bg }]}>
                           <Text style={[styles.techInitials, { color: avatar.fg }]}>
                             {getInitials(techName)}
@@ -540,19 +532,21 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
 
-  /* Card list */
-  cardList: {
+  /* Job list container */
+  jobList: {
     marginTop: 12,
-    paddingHorizontal: 16,
-    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
 
   /* Skeleton */
   skeleton: {
-    height: 100,
+    height: 80,
     backgroundColor: '#F1F5F9',
-    borderRadius: 16,
-    marginHorizontal: 0,
+    marginHorizontal: 16,
+    marginVertical: 6,
+    borderRadius: 8,
   },
 
   /* Empty state */
@@ -581,42 +575,38 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  /* ── Job card ────────────────────────────────────────────
-     Structure: left-strip (status color) + card body.
-     Scan order: strip color → vehicle name → plate/status → services → tech
+  /* ── Job row ─────────────────────────────────────────────
+     Structure: left-strip (status color) + row body.
+     Separated by hairline bottom borders.
   ──────────────────────────────────────────────────────── */
-  card: {
+  row: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
     flexDirection: 'row',
-    overflow: 'hidden',
-    ...Platform.select({
-      ios:     { shadowColor: '#111827', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6 },
-      android: { elevation: 2 },
-      default: {},
-    }),
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  rowLast: {
+    borderBottomWidth: 0,
   },
 
   /* 3 px left strip — color carries status without text */
-  cardStrip: {
+  rowStrip: {
     width: 3,
     alignSelf: 'stretch',
     flexShrink: 0,
   },
 
   /* Everything right of the strip */
-  cardBody: {
+  rowBody: {
     flex: 1,
-    paddingTop: 12,
-    paddingRight: 12,
-    paddingBottom: 12,
-    paddingLeft: 11,
+    paddingTop: 13,
+    paddingRight: 14,
+    paddingBottom: 13,
+    paddingLeft: 12,
   },
 
   /* Row 1: vehicle name + chevron */
-  cardHeadRow: {
+  rowHeadRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -632,7 +622,7 @@ const styles = StyleSheet.create({
   },
 
   /* Row 2: plate badge + status pill */
-  cardSubRow: {
+  rowSubRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -685,20 +675,20 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 
-  /* Hairline divider */
-  cardDivider: {
+  /* Hairline divider inside row */
+  rowDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: '#E5E7EB',
     marginBottom: 10,
   },
 
   /* Footer */
-  cardFooter: {
+  rowFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  cardTechRow: {
+  rowTechRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
