@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -15,7 +16,7 @@ import {
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Wrench, Shield, AlertTriangle, CheckCircle, X } from 'lucide-react-native';
+import { Shield, AlertTriangle, CheckCircle } from 'lucide-react-native';
 import { useAuth } from '@/src/context/AuthContext';
 
 /* ─────────────── Tokens ─────────────── */
@@ -29,11 +30,6 @@ const TEXT    = '#0F172A';
 const SHADOW_CARD = Platform.select({
   ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 },
   android: { elevation: 4 },
-  default: {},
-});
-const SHADOW_LOGO = Platform.select({
-  ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3 },
-  android: { elevation: 2 },
   default: {},
 });
 
@@ -119,10 +115,11 @@ export default function LoginScreen() {
       >
         {/* Top area */}
         <View style={[s.topArea, { paddingTop: 64 + insets.top }]}>
-          <View style={[s.logoMark, SHADOW_LOGO]}>
-            <Wrench size={28} color={PRIMARY} strokeWidth={2.5} />
-          </View>
-          <Text style={s.appName}>GoFixCarz</Text>
+          <Image
+            source={require('@/assets/images/logo_clean.png')}
+            style={s.logoImage}
+            resizeMode="contain"
+          />
           <Text style={s.portalLabel}>Partner Portal</Text>
         </View>
 
@@ -221,9 +218,8 @@ const s = StyleSheet.create({
   scroll: { flexGrow: 1 },
 
   topArea:     { alignItems: 'center', paddingHorizontal: 16 },
-  logoMark:    { width: 56, height: 56, backgroundColor: '#FFFFFF', borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  appName:     { fontSize: 24, fontWeight: '700', color: TEXT, marginTop: 16 },
-  portalLabel: { fontSize: 14, color: MUTED, marginTop: 4 },
+  logoImage:   { width: 180, height: 72, marginBottom: 4 },
+  portalLabel: { fontSize: 14, color: MUTED, marginTop: 2 },
 
   card:         { marginHorizontal: 16, marginTop: 40, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24 },
   welcomeTitle: { fontSize: 20, fontWeight: '700', color: TEXT },
