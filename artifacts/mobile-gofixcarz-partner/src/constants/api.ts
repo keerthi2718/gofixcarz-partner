@@ -31,6 +31,11 @@ export const ENDPOINTS = {
 
   PROFILE: '/profile',
 
+  /** Pre-signed S3 upload URL — shared by all image upload flows */
+  IMAGES: {
+    UPLOAD_URL: '/images/upload-url',
+  },
+
   BOOKINGS: {
     LIST: '/bookings',
     DETAIL: (id: string) => `/bookings/${id}`,
@@ -42,7 +47,6 @@ export const ENDPOINTS = {
   JOBS: {
     LIST: '/jobs',
     CREATE: '/jobs',
-    UPLOAD_PHOTO: '/jobs/upload-photo',
     DETAIL: (id: string) => `/jobs/${id}`,
     UPDATE: (id: string) => `/jobs/${id}`,
     DELETE: (id: string) => `/jobs/${id}`,

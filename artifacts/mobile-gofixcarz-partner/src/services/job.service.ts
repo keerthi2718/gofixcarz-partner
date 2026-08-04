@@ -64,11 +64,17 @@ const JobService = {
     return data.data;
   },
 
-  async uploadPhoto(formData: FormData) {
-    const { data } = await apiClient.post<APIResponse<{ url: string }>>(
-      ENDPOINTS.JOBS.UPLOAD_PHOTO,
-      formData,
-      { headers: { 'Content-Type': 'multipart/form-data' } }
+  /**
+   * Attach photo object_keys to a job (Step 3 of the job-photo upload flow).
+   *
+   * Always pass the FULL desired array — this replaces the photos field.
+   * Store object_key values here, not signed URLs (URLs expire after 1 hour;
+   * always load fresh URLs from GET /jobs/:id).
+   */
+  async updatePhotos(id: string, photoKeys: string[]) {
+    const { data } = await apiClient.patch<APIResponse<JobResponse>>(
+      ENDPOINTS.JOBS.UPDATE(id),
+      { photos: photoKeys },
     );
     return data.data;
   },

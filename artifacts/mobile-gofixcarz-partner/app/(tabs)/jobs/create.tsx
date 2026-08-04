@@ -22,6 +22,7 @@ import {
 } from 'lucide-react-native';
 import JobService from '@/src/services/job.service';
 import GarageService from '@/src/services/garage.service';
+import ImageService from '@/src/services/image.service';
 import SelectDropdown from '@/src/components/ui/SelectDropdown';
 import { VEHICLE_BRANDS, getModelsForBrand } from '@/src/data/vehicleData';
 import { formatCurrency } from '@/src/utils/helpers';
@@ -427,11 +428,24 @@ export default function CreateJobScreen() {
         estimated_amount:    grandTotal    || null,
       });
 
-      // Step 2: enrich the job with services, labour, and inspection data
+      // Step 2: upload before-service photos to S3 in parallel (3-step flow).
+      // Each photo goes through: POST /images/upload-url → PUT S3 → collect object_key.
+      // We store object_keys, not signed URLs (URLs expire after 1 hour).
+      let photoObjectKeys: string[] = [];
+      if (beforePhotos.length > 0 && job?.id) {
+        const results = await Promise.allSettled(
+          beforePhotos.map(p => ImageService.uploadToS3(p.uri, 'photo'))
+        );
+        photoObjectKeys = results
+          .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
+          .map(r => r.value);
+      }
+
+      // Step 3: enrich the job with services, labour, and inspection data
       // (JobCreate has no these fields — they live on JobUpdate)
-      const hasServices  = services.length > 0;
-      const hasLabour    = parseFloat(labourCharge) > 0;
-      const hasInspect   = !!(complaint || inspectionNotes);
+      const hasServices = services.length > 0;
+      const hasLabour   = parseFloat(labourCharge) > 0;
+      const hasInspect  = !!(complaint || inspectionNotes);
 
       if (job?.id && (hasServices || hasLabour || hasInspect)) {
         await JobService.update(job.id, {
@@ -439,6 +453,12 @@ export default function CreateJobScreen() {
           ...(hasServices && { services: services.map(s => ({ name: s.name, price: s.price, qty: s.qty })) }),
           ...(hasLabour   && { labour: { charge: parseFloat(labourCharge), description: estHours ? `${estHours} hrs` : null } }),
         });
+      }
+
+      // Step 4: attach uploaded photo object_keys to the job via PATCH.
+      // Load fresh photo URLs from GET /jobs/:id — signed URLs expire after 1 hour.
+      if (job?.id && photoObjectKeys.length > 0) {
+        await JobService.updatePhotos(job.id, photoObjectKeys);
       }
 
       return job;

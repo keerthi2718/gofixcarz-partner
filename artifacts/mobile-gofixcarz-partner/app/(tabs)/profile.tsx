@@ -6,7 +6,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { useAuth } from '@/src/context/AuthContext';
@@ -382,62 +381,47 @@ export default function ProfileScreen() {
   /* ── Logo picker ── */
   async function pickLogo() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') { Alert.alert('Permission needed', 'Allow photo library access to upload a logo.'); return; }
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85 });
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow photo library access to upload a logo.');
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
     if (res.canceled || !res.assets[0]) return;
 
     const picked = res.assets[0].uri;
-    // Timestamp used for both filename uniqueness and HTTP cache-busting
-    const ts = Date.now();
 
-    // Helper: update all logo sinks at once
-    const applyLogo = async (uri: string, persist: boolean) => {
-      setLogoUri_store(uri);       // Zustand store → all screens re-render instantly
-      if (persist) await StorageService.set(STORAGE_KEYS.GARAGE_LOGO, uri);
-    };
+    // Show the picked image immediately so the UI feels instant
+    setLogoUri_store(picked);
 
-    // Step 1 — show immediately AND persist the picked URI right away.
-    // Persisting here ensures the More screen sees the logo even if the copy
-    // or server upload later fails silently (both have been swallowing errors).
-    await applyLogo(picked, true);
-
-    // Step 2 — copy to a TIMESTAMPED stable path in documentDirectory.
-    // On iOS, ImagePicker may return a ph:// or file:///tmp URI that survives
-    // only for the current session; copying gives us a durable local file.
-    const ext  = (picked.split('?')[0].split('.').pop() ?? 'jpg').toLowerCase();
-    const dest = `${FileSystem.documentDirectory}garage_logo_${ts}.${ext}`;
-    let savedUri: string | null = null;
-    try {
-      const prevPath = await StorageService.get(STORAGE_KEYS.GARAGE_LOGO) as string | null;
-      if (prevPath && FileSystem.documentDirectory && prevPath.startsWith(FileSystem.documentDirectory)) {
-        await FileSystem.deleteAsync(prevPath, { idempotent: true });
-      }
-      await FileSystem.copyAsync({ from: picked, to: dest });
-      savedUri = dest;
-      await applyLogo(dest, true);   // upgrade to durable path
-    } catch (copyErr) {
-      console.warn('[Profile] FileSystem.copyAsync failed — keeping temp URI:', String(copyErr));
-    }
-
-    // Step 3 — upload to server.
-    // Use the stable local copy if available, otherwise the temp URI.
-    GarageService.uploadLogo(savedUri ?? picked).then(async serverUrl => {
-      if (serverUrl) {
-        // Store the raw server URL — no query-param cache-busting which can break
-        // image CDNs that serve files at exact paths.
-        await applyLogo(serverUrl, true);
-        // Propagate to React Query cache so every screen reading QUERY_KEYS.GARAGE
-        // (More, Dashboard, etc.) immediately gets the new logo_url without waiting
-        // for a background refetch.
-        qc.setQueryData(QUERY_KEYS.GARAGE, (old: any) =>
-          old ? { ...old, logo_url: serverUrl } : old
-        );
-        // Background refetch to confirm the server state is consistent.
-        qc.invalidateQueries({ queryKey: QUERY_KEYS.GARAGE });
-      }
-    }).catch((uploadErr) => {
-      console.warn('[Profile] uploadLogo failed:', String(uploadErr));
-    });
+    // Upload via 3-step S3 pre-signed URL flow (handled by GarageService).
+    // The returned garage object contains a fresh signed logo_url.
+    GarageService.uploadLogo(picked)
+      .then(async updatedGarage => {
+        const newUrl = updatedGarage?.logo_url ?? null;
+        if (newUrl) {
+          // Apply the server URL — signed URLs expire in 1 hour so we always
+          // refresh from the API, but persist it for this session's quick display.
+          setLogoUri_store(newUrl);
+          await StorageService.set(STORAGE_KEYS.GARAGE_LOGO, newUrl).catch(() => {});
+          // Push into React Query cache so every screen (More, Dashboard, etc.)
+          // sees the new logo_url without waiting for a background refetch.
+          qc.setQueryData(QUERY_KEYS.GARAGE, (old: any) =>
+            old ? { ...old, logo_url: newUrl } : old
+          );
+          qc.invalidateQueries({ queryKey: QUERY_KEYS.GARAGE });
+        }
+      })
+      .catch(err => {
+        console.warn('[Profile] uploadLogo failed:', String(err));
+        Alert.alert('Upload failed', 'Could not save logo. Please try again.');
+        // Revert store to whatever the server last had
+        if (garage?.logo_url) setLogoUri_store(garage.logo_url);
+      });
   }
 
   /* ── Validate ── */
