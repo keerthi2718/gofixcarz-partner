@@ -15,6 +15,7 @@ import type { APIResponse } from '@/src/types';
 
 /* ── Constants ── */
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+const TAG = '[ImageService]';
 
 const MIME_MAP: Record<string, string> = {
   jpg:  'image/jpeg',
@@ -46,6 +47,10 @@ const ImageService = {
   /**
    * Upload a local image URI to S3 via the 2-step pre-signed URL flow.
    *
+   * Uses fetch → blob for the S3 PUT so that ONLY the Content-Type header is
+   * sent — S3 pre-signed URLs reject requests with unexpected signed headers
+   * (e.g. Transfer-Encoding) that some upload helpers add automatically.
+   *
    * @param fileUri   Local file URI from expo-image-picker or expo-camera
    * @param prefix    Prefix for the generated filename (e.g. 'logo', 'photo')
    * @returns         object_key — pass this to the API in Step 3 of your flow
@@ -54,34 +59,62 @@ const ImageService = {
     const contentType = getMime(fileUri);
     const fileName    = buildFileName(contentType, prefix);
 
-    // Guard: validate file size before uploading
+    console.log(`${TAG} step 0 — starting upload`, { prefix, contentType, fileName });
+
+    // ── Guard: validate file size ──────────────────────────────────────────
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const info = await FileSystem.getInfoAsync(fileUri, { size: true } as any);
-    if (info.exists && (info as any).size > MAX_BYTES) {
-      throw new Error('Image is too large. Maximum allowed size is 5 MB.');
+    const fileSizeBytes: number = info.exists ? ((info as any).size ?? 0) : 0;
+
+    console.log(`${TAG} step 0 — file info`, { exists: info.exists, sizeBytes: fileSizeBytes });
+
+    if (fileSizeBytes > MAX_BYTES) {
+      throw new Error(`Image too large (${(fileSizeBytes / 1_048_576).toFixed(1)} MB). Maximum allowed is 5 MB.`);
     }
 
-    // ── Step 1 — request pre-signed upload URL (Bearer token via apiClient) ──
-    const { data } = await apiClient.post<APIResponse<UploadUrlResponse>>(
+    // ── Step 1 — request a pre-signed upload URL ───────────────────────────
+    // Uses apiClient so the Authorization header is included for our API.
+    console.log(`${TAG} step 1 — requesting pre-signed URL`, { endpoint: ENDPOINTS.IMAGES.UPLOAD_URL });
+
+    const { data: urlData } = await apiClient.post<APIResponse<UploadUrlResponse>>(
       ENDPOINTS.IMAGES.UPLOAD_URL,
       { file_name: fileName, content_type: contentType },
     );
 
-    const { upload_url, object_key } = data.data;
+    const { upload_url, object_key } = urlData.data;
+    console.log(`${TAG} step 1 — got pre-signed URL`, { object_key, urlPrefix: upload_url.slice(0, 60) });
 
-    // ── Step 2 — PUT raw binary to S3 (NO Authorization header) ──
-    // FileSystem.uploadAsync sends a plain binary PUT without adding any
-    // extra headers beyond what we specify, so the pre-signed URL works correctly.
-    const result = await FileSystem.uploadAsync(upload_url, fileUri, {
-      httpMethod:  'PUT',
-      uploadType:  FileSystem.FileSystemUploadType.BINARY_CONTENT,
-      headers:     { 'Content-Type': contentType },
+    // ── Step 2 — PUT raw binary to S3 (NO Authorization header) ───────────
+    // We use fetch to read the file as a Blob and then PUT it directly to S3.
+    // This guarantees only the Content-Type header is sent — FileSystem.uploadAsync
+    // can silently add Transfer-Encoding: chunked, which S3 rejects on
+    // signed-header-only PUT requests (returns 403 SignatureDoesNotMatch).
+    console.log(`${TAG} step 2 — reading file as blob`);
+
+    const fileResponse = await fetch(fileUri);
+    if (!fileResponse.ok && fileResponse.status !== 0) {
+      // status 0 is normal for local file:// URIs in React Native
+      throw new Error(`Could not read local file (status ${fileResponse.status})`);
+    }
+    const blob = await fileResponse.blob();
+    console.log(`${TAG} step 2 — blob ready`, { size: blob.size, type: blob.type });
+
+    console.log(`${TAG} step 2 — PUT to S3`);
+    const s3Response = await fetch(upload_url, {
+      method:  'PUT',
+      headers: { 'Content-Type': contentType },
+      body:    blob,
     });
 
-    if (result.status < 200 || result.status >= 300) {
-      throw new Error(`S3 upload failed with status ${result.status}.`);
+    console.log(`${TAG} step 2 — S3 response`, { status: s3Response.status });
+
+    if (!s3Response.ok) {
+      const errBody = await s3Response.text().catch(() => '(no body)');
+      console.error(`${TAG} step 2 — S3 PUT failed`, { status: s3Response.status, body: errBody });
+      throw new Error(`S3 upload failed (HTTP ${s3Response.status}): ${errBody}`);
     }
 
+    console.log(`${TAG} step 2 — upload complete ✓`, { object_key });
     return object_key;
   },
 };
