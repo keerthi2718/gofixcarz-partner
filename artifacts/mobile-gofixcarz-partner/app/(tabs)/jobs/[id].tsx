@@ -146,57 +146,163 @@ function JobStepper({ status }: { status: string }) {
   );
 }
 
-/* ── Vertical Activity Timeline ── */
-function JobTimeline({ timelines }: { timelines?: JobTimelineResponse[] }) {
-  if (!timelines || timelines.length === 0) return null;
+/* ── Structured Job Timeline ── */
+interface TLStage { status: string; label: string; desc: string }
 
-  // Show most recent first
-  const sorted = [...timelines].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
+const BASE_TIMELINE_STAGES: TLStage[] = [
+  { status: 'OPEN',          label: 'Job Created',        desc: 'Job card has been created successfully'        },
+  { status: 'IN_PROGRESS',   label: 'Work Started',       desc: 'Technician is working on the vehicle'         },
+  { status: 'QUALITY_CHECK', label: 'Quality Check',      desc: 'Performing quality inspection on the vehicle'  },
+  { status: 'READY',         label: 'Ready for Delivery', desc: 'Vehicle is ready for customer pickup'          },
+  { status: 'COMPLETED',     label: 'Job Completed',      desc: 'Job has been successfully completed'           },
+];
+const WAITING_TL_STAGE: TLStage = {
+  status: 'WAITING_FOR_PARTS', label: 'Waiting for Parts', desc: 'Waiting for spare parts to arrive',
+};
+
+function buildTimelineStages(currentStatus: string, timelines: JobTimelineResponse[]): TLStage[] {
+  const normStatus = currentStatus?.toUpperCase?.() ?? '';
+  const hasWaiting = normStatus === 'WAITING_FOR_PARTS'
+    || timelines.some(t => t.status?.toUpperCase?.() === 'WAITING_FOR_PARTS');
+  const stages = [...BASE_TIMELINE_STAGES];
+  if (hasWaiting) {
+    const idx = stages.findIndex(s => s.status === 'IN_PROGRESS');
+    if (idx >= 0) stages.splice(idx + 1, 0, WAITING_TL_STAGE);
+  }
+  return stages;
+}
+
+type TLState = 'completed' | 'active' | 'pending';
+
+function getStageState(stageIdx: number, currentIdx: number, normCurrent: string): TLState {
+  if (normCurrent === 'CANCELLED') return 'pending';
+  if (stageIdx < currentIdx)       return 'completed';
+  if (stageIdx === currentIdx)     return 'active';
+  return 'pending';
+}
+
+function JobTimeline({
+  timelines = [],
+  currentStatus,
+}: {
+  timelines?: JobTimelineResponse[];
+  currentStatus: string;
+}) {
+  const normCurrent = currentStatus?.toUpperCase?.() ?? '';
+  const stages      = buildTimelineStages(normCurrent, timelines);
+  const currentIdx  = stages.findIndex(s => s.status === normCurrent);
+
+  // Quick lookup: status → first timeline entry for that status
+  const tlMap: Record<string, JobTimelineResponse> = {};
+  for (const e of timelines) {
+    const key = e.status?.toUpperCase?.() ?? '';
+    if (!tlMap[key]) tlMap[key] = e;
+  }
 
   return (
     <View style={tl.card}>
+      {/* Header */}
       <View style={tl.headerRow}>
         <View style={tl.iconBox}>
           <Feather name="activity" size={14} color={PRIMARY} />
         </View>
-        <Text style={tl.title}>Activity Timeline</Text>
-        <View style={tl.countPill}>
-          <Text style={tl.countText}>{timelines.length}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={tl.title}>Job Timeline</Text>
+          <Text style={tl.subtitle}>Track the progress of this job</Text>
         </View>
       </View>
 
+      {/* Stage rows */}
       <View style={tl.body}>
-        {sorted.map((entry, i) => {
-          const meta    = metaFor(entry.status);
-          const isLast  = i === sorted.length - 1;
+        {stages.map((stage, i) => {
+          const state  = getStageState(i, currentIdx, normCurrent);
+          const isLast = i === stages.length - 1;
+          const entry  = tlMap[stage.status];
+          const ts     = entry ? formatDateTime(entry.created_at) : null;
+          const notes  = entry?.notes ?? null;
+
+          const dotBg     = state === 'completed' ? '#10B981' : state === 'active' ? '#2563EB' : '#FFFFFF';
+          const dotBorder = state === 'completed' ? '#10B981' : state === 'active' ? '#2563EB' : '#CBD5E1';
+          const lineColor = state === 'completed' ? '#10B981' : '#E2E8F0';
+          const nameColor = state === 'active'    ? '#1D4ED8' : state === 'pending' ? '#94A3B8' : TEXT;
+
           return (
-            <View key={entry.id} style={tl.row}>
-              {/* Left spine */}
+            <View key={stage.status} style={tl.stageOuter}>
+              {/* ── Left spine: dot + connector ── */}
               <View style={tl.spine}>
-                <View style={[tl.dot, { backgroundColor: meta.color }]}>
-                  <Feather name={meta.icon} size={9} color="#fff" />
+                <View style={[tl.dot, { backgroundColor: dotBg, borderColor: dotBorder }]}>
+                  {state === 'completed' ? (
+                    <Feather name="check" size={13} color="#fff" />
+                  ) : (
+                    <Text style={[tl.dotNum, { color: state === 'active' ? '#fff' : '#94A3B8' }]}>
+                      {i + 1}
+                    </Text>
+                  )}
                 </View>
-                {!isLast && <View style={[tl.spineBar, { backgroundColor: `${meta.color}25` }]} />}
+                {!isLast && (
+                  <View style={[tl.connector, { backgroundColor: lineColor }]} />
+                )}
               </View>
 
-              {/* Content */}
-              <View style={[tl.content, isLast && { paddingBottom: 0 }]}>
-                <View style={[tl.statusChip, { backgroundColor: meta.bg }]}>
-                  <Text style={[tl.statusChipText, { color: meta.color }]}>{meta.label}</Text>
+              {/* ── Right content ── */}
+              <View style={[
+                tl.stageContent,
+                state === 'active' && tl.stageContentActive,
+                isLast && { marginBottom: 0 },
+              ]}>
+                {/* Name + badge */}
+                <View style={tl.stageRow}>
+                  <Text style={[tl.stageName, { color: nameColor }]} numberOfLines={1}>
+                    {stage.label}
+                  </Text>
+                  {state === 'completed' && (
+                    <View style={tl.badgeGreen}><Text style={tl.badgeGreenTxt}>Completed</Text></View>
+                  )}
+                  {state === 'active' && (
+                    <View style={tl.badgeBlue}><Text style={tl.badgeBlueTxt}>In Progress</Text></View>
+                  )}
+                  {state === 'pending' && (
+                    <View style={tl.badgeGrey}><Text style={tl.badgeGreyTxt}>Pending</Text></View>
+                  )}
                 </View>
-                <Text style={tl.time}>{formatDateTime(entry.created_at)}</Text>
-                {!!entry.notes && (
+
+                {/* Subtitle */}
+                {state === 'active' && <Text style={tl.activeDesc}>{stage.desc}</Text>}
+                {state === 'pending' && <Text style={tl.pendingDesc}>Pending</Text>}
+
+                {/* Timestamp */}
+                {!!ts && (
+                  <View style={tl.tsRow}>
+                    <Feather name="clock" size={11} color="#94A3B8" />
+                    <Text style={tl.tsText}>{ts}</Text>
+                  </View>
+                )}
+
+                {/* Notes */}
+                {!!notes && (
                   <View style={tl.notesBox}>
                     <Feather name="message-square" size={11} color="#94A3B8" />
-                    <Text style={tl.notes}>{entry.notes}</Text>
+                    <Text style={tl.notesText}>{notes}</Text>
                   </View>
                 )}
               </View>
             </View>
           );
         })}
+      </View>
+
+      {/* Legend */}
+      <View style={tl.legend}>
+        {([
+          { color: '#10B981', label: 'Completed'  },
+          { color: '#2563EB', label: 'In Progress' },
+          { color: '#CBD5E1', label: 'Pending'     },
+        ] as const).map(({ color, label }) => (
+          <View key={label} style={tl.legendItem}>
+            <View style={[tl.legendDot, { backgroundColor: color }]} />
+            <Text style={tl.legendLabel}>{label}</Text>
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -274,61 +380,88 @@ const sp = StyleSheet.create({
 const tl = StyleSheet.create({
   card: {
     backgroundColor: CARD, borderRadius: 18,
-    borderWidth: 1, borderColor: BORDER,
-    overflow: 'hidden',
+    borderWidth: 1, borderColor: BORDER, overflow: 'hidden',
     ...Platform.select({
       ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
       android: { elevation: 2 },
       default: {},
     }),
   },
+
+  /* Header */
   headerRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 18, paddingTop: 14, paddingBottom: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 18, paddingTop: 16, paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
   },
   iconBox: {
-    width: 30, height: 30, borderRadius: 9,
+    width: 34, height: 34, borderRadius: 10,
     backgroundColor: '#FEE2E2',
     alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: 14, fontWeight: '700', color: TEXT, flex: 1 },
-  countPill: {
-    minWidth: 24, height: 24, borderRadius: 12,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 7,
-  },
-  countText: { fontSize: 11, fontWeight: '700', color: '#64748B' },
+  title:    { fontSize: 14, fontWeight: '700', color: TEXT },
+  subtitle: { fontSize: 11, color: MUTED, marginTop: 1 },
 
-  body: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16 },
+  /* Body */
+  body: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 8 },
 
-  row: { flexDirection: 'row', gap: 14 },
+  stageOuter: { flexDirection: 'row', gap: 12 },
 
   /* Spine */
-  spine:    { alignItems: 'center', width: 26 },
+  spine:     { alignItems: 'center', width: 30, flexShrink: 0 },
   dot: {
-    width: 26, height: 26, borderRadius: 13,
-    alignItems: 'center', justifyContent: 'center',
-    zIndex: 1, flexShrink: 0,
+    width: 30, height: 30, borderRadius: 15, borderWidth: 2,
+    alignItems: 'center', justifyContent: 'center', zIndex: 1, flexShrink: 0,
   },
-  spineBar: { flex: 1, width: 2, borderRadius: 1, marginTop: 4, marginBottom: 4, minHeight: 16 },
+  dotNum:    { fontSize: 12, fontWeight: '700' },
+  connector: { flex: 1, width: 2, borderRadius: 1, marginTop: 3, marginBottom: 3, minHeight: 24 },
 
-  /* Content */
-  content:  { flex: 1, paddingBottom: 20 },
-  statusChip: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 8, marginBottom: 4,
+  /* Stage content */
+  stageContent: {
+    flex: 1, borderRadius: 12,
+    paddingHorizontal: 10, paddingTop: 3, paddingBottom: 18,
   },
-  statusChipText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.1 },
-  time:  { fontSize: 11, color: '#94A3B8', marginBottom: 4 },
+  stageContentActive: {
+    backgroundColor: '#F0F7FF',
+    paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, marginBottom: 4,
+  },
+  stageRow: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', gap: 8, marginBottom: 3,
+  },
+  stageName: { fontSize: 14, fontWeight: '700', flex: 1 },
+
+  activeDesc:  { fontSize: 12, color: '#2563EB', fontWeight: '500', marginBottom: 3 },
+  pendingDesc: { fontSize: 12, color: '#94A3B8', marginBottom: 3 },
+
+  /* Badges */
+  badgeGreen:    { backgroundColor: '#D1FAE5', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  badgeGreenTxt: { fontSize: 11, fontWeight: '700', color: '#059669' },
+  badgeBlue:     { backgroundColor: '#DBEAFE', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  badgeBlueTxt:  { fontSize: 11, fontWeight: '700', color: '#1D4ED8' },
+  badgeGrey:     { backgroundColor: '#F1F5F9', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  badgeGreyTxt:  { fontSize: 11, fontWeight: '700', color: '#94A3B8' },
+
+  /* Timestamp */
+  tsRow:  { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 3 },
+  tsText: { fontSize: 11, color: '#94A3B8' },
+
+  /* Notes */
   notesBox: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 6,
     backgroundColor: '#F8FAFC', borderRadius: 8,
     paddingHorizontal: 10, paddingVertical: 8, marginTop: 4,
   },
-  notes: { flex: 1, fontSize: 12, color: '#475569', lineHeight: 18 },
+  notesText: { flex: 1, fontSize: 12, color: '#475569', lineHeight: 18 },
+
+  /* Legend */
+  legend: {
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 20,
+    paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#F1F5F9', marginTop: 4,
+  },
+  legendItem:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendDot:   { width: 10, height: 10, borderRadius: 5 },
+  legendLabel: { fontSize: 11, color: MUTED, fontWeight: '500' },
 });
 
 /* ── Shared section card ── */
@@ -542,8 +675,8 @@ export default function JobDetailScreen() {
           {/* Job progress stepper */}
           <JobStepper status={data.status} />
 
-          {/* Activity timeline */}
-          <JobTimeline timelines={data.timelines} />
+          {/* Structured job timeline */}
+          <JobTimeline timelines={data.timelines} currentStatus={data.status} />
 
           {/* Complete button */}
           {(data.status === 'QUALITY_CHECK' || data.status === 'READY') && (
