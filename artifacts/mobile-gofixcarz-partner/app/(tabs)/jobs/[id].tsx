@@ -17,6 +17,7 @@ import { formatCurrency, formatDateTime } from '@/src/utils/helpers';
 import type { JobStatus } from '@/src/types';
 
 /* ── Design tokens ── */
+import { getValidNextStatuses } from '@/src/constants/jobTransitions';
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
 const PRIMARY = '#C41E3A';
@@ -24,10 +25,6 @@ const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
 const SUCCESS = '#10B981';
-
-const STATUS_FLOW: JobStatus[] = [
-  'OPEN','IN_PROGRESS','QUALITY_CHECK','READY','COMPLETED','CANCELLED',
-];
 
 /* ── Job progress stepper ── */
 const STEPPER_STEPS: { status: JobStatus; label: string }[] = [
@@ -332,7 +329,7 @@ export default function JobDetailScreen() {
           <View style={styles.sheet}>
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Change Status</Text>
-            {STATUS_FLOW.filter(s => s !== data?.status && s !== 'COMPLETED').map(s => (
+            {getValidNextStatuses(data.status).map(s => (
               <TouchableOpacity
                 key={s}
                 style={styles.sheetOption}
