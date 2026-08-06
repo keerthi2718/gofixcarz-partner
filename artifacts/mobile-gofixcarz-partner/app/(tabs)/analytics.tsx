@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Platform,
   RefreshControl,
@@ -10,6 +10,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, {
   Path,
@@ -322,7 +323,16 @@ export default function AnalyticsScreen() {
   const { data, isLoading, isRefetching, refetch } = useQuery({
     queryKey: QUERY_KEYS.ANALYTICS(PERIOD_API[period]),
     queryFn:  () => AnalyticsService.get({ period: PERIOD_API[period] }),
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
+
+  /* Refetch every time this tab comes into focus */
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [PERIOD_API[period]])
+  );
 
   const graphData    = data?.graph_data    ?? [];
   const totalRevenue = data?.total_revenue ?? 0;

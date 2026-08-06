@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   ActivityIndicator, Platform, RefreshControl, ScrollView,
   StatusBar, StyleSheet, Text, TouchableOpacity, View,
@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Feather } from '@/src/components/ui/FeatherIcon';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useFocusEffect } from 'expo-router';
 import { QUERY_KEYS } from '@/src/constants/api';
 import AnalyticsService from '@/src/services/analytics.service';
 import { formatCurrency } from '@/src/utils/helpers';
@@ -97,8 +98,16 @@ export default function MoreAnalyticsScreen() {
     queryKey: QUERY_KEYS.ANALYTICS(period),
     queryFn:  () => AnalyticsService.get({ period }),
     retry: 1,
-    staleTime: 1000 * 60 * 2,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
+
+  /* Refetch whenever this screen comes into focus */
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [period])
+  );
 
   /* Safe derived values */
   const totalRevenue  = data?.total_revenue ?? 0;
