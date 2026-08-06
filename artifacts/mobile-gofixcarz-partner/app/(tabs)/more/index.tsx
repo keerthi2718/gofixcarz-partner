@@ -173,7 +173,7 @@ export default function MoreScreen() {
           {
             label: 'Revenue & Analytics', sub: 'Performance reports',
             icon: 'bar-chart-2', iconBg: '#F0FDF4', iconFg: '#10B981',
-            route: '/(tabs)/more/analytics',
+            route: '/(tabs)/analytics',
           },
         ]} />
 

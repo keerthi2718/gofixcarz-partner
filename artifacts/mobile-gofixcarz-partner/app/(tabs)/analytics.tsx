@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Platform,
   RefreshControl,
@@ -11,6 +11,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import Svg, {
   Path,
   Circle,
@@ -23,7 +24,7 @@ import Svg, {
   G,
 } from 'react-native-svg';
 import { TrendingUp } from 'lucide-react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import AnalyticsService from '@/src/services/analytics.service';
 import { formatCurrency } from '@/src/utils/helpers';
@@ -317,12 +318,22 @@ function KpiCard({ label, value }: { label: string; value: string }) {
 /* ─── Screen ──────────────────────────────────────────────── */
 export default function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
+  const qc     = useQueryClient();
   const [period, setPeriod] = useState<UIPeriod>('Monthly');
 
   const { data, isLoading, isRefetching, refetch } = useQuery({
     queryKey: QUERY_KEYS.ANALYTICS(PERIOD_API[period]),
     queryFn:  () => AnalyticsService.get({ period: PERIOD_API[period] }),
+    staleTime: 0, // always consider stale so focus-triggered refetch fires
   });
+
+  /* Re-fetch whenever the Analytics tab comes into focus — ensures mutations
+     on other screens (create job, status change) are immediately reflected. */
+  useFocusEffect(
+    useCallback(() => {
+      qc.invalidateQueries({ queryKey: ['analytics'] });
+    }, [qc]),
+  );
 
   const graphData    = data?.graph_data    ?? [];
   const totalRevenue = data?.total_revenue ?? 0;
@@ -332,7 +343,7 @@ export default function AnalyticsScreen() {
 
   /* Derive segments for donut from status_counts */
   const totalStatusJobs = (Object.values(statusCounts) as (number | undefined)[])
-    .reduce((a, b) => a + (b ?? 0), 0);
+    .reduce<number>((acc, b) => acc + (b ?? 0), 0);
   const segments: Segment[] = totalStatusJobs > 0
     ? (Object.entries(statusCounts) as [string, number | undefined][])
         .filter(([, v]) => v && v > 0)
