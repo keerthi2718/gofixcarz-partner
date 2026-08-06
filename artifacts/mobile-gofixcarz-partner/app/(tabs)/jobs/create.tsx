@@ -428,15 +428,14 @@ export default function CreateJobScreen() {
         estimated_amount:    grandTotal    || null,
       });
 
-      // Step 2: upload before-service photos to S3 in parallel (3-step flow).
-      // Each photo goes through: POST /images/upload-url → PUT S3 → collect object_key.
-      // We store object_keys, not signed URLs (URLs expire after 1 hour).
-      let photoObjectKeys: string[] = [];
+      // Step 2: upload before-service photos via multipart to POST /jobs/upload-photo.
+      // Each call returns a permanent public URL — no expiry concerns.
+      let photoUrls: string[] = [];
       if (beforePhotos.length > 0 && job?.id) {
         const results = await Promise.allSettled(
-          beforePhotos.map(p => ImageService.uploadToS3(p.uri, 'photo'))
+          beforePhotos.map(p => ImageService.uploadJobPhoto(p.uri))
         );
-        photoObjectKeys = results
+        photoUrls = results
           .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
           .map(r => r.value);
       }
@@ -455,10 +454,9 @@ export default function CreateJobScreen() {
         });
       }
 
-      // Step 4: attach uploaded photo object_keys to the job via PATCH.
-      // Load fresh photo URLs from GET /jobs/:id — signed URLs expire after 1 hour.
-      if (job?.id && photoObjectKeys.length > 0) {
-        await JobService.updatePhotos(job.id, photoObjectKeys);
+      // Step 4: attach uploaded photo URLs to the job via PATCH.
+      if (job?.id && photoUrls.length > 0) {
+        await JobService.updatePhotos(job.id, photoUrls);
       }
 
       return job;
