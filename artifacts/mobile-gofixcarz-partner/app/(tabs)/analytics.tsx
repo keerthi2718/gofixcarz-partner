@@ -404,12 +404,12 @@ export default function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
   const [period, setPeriod] = useState<UIPeriod>('Monthly');
 
-  /* Fetch all jobs — filter client-side by period */
+  /* Fetch all jobs — share cache with Workshop tab for instant display */
   const { data: jobsData, isLoading, isRefetching, refetch } = useQuery({
-    queryKey: QUERY_KEYS.JOBS({ page_size: 500 }),
-    queryFn:  () => JobService.list({ page_size: 500 }),
-    staleTime: 0,
-    refetchOnMount: 'always',
+    queryKey: QUERY_KEYS.JOBS({}),
+    queryFn:  () => JobService.list({ page_size: 200 }),
+    staleTime: 30_000,
+    refetchOnMount: true,
   });
 
   /* Refetch every time this tab comes into focus */

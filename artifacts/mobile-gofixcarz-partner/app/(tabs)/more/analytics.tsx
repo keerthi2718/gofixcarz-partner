@@ -157,12 +157,12 @@ export default function MoreAnalyticsScreen() {
   const [period, setPeriod] = useState<UIPeriod>('month');
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
-  /* Fetch all jobs, compute analytics client-side */
+  /* Fetch all jobs — share cache with Workshop tab for instant display */
   const { data: jobsData, isLoading, isRefetching, refetch } = useQuery({
-    queryKey: QUERY_KEYS.JOBS({ page_size: 500 }),
-    queryFn:  () => JobService.list({ page_size: 500 }),
-    staleTime: 0,
-    refetchOnMount: 'always',
+    queryKey: QUERY_KEYS.JOBS({}),
+    queryFn:  () => JobService.list({ page_size: 200 }),
+    staleTime: 30_000,
+    refetchOnMount: true,
   });
 
   useFocusEffect(
