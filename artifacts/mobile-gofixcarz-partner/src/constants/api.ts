@@ -52,6 +52,8 @@ export const ENDPOINTS = {
     DELETE: (id: string) => `/jobs/${id}`,
     COMPLETE: (id: string) => `/jobs/${id}/complete`,
     STATUS: (id: string) => `/jobs/${id}/status`,
+    /** Multipart upload for job photos — returns { url } */
+    UPLOAD_PHOTO: '/jobs/upload-photo',
   },
 
   SERVICE_PACKAGES: {

@@ -13,6 +13,11 @@ import { ENDPOINTS } from '@/src/constants/api';
 import apiClient from './api.client';
 import type { APIResponse } from '@/src/types';
 
+/* ── Job-photo upload response ── */
+interface JobPhotoUploadResponse {
+  url: string;
+}
+
 /* ── Constants ── */
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const TAG = '[ImageService]';
@@ -44,6 +49,48 @@ interface UploadUrlResponse {
 
 /* ── Service ── */
 const ImageService = {
+  /**
+   * Upload a job photo via multipart/form-data to POST /jobs/upload-photo.
+   * This is the documented endpoint in the API contract.
+   *
+   * @param fileUri  Local file URI from expo-image-picker or expo-camera
+   * @returns        Public URL string — store in the job's photos[] array
+   */
+  async uploadJobPhoto(fileUri: string): Promise<string> {
+    const contentType = getMime(fileUri);
+    const fileName    = buildFileName(contentType, 'photo');
+
+    console.log(`${TAG} uploadJobPhoto — start`, { fileName, contentType });
+
+    // Guard: check file size
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const info = await FileSystem.getInfoAsync(fileUri, { size: true } as any);
+    const fileSizeBytes: number = info.exists ? ((info as any).size ?? 0) : 0;
+    if (fileSizeBytes > MAX_BYTES) {
+      throw new Error(`Image too large (${(fileSizeBytes / 1_048_576).toFixed(1)} MB). Maximum allowed is 5 MB.`);
+    }
+
+    // Build FormData — the server expects field key "photo"
+    const formData = new FormData();
+    formData.append('photo', {
+      uri:  fileUri,
+      name: fileName,
+      type: contentType,
+    } as any);
+
+    console.log(`${TAG} uploadJobPhoto — POST ${ENDPOINTS.JOBS.UPLOAD_PHOTO}`);
+
+    const { data: res } = await apiClient.post<APIResponse<JobPhotoUploadResponse>>(
+      ENDPOINTS.JOBS.UPLOAD_PHOTO,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+
+    const { url } = res.data;
+    console.log(`${TAG} uploadJobPhoto — done`, { url });
+    return url;
+  },
+
   /**
    * Upload a local image URI to S3 via the 2-step pre-signed URL flow.
    *

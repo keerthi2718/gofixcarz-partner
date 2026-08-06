@@ -305,6 +305,145 @@ function DonutChart({ segments }: { segments: Segment[] }) {
   );
 }
 
+/* ─── GoFixCarz Score card ────────────────────────────────── */
+interface ScoreData {
+  score: number;
+  completedJobs: number;
+  totalJobs: number;
+  cancelledJobs: number;
+}
+
+function computeScore(counts: JobStatusCounts, totalJobs: number): ScoreData {
+  const completedJobs  = counts.COMPLETED  ?? 0;
+  const cancelledJobs  = counts.CANCELLED  ?? 0;
+  const effectiveTotal = Math.max(totalJobs, 1);
+
+  const completionRate   = completedJobs  / effectiveTotal;   // weight 70%
+  const nonCancelRate    = 1 - (cancelledJobs / effectiveTotal); // weight 30%
+  const score = Math.min(100, Math.round(completionRate * 70 + nonCancelRate * 30));
+
+  return { score, completedJobs, totalJobs, cancelledJobs };
+}
+
+function gradeFor(score: number): { grade: string; color: string; bg: string; label: string } {
+  if (score >= 90) return { grade: 'A', color: '#059669', bg: '#ECFDF5', label: 'Excellent' };
+  if (score >= 75) return { grade: 'B', color: '#2563EB', bg: '#EFF6FF', label: 'Good'      };
+  if (score >= 60) return { grade: 'C', color: '#D97706', bg: '#FFFBEB', label: 'Average'   };
+  if (score >= 40) return { grade: 'D', color: '#EA580C', bg: '#FFF7ED', label: 'Below Avg' };
+  return               { grade: 'F', color: '#DC2626', bg: '#FEF2F2', label: 'Needs Work' };
+}
+
+function GoFixCarzScoreCard({
+  scoreData,
+  isLoading,
+}: {
+  scoreData: ScoreData;
+  isLoading: boolean;
+}) {
+  const { width } = useWindowDimensions();
+  const { score, completedJobs, totalJobs, cancelledJobs } = scoreData;
+  const { grade, color, bg, label } = gradeFor(score);
+
+  // SVG arc gauge
+  const SIZE      = 120;
+  const CX        = SIZE / 2;
+  const CY        = SIZE / 2;
+  const R         = 46;
+  const STROKE    = 10;
+  const START_ANG = -220;
+  const SWEEP_ANG = 260; // total arc in degrees
+
+  function polarXY(deg: number) {
+    const rad = ((deg - 90) * Math.PI) / 180;
+    return { x: CX + R * Math.cos(rad), y: CY + R * Math.sin(rad) };
+  }
+  function arcD(fromDeg: number, toDeg: number, r: number) {
+    const s   = polarXY(fromDeg);
+    const e   = polarXY(toDeg);
+    const large = Math.abs(toDeg - fromDeg) > 180 ? 1 : 0;
+    return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
+  }
+
+  const endAngle  = START_ANG + (isLoading ? 0 : (score / 100) * SWEEP_ANG);
+
+  return (
+    <View style={[s.card, SHADOW_CARD, { marginTop: 12 }]}>
+      <View style={s.cardHead}>
+        <View>
+          <Text style={s.cardTitle}>GoFixCarz Score</Text>
+          <Text style={s.cardSub}>Performance rating for this period</Text>
+        </View>
+        <View style={[s.gradeBadge, { backgroundColor: bg }]}>
+          <Text style={[s.gradeLetter, { color }]}>{isLoading ? '–' : grade}</Text>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20, paddingHorizontal: 4 }}>
+        {/* Arc gauge */}
+        <Svg width={SIZE} height={SIZE}>
+          {/* Track */}
+          <Path
+            d={arcD(START_ANG, START_ANG + SWEEP_ANG, R)}
+            fill="none" stroke={DIVIDER} strokeWidth={STROKE}
+            strokeLinecap="round"
+          />
+          {/* Fill */}
+          {!isLoading && score > 0 && (
+            <Path
+              d={arcD(START_ANG, endAngle, R)}
+              fill="none" stroke={color} strokeWidth={STROKE}
+              strokeLinecap="round"
+            />
+          )}
+          {/* Score label */}
+          <SvgText x={CX} y={CY - 4}  fill={TEXT}  fontSize={22} fontWeight="bold" textAnchor="middle">
+            {isLoading ? '–' : score}
+          </SvgText>
+          <SvgText x={CX} y={CY + 12} fill={SUBTLE} fontSize={9}  textAnchor="middle">
+            out of 100
+          </SvgText>
+          <SvgText x={CX} y={CY + 24} fill={color}  fontSize={9}  fontWeight="bold" textAnchor="middle">
+            {isLoading ? '' : label}
+          </SvgText>
+        </Svg>
+
+        {/* Breakdown */}
+        <View style={{ flex: 1, gap: 12 }}>
+          <ScoreStat
+            label="Completed Jobs"
+            value={isLoading ? '–' : String(completedJobs)}
+            color="#059669"
+          />
+          <ScoreStat
+            label="Total Jobs"
+            value={isLoading ? '–' : String(totalJobs)}
+            color={TEXT}
+          />
+          <ScoreStat
+            label="Cancelled"
+            value={isLoading ? '–' : String(cancelledJobs)}
+            color={cancelledJobs > 0 ? PRIMARY : MUTED}
+          />
+          <ScoreStat
+            label="Completion Rate"
+            value={isLoading || totalJobs === 0 ? '–' : `${Math.round((completedJobs / totalJobs) * 100)}%`}
+            color="#2563EB"
+          />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function ScoreStat({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Text style={{ fontSize: 11, color: MUTED }}>{label}</Text>
+      <Text style={{ fontSize: 13, fontWeight: '700', color }}>{value}</Text>
+    </View>
+  );
+}
+
 /* ─── KPI card ────────────────────────────────────────────── */
 function KpiCard({ label, value }: { label: string; value: string }) {
   return (
@@ -340,6 +479,7 @@ export default function AnalyticsScreen() {
   const totalJobs    = data?.total_jobs    ?? 0;
   const avgTicket    = totalJobs > 0 ? Math.round(totalRevenue / totalJobs) : 0;
   const statusCounts = data?.status_counts ?? {} as JobStatusCounts;
+  const scoreData    = computeScore(statusCounts, totalJobs);
 
   /* Derive segments for donut from status_counts */
   const totalStatusJobs = (Object.values(statusCounts) as (number | undefined)[])
@@ -395,6 +535,9 @@ export default function AnalyticsScreen() {
           <KpiCard label="Jobs Done"  value={isLoading ? '—' : String(totalJobs)} />
           <KpiCard label="Avg Ticket" value={isLoading ? '—' : formatCurrency(avgTicket)} />
         </View>
+
+        {/* ── GoFixCarz Score ── */}
+        <GoFixCarzScoreCard scoreData={scoreData} isLoading={isLoading} />
 
         {/* ── Revenue trend ── */}
         <View style={[s.card, SHADOW_CARD]}>
@@ -499,4 +642,11 @@ const s = StyleSheet.create({
 
   /* Donut */
   donutRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+
+  /* Score */
+  gradeBadge: {
+    width: 44, height: 44, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  gradeLetter: { fontSize: 22, fontWeight: '800' },
 });

@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Platform, ScrollView, StatusBar,
+  ActivityIndicator, Alert, Platform, RefreshControl, ScrollView, StatusBar,
   StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Feather } from '@/src/components/ui/FeatherIcon';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
@@ -42,7 +42,8 @@ const STATUS_META: Record<string, StatusMeta> = {
 };
 
 function metaFor(status: string): StatusMeta {
-  return STATUS_META[status] ?? { label: status, color: '#64748B', bg: '#F8FAFC', icon: 'circle' };
+  // Normalise to UPPER_CASE so the lookup is case-insensitive
+  return STATUS_META[status?.toUpperCase?.()] ?? { label: status, color: '#64748B', bg: '#F8FAFC', icon: 'circle' };
 }
 
 /* ── Colourful horizontal stepper ── */
@@ -368,16 +369,34 @@ export default function JobDetailScreen() {
   const [showComplete, setShowComplete] = useState(false);
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, isRefetching, error, refetch } = useQuery({
     queryKey: QUERY_KEYS.JOB(id),
     queryFn:  () => JobService.getById(id),
+    staleTime: 0, // always refetch on focus
   });
 
+  /** Refetch job detail whenever this screen comes into focus so timeline
+   *  is always current after navigating away and back. */
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch]),
+  );
+
+  /**
+   * Invalidate the job detail with a short delay (800 ms) so the server
+   * has time to write the new timeline entry before we re-fetch.
+   * The lists + analytics are invalidated immediately (no delay needed).
+   */
   const invalidate = () => {
-    qc.invalidateQueries({ queryKey: QUERY_KEYS.JOB(id) });
-    qc.invalidateQueries({ queryKey: ['jobs'] }); // prefix — matches all param variants
+    // Immediate: lists, dashboard, analytics
+    qc.invalidateQueries({ queryKey: ['jobs'] });
     qc.invalidateQueries({ queryKey: QUERY_KEYS.DASHBOARD });
-    qc.invalidateQueries({ queryKey: ['analytics'] }); // prefix — matches all periods
+    qc.invalidateQueries({ queryKey: ['analytics'] });
+    // Delayed: job detail — give the server 800 ms to commit the timeline entry
+    setTimeout(() => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.JOB(id) });
+    }, 800);
   };
 
   /** Push a new status into every relevant cache immediately so the list
@@ -446,6 +465,9 @@ export default function JobDetailScreen() {
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={PRIMARY} />
+          }
         >
           {/* Status hero */}
           <View style={styles.statusHero}>

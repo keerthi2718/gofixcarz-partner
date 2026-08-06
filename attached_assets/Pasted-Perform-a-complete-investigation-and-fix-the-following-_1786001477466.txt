@@ -1,0 +1,97 @@
+Perform a complete investigation and fix the following issues in the application. Do not use mock data. Ensure all changes are production-ready and tested.
+
+### 1. GoFit Score Analytics
+- Analytics are not updating even though there are active job cards in the database.
+- Investigate the entire data flow:
+  - Database records
+  - Backend APIs
+  - Business logic
+  - Aggregation queries
+  - Frontend API calls
+  - State management
+- Identify why the analytics are not loading.
+- Ensure the dashboard reflects real-time data from active job cards.
+- Handle loading, empty, and error states properly.
+
+### 2. Job Timeline
+- The job timeline is not updating correctly.
+- Timeline stage colors are missing.
+- Verify:
+  - Timeline API
+  - Status mapping
+  - UI rendering
+  - Color coding for every job status
+- Ensure each stage displays the correct color based on the current job status.
+- Verify the timeline updates immediately whenever the job status changes.
+
+### 3. AWS S3 Image Storage
+Audit the complete image upload flow.
+Verify that every uploaded image is successfully stored in AWS S3.
+
+Check uploads for:
+- Customer profile images
+- Vehicle images
+- Garage profile images
+- Job card images
+- Before service images
+- During service images
+- After service images
+- Invoice images
+- Any other image uploads in the application
+
+Ensure:
+- Images are stored in the correct S3 folders.
+- Unique file names are generated.
+- No broken image URLs exist.
+- Image URLs are saved correctly in the database.
+- Images load correctly throughout the application.
+- Failed uploads are handled gracefully with proper error messages.
+
+### 4. End-to-End Testing
+Test the complete application from start to finish.
+
+Verify:
+- Authentication
+- Customer flow
+- Garage flow
+- Admin flow
+- Job Card creation
+- Status updates
+- Analytics
+- Notifications
+- Image uploads
+- Payments (if implemented)
+- Reports
+- Dashboard
+
+### 5. Debugging
+Search the entire codebase for:
+- Console errors
+- API failures
+- Unhandled exceptions
+- Database query issues
+- Missing environment variables
+- Incorrect API endpoints
+- Broken imports
+- Performance bottlenecks
+
+Fix every issue found.
+
+### 6. Code Quality
+- Remove unused code.
+- Remove debugging logs.
+- Improve error handling.
+- Improve loading states.
+- Optimize API calls.
+- Optimize database queries.
+- Ensure production-ready code.
+
+### Expected Output
+After completing the work, provide:
+1. Root cause of each issue.
+2. Files modified.
+3. Fixes implemented.
+4. Test cases executed.
+5. Results of end-to-end testing.
+6. Remaining issues (if any).
+7. Confirmation that the application is production-ready.
