@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -16,7 +16,7 @@ import * as Font from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,31 +36,16 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
-  const [appReady, setAppReady] = useState(false);
-
   useEffect(() => {
-    async function loadFontsAndStart() {
-      // ── Inter ──────────────────────────────────────────────────────────────
-      try {
-        await Font.loadAsync({
-          Inter_400Regular, Inter_500Medium,
-          Inter_600SemiBold, Inter_700Bold,
-        });
-      } catch (e) {
-        console.warn('[fonts] Inter load error:', String(e));
-      }
-
-      setAppReady(true);
-      SplashScreen.hideAsync();
-    }
+    // Load Inter in the background — app renders immediately with system fonts
+    // so the web preview never shows a blank white screen while fonts download.
+    Font.loadAsync({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold })
+      .catch(e => console.warn('[fonts] Inter load error:', String(e)))
+      .finally(() => SplashScreen.hideAsync().catch(() => {}));
 
     // Seed logo from AsyncStorage so the avatar shows on first paint
     useLogoStore.getState().initializeLogo();
-
-    loadFontsAndStart();
   }, []);
-
-  if (!appReady) return null;
 
   return (
     <SafeAreaProvider>

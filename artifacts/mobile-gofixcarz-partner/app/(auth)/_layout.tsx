@@ -1,8 +1,13 @@
+import { Platform } from 'react-native';
 import { Stack } from 'expo-router';
 
 export default function AuthLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+    <Stack screenOptions={{
+      headerShown: false,
+      // slide_from_right keeps the screen off-viewport during the transition on web
+      animation: Platform.OS === 'web' ? 'none' : 'slide_from_right',
+    }}>
       <Stack.Screen name="welcome" />
       <Stack.Screen name="login" />
       <Stack.Screen name="otp" />

@@ -5,3 +5,5 @@
 - [GoFixCarz Score formula](gofixcarz-score.md) — score computed client-side from status_counts; no score field in API
 - [Job detail refetch pattern](job-detail-refetch.md) — timeline needs 800ms delayed invalidate + useFocusEffect; status mutations race with server DB write
 - [Image upload endpoints](image-upload-endpoints.md) — job photos use POST /jobs/upload-photo (multipart, returns url); logo uses pre-signed URL flow via POST /images/upload-url
+- [Metro transform cache location](metro-cache-location.md) — Metro cache is in /tmp/metro-cache (not node_modules/.cache); dev script uses --clear to always rebuild fresh
+- [Web preview blank screen causes](web-preview-blank-screen.md) — Three causes of blank web preview in this Expo app; all fixed. Check here before debugging again.
