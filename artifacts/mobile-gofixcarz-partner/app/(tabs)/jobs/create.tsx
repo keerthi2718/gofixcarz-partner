@@ -1204,48 +1204,116 @@ export default function CreateJobScreen() {
           )}
 
           {/* ═══════ STEP 4 — Job Progress ═══════ */}
-          {step === 4 && (
-            <SectionCard title="Job Timeline" iconBg="#F0FDF4" Icon={Activity} iconColor={SUCCESS}>
-              {[
-                { label: 'Job Created',         desc: '' },
-                { label: 'Technician Assigned', desc: selectedTechName || '' },
-                { label: 'Work Started',        desc: '' },
-                { label: 'Quality Check',       desc: '' },
-                { label: 'Ready for Delivery',  desc: '' },
-                { label: 'Completed',           desc: '' },
-              ].map((item, i, arr) => (
-                <View key={i} style={s.tlRow}>
-                  <View style={s.tlLeft}>
-                    <View style={[
-                      s.tlCircle,
-                      (item as any).done    && s.tlCircleDone,
-                      (item as any).current && s.tlCircleCurrent,
-                    ]}>
-                      {(item as any).done
-                        ? <Check size={11} color="#fff" strokeWidth={3} />
-                        : (item as any).current
-                          ? <View style={s.tlPulse} />
-                          : <Text style={s.tlNum}>{i + 1}</Text>
-                      }
-                    </View>
-                    {i < arr.length - 1 && <View style={[s.tlLine, (item as any).done && s.tlLineDone]} />}
-                  </View>
-                  <View style={s.tlContent}>
-                    <Text style={[s.tlLabel, !(item as any).done && !(item as any).current && { color: MUTED }]}>
-                      {item.label}
-                    </Text>
-                    {item.desc ? <Text style={s.tlDesc}>{item.desc}</Text> : null}
-                    {(item as any).current && (
-                      <View style={s.tlBadge}>
-                        <View style={s.tlBadgeDot} />
-                        <Text style={s.tlBadgeText}>In Progress</Text>
+          {step === 4 && (() => {
+            const hasTech     = !!selectedTechName;
+            const tlItems = [
+              {
+                label: 'Job Created',
+                desc:  customerName ? `Customer: ${customerName}` : 'New job card',
+                color: '#2563EB', bg: '#DBEAFE',
+                Icon: Clipboard,
+                done: true, current: false,
+              },
+              {
+                label: 'Technician Assigned',
+                desc:  hasTech ? selectedTechName : 'Not yet assigned',
+                color: '#D97706', bg: '#FEF3C7',
+                Icon: Users,
+                done: hasTech, current: !hasTech,
+              },
+              {
+                label: 'Work In Progress',
+                desc:  services.length ? `${services.length} service${services.length > 1 ? 's' : ''} scheduled` : '',
+                color: '#7C3AED', bg: '#EDE9FE',
+                Icon: Wrench,
+                done: false, current: hasTech,
+              },
+              {
+                label: 'Quality Check',
+                desc:  'Inspection & sign-off',
+                color: '#0891B2', bg: '#CFFAFE',
+                Icon: CheckCircle,
+                done: false, current: false,
+              },
+              {
+                label: 'Ready for Delivery',
+                desc:  deliveryDate
+                  ? deliveryDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                  : 'Awaiting delivery date',
+                color: '#059669', bg: '#D1FAE5',
+                Icon: Tag,
+                done: false, current: false,
+              },
+              {
+                label: 'Job Completed',
+                desc:  'Final billing & closure',
+                color: '#16A34A', bg: '#DCFCE7',
+                Icon: Check,
+                done: false, current: false,
+              },
+            ];
+
+            return (
+              <SectionCard title="Job Timeline" iconBg="#F0FDF4" Icon={Activity} iconColor={SUCCESS}>
+                {tlItems.map((item, i) => {
+                  const isLast = i === tlItems.length - 1;
+                  const lineColor = item.done ? item.color : '#E5E7EB';
+
+                  return (
+                    <View key={i} style={s.tlRow}>
+                      {/* ── Left spine ── */}
+                      <View style={s.tlLeft}>
+                        {/* Circle */}
+                        <View style={[
+                          s.tlCircle,
+                          {
+                            backgroundColor: item.done || item.current ? item.bg  : '#F3F4F6',
+                            borderColor:     item.done || item.current ? item.color : '#D1D5DB',
+                            borderWidth:     item.current ? 2.5 : 1.5,
+                          },
+                        ]}>
+                          {item.done
+                            ? <Check size={12} color={item.color} strokeWidth={3} />
+                            : item.current
+                              ? <item.Icon size={12} color={item.color} strokeWidth={2} />
+                              : <Text style={[s.tlNum, { color: '#D1D5DB' }]}>{i + 1}</Text>
+                          }
+                        </View>
+                        {/* Connector */}
+                        {!isLast && (
+                          <View style={[s.tlLine, { backgroundColor: lineColor }]} />
+                        )}
                       </View>
-                    )}
-                  </View>
-                </View>
-              ))}
-            </SectionCard>
-          )}
+
+                      {/* ── Content ── */}
+                      <View style={[s.tlContent, isLast && { paddingBottom: 0 }]}>
+                        <Text style={[
+                          s.tlLabel,
+                          (item.done || item.current) ? { color: TEXT } : { color: '#9CA3AF' },
+                          item.current && { fontWeight: '700' },
+                        ]}>
+                          {item.label}
+                        </Text>
+                        {!!item.desc && (
+                          <Text style={[s.tlDesc, item.done && { color: item.color }]}>
+                            {item.desc}
+                          </Text>
+                        )}
+                        {item.current && (
+                          <View style={[s.tlBadge, { backgroundColor: item.bg }]}>
+                            <View style={[s.tlBadgeDot, { backgroundColor: item.color }]} />
+                            <Text style={[s.tlBadgeText, { color: item.color }]}>
+                              {i === 1 ? 'Assign Technician' : 'Up Next'}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </SectionCard>
+            );
+          })()}
 
           {/* ═══════ STEP 5 — Invoice ═══════ */}
           {step === 5 && (
@@ -1703,30 +1771,27 @@ const s = StyleSheet.create({
   pickerDone:       { fontSize: 15, fontWeight: '700', color: PRIMARY },
 
   /* Timeline */
+  /* ── Job Timeline (Step 4) ── */
   tlRow:    { flexDirection: 'row', gap: 14 },
   tlLeft:   { alignItems: 'center', width: 30 },
   tlCircle: {
     width: 30, height: 30, borderRadius: 15,
-    borderWidth: 2, borderColor: '#D1D5DB',
-    backgroundColor: CARD, alignItems: 'center', justifyContent: 'center', zIndex: 1,
+    borderWidth: 1.5, borderColor: '#D1D5DB',
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center', justifyContent: 'center', zIndex: 1,
   },
-  tlCircleDone:    { backgroundColor: SUCCESS, borderColor: SUCCESS },
-  tlCircleCurrent: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  tlPulse:  { width: 10, height: 10, borderRadius: 5, backgroundColor: '#fff' },
-  tlLine:     { width: 2, flex: 1, backgroundColor: '#E5E7EB', minHeight: 24 },
-  tlLineDone: { backgroundColor: SUCCESS },
-  tlNum:    { fontSize: 10, fontWeight: '700', color: '#9CA3AF' },
-  tlContent:{ flex: 1, paddingBottom: 24, paddingTop: 5 },
+  tlLine:   { width: 2, flex: 1, minHeight: 28, borderRadius: 1 },
+  tlNum:    { fontSize: 10, fontWeight: '700' },
+  tlContent:{ flex: 1, paddingBottom: 22, paddingTop: 3 },
   tlLabel:  { fontSize: 14, fontWeight: '600', color: TEXT },
-  tlDesc:   { fontSize: 12, color: MUTED, marginTop: 2 },
+  tlDesc:   { fontSize: 12, color: MUTED, marginTop: 3 },
   tlBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    marginTop: 6, alignSelf: 'flex-start',
-    backgroundColor: '#FEF2F2', borderRadius: 7,
-    paddingHorizontal: 9, paddingVertical: 4,
+    marginTop: 7, alignSelf: 'flex-start',
+    borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4,
   },
-  tlBadgeDot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: PRIMARY },
-  tlBadgeText: { fontSize: 11, fontWeight: '700', color: PRIMARY },
+  tlBadgeDot:  { width: 6, height: 6, borderRadius: 3 },
+  tlBadgeText: { fontSize: 11, fontWeight: '700' },
 
   /* Invoice */
   invoiceHero: {
