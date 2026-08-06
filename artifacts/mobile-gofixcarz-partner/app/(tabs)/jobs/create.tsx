@@ -466,8 +466,10 @@ export default function CreateJobScreen() {
     onSuccess: (job) => {
       setCreateError(null);
       setCreatedJobId(job?.id ?? null);
-      // Invalidate list so the new job shows immediately on navigate back
-      qc.invalidateQueries({ queryKey: ['jobs'] });
+      // Invalidate all caches that depend on job data so every screen refreshes
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.JOBS() });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.DASHBOARD });
+      qc.invalidateQueries({ queryKey: ['analytics'] }); // prefix — matches all periods
       setStep(4);
     },
     onError: (err: any) => {

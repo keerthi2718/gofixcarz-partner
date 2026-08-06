@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  ActivityIndicator, Platform, ScrollView, StatusBar,
+  ActivityIndicator, Alert, Platform, ScrollView, StatusBar,
   StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,7 +26,7 @@ const BORDER  = 'rgba(226,232,240,0.7)';
 const SUCCESS = '#10B981';
 
 const STATUS_FLOW: JobStatus[] = [
-  'OPEN','IN_PROGRESS','QUALITY_CHECK','READY','COMPLETED','CANCELLED',
+  'OPEN','IN_PROGRESS','WAITING_FOR_PARTS','QUALITY_CHECK','READY','COMPLETED','CANCELLED',
 ];
 
 /* ── Job progress stepper ── */
@@ -205,15 +205,24 @@ export default function JobDetailScreen() {
     qc.invalidateQueries({ queryKey: QUERY_KEYS.JOB(id) });
     qc.invalidateQueries({ queryKey: QUERY_KEYS.JOBS() });
     qc.invalidateQueries({ queryKey: QUERY_KEYS.DASHBOARD });
+    qc.invalidateQueries({ queryKey: ['analytics'] }); // prefix — matches all periods
   };
 
   const statusMut = useMutation({
     mutationFn: (status: JobStatus) => JobService.updateStatus(id, { status }),
     onSuccess:  () => { invalidate(); setShowStatusPicker(false); },
+    onError:    (err: any) => {
+      const msg = err?.response?.data?.message ?? err?.message ?? 'Could not update status. Please try again.';
+      Alert.alert('Status Update Failed', msg);
+    },
   });
   const completeMut = useMutation({
     mutationFn: () => JobService.complete(id, {}),
     onSuccess:  () => { invalidate(); setShowComplete(false); },
+    onError:    (err: any) => {
+      const msg = err?.response?.data?.message ?? err?.message ?? 'Could not complete job. Please try again.';
+      Alert.alert('Complete Job Failed', msg);
+    },
   });
 
   return (

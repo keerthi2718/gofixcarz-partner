@@ -1,1 +1,4 @@
 - [Logo store pattern](logo-store-pattern.md) — profile screen must read logoUri from Zustand store, not local useState; local state causes drift on re-renders
+- [Query invalidation rules](query-invalidation-rules.md) — all job-mutating screens must invalidate JOBS, DASHBOARD, and ['analytics'] prefix; missing invalidation is a silent staleness bug
+- [Jobs list default stage](jobs-list-stage.md) — default stage must be 'All', not 'In Progress'; newly created jobs are OPEN and become invisible otherwise
+- [Dashboard shows jobs not bookings](dashboard-jobs-section.md) — "Recent Jobs" section queries JobService, not BookingService; See All routes to /(tabs)/jobs
