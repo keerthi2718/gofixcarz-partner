@@ -14,7 +14,7 @@ import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 import LoadingState from '@/src/components/ui/LoadingState';
 import ErrorState from '@/src/components/ui/ErrorState';
 import { formatCurrency, formatDateTime } from '@/src/utils/helpers';
-import type { JobDetailResponse, JobResponse, JobStatus } from '@/src/types';
+import type { JobDetailResponse, JobResponse, JobStatus, JobTimelineResponse } from '@/src/types';
 
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
@@ -29,13 +29,29 @@ const STATUS_FLOW: JobStatus[] = [
   'OPEN','IN_PROGRESS','WAITING_FOR_PARTS','QUALITY_CHECK','READY','COMPLETED','CANCELLED',
 ];
 
-/* ── Job progress stepper ── */
+/* ── Per-status colour palette ── */
+type StatusMeta = { label: string; color: string; bg: string; icon: React.ComponentProps<typeof Feather>['name'] };
+const STATUS_META: Record<string, StatusMeta> = {
+  OPEN:              { label: 'Open',           color: '#2563EB', bg: '#EFF6FF', icon: 'clipboard'    },
+  IN_PROGRESS:       { label: 'In Progress',    color: '#D97706', bg: '#FFFBEB', icon: 'tool'         },
+  WAITING_FOR_PARTS: { label: 'Waiting Parts',  color: '#7C3AED', bg: '#F5F3FF', icon: 'clock'        },
+  QUALITY_CHECK:     { label: 'QC Check',       color: '#0891B2', bg: '#ECFEFF', icon: 'check-square' },
+  READY:             { label: 'Ready',          color: '#059669', bg: '#ECFDF5', icon: 'package'      },
+  COMPLETED:         { label: 'Completed',      color: '#16A34A', bg: '#F0FDF4', icon: 'check-circle' },
+  CANCELLED:         { label: 'Cancelled',      color: '#DC2626', bg: '#FEF2F2', icon: 'x-circle'     },
+};
+
+function metaFor(status: string): StatusMeta {
+  return STATUS_META[status] ?? { label: status, color: '#64748B', bg: '#F8FAFC', icon: 'circle' };
+}
+
+/* ── Colourful horizontal stepper ── */
 const STEPPER_STEPS: { status: JobStatus; label: string }[] = [
-  { status: 'OPEN',          label: 'Open'       },
-  { status: 'IN_PROGRESS',   label: 'In Progress'},
-  { status: 'QUALITY_CHECK', label: 'QC Check'   },
-  { status: 'READY',         label: 'Ready'      },
-  { status: 'COMPLETED',     label: 'Done'       },
+  { status: 'OPEN',          label: 'Open'        },
+  { status: 'IN_PROGRESS',   label: 'In Progress' },
+  { status: 'QUALITY_CHECK', label: 'QC Check'    },
+  { status: 'READY',         label: 'Ready'       },
+  { status: 'COMPLETED',     label: 'Done'        },
 ];
 
 function stepIndex(status: string) {
@@ -53,47 +69,72 @@ function JobStepper({ status }: { status: string }) {
           <Feather name="git-branch" size={14} color={PRIMARY} />
         </View>
         <Text style={sp.title}>Job Progress</Text>
+        {!isCancelled && current >= 0 && (
+          <View style={[sp.progressPill, { backgroundColor: metaFor(STEPPER_STEPS[current]?.status ?? 'OPEN').bg }]}>
+            <Text style={[sp.progressPillText, { color: metaFor(STEPPER_STEPS[current]?.status ?? 'OPEN').color }]}>
+              {current + 1}/{STEPPER_STEPS.length}
+            </Text>
+          </View>
+        )}
       </View>
 
       {isCancelled ? (
         <View style={sp.cancelledRow}>
-          <Feather name="x-circle" size={16} color="#EF4444" />
-          <Text style={sp.cancelledText}>This job was cancelled</Text>
+          <View style={sp.cancelledIcon}>
+            <Feather name="x-circle" size={18} color="#DC2626" />
+          </View>
+          <View>
+            <Text style={sp.cancelledTitle}>Job Cancelled</Text>
+            <Text style={sp.cancelledSub}>This job has been cancelled</Text>
+          </View>
         </View>
       ) : (
         <View style={sp.track}>
           {STEPPER_STEPS.map((step, i) => {
-            const done   = i < current;
-            const active = i === current;
-            const upcoming = i > current;
+            const done    = i < current;
+            const active  = i === current;
+            const meta    = metaFor(step.status);
+            const nodeColor = done ? '#10B981' : active ? meta.color : '#CBD5E1';
+            const nodeBg    = done ? '#D1FAE5' : active ? meta.bg    : '#F8FAFC';
+
             return (
               <React.Fragment key={step.status}>
-                {/* Step node */}
                 <View style={sp.node}>
+                  {/* Circle */}
                   <View style={[
                     sp.circle,
-                    done   && sp.circleDone,
+                    { backgroundColor: nodeBg, borderColor: nodeColor },
                     active && sp.circleActive,
-                    upcoming && sp.circleUpcoming,
                   ]}>
-                    {done
-                      ? <Feather name="check" size={10} color="#fff" />
-                      : active
-                        ? <View style={sp.innerDot} />
-                        : null
-                    }
+                    {done ? (
+                      <Feather name="check" size={11} color="#10B981" />
+                    ) : active ? (
+                      <Feather name={meta.icon} size={11} color={meta.color} />
+                    ) : (
+                      <View style={[sp.innerDot, { backgroundColor: '#D1D5DB' }]} />
+                    )}
                   </View>
-                  <Text
-                    style={[sp.label, done && sp.labelDone, active && sp.labelActive, upcoming && sp.labelUpcoming]}
-                    numberOfLines={1}
-                  >
+
+                  {/* Glow ring on active */}
+                  {active && (
+                    <View style={[sp.glowRing, { borderColor: `${meta.color}30` }]} />
+                  )}
+
+                  <Text style={[
+                    sp.label,
+                    done   && { color: '#10B981', fontWeight: '600' },
+                    active && { color: meta.color, fontWeight: '700' },
+                    !done && !active && { color: '#CBD5E1' },
+                  ]} numberOfLines={1}>
                     {step.label}
                   </Text>
                 </View>
 
                 {/* Connector */}
                 {i < STEPPER_STEPS.length - 1 && (
-                  <View style={[sp.line, (done || active) && i < current && sp.lineDone]} />
+                  <View style={sp.lineWrap}>
+                    <View style={[sp.line, done && sp.lineDone]} />
+                  </View>
                 )}
               </React.Fragment>
             );
@@ -104,10 +145,67 @@ function JobStepper({ status }: { status: string }) {
   );
 }
 
+/* ── Vertical Activity Timeline ── */
+function JobTimeline({ timelines }: { timelines?: JobTimelineResponse[] }) {
+  if (!timelines || timelines.length === 0) return null;
+
+  // Show most recent first
+  const sorted = [...timelines].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  return (
+    <View style={tl.card}>
+      <View style={tl.headerRow}>
+        <View style={tl.iconBox}>
+          <Feather name="activity" size={14} color={PRIMARY} />
+        </View>
+        <Text style={tl.title}>Activity Timeline</Text>
+        <View style={tl.countPill}>
+          <Text style={tl.countText}>{timelines.length}</Text>
+        </View>
+      </View>
+
+      <View style={tl.body}>
+        {sorted.map((entry, i) => {
+          const meta    = metaFor(entry.status);
+          const isLast  = i === sorted.length - 1;
+          return (
+            <View key={entry.id} style={tl.row}>
+              {/* Left spine */}
+              <View style={tl.spine}>
+                <View style={[tl.dot, { backgroundColor: meta.color }]}>
+                  <Feather name={meta.icon} size={9} color="#fff" />
+                </View>
+                {!isLast && <View style={[tl.spineBar, { backgroundColor: `${meta.color}25` }]} />}
+              </View>
+
+              {/* Content */}
+              <View style={[tl.content, isLast && { paddingBottom: 0 }]}>
+                <View style={[tl.statusChip, { backgroundColor: meta.bg }]}>
+                  <Text style={[tl.statusChipText, { color: meta.color }]}>{meta.label}</Text>
+                </View>
+                <Text style={tl.time}>{formatDateTime(entry.created_at)}</Text>
+                {!!entry.notes && (
+                  <View style={tl.notesBox}>
+                    <Feather name="message-square" size={11} color="#94A3B8" />
+                    <Text style={tl.notes}>{entry.notes}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 const sp = StyleSheet.create({
   card: {
     backgroundColor: CARD, borderRadius: 18,
     borderWidth: 1, borderColor: BORDER,
+    overflow: 'hidden',
     ...Platform.select({
       ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
       android: { elevation: 2 },
@@ -124,38 +222,112 @@ const sp = StyleSheet.create({
     backgroundColor: '#FEE2E2',
     alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: 14, fontWeight: '700', color: TEXT },
+  title:        { fontSize: 14, fontWeight: '700', color: TEXT, flex: 1 },
+  progressPill: {
+    paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 20,
+  },
+  progressPillText: { fontSize: 11, fontWeight: '700' },
 
   track: {
     flexDirection: 'row', alignItems: 'flex-start',
-    paddingHorizontal: 16, paddingVertical: 18,
+    paddingHorizontal: 10, paddingTop: 20, paddingBottom: 18,
   },
-  node:  { alignItems: 'center', width: 52 },
+  node:  { alignItems: 'center', width: 54, position: 'relative' },
 
   circle: {
-    width: 28, height: 28, borderRadius: 14,
+    width: 32, height: 32, borderRadius: 16,
+    borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 7, zIndex: 1,
   },
-  circleDone:     { backgroundColor: SUCCESS },
-  circleActive:   { backgroundColor: PRIMARY, borderWidth: 2.5, borderColor: `${PRIMARY}40` },
-  circleUpcoming: { backgroundColor: '#F1F5F9', borderWidth: 1.5, borderColor: BORDER },
+  circleActive: { borderWidth: 2 },
 
-  innerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' },
+  glowRing: {
+    position: 'absolute', top: -5, width: 42, height: 42,
+    borderRadius: 21, borderWidth: 4, zIndex: 0,
+  },
 
-  label:         { fontSize: 9, fontWeight: '500', color: '#CBD5E1', textAlign: 'center' },
-  labelDone:     { color: SUCCESS, fontWeight: '600' },
-  labelActive:   { color: PRIMARY, fontWeight: '700' },
-  labelUpcoming: { color: '#CBD5E1' },
+  innerDot: { width: 7, height: 7, borderRadius: 4 },
 
-  line: { flex: 1, height: 2, backgroundColor: '#E2E8F0', marginTop: 13, borderRadius: 1 },
-  lineDone: { backgroundColor: SUCCESS },
+  label: { fontSize: 9, fontWeight: '500', textAlign: 'center', lineHeight: 13 },
+
+  lineWrap: { flex: 1, paddingTop: 15 },
+  line:     { height: 2.5, backgroundColor: '#E2E8F0', borderRadius: 2 },
+  lineDone: { backgroundColor: '#A7F3D0' },
 
   cancelledRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    padding: 18,
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    padding: 20,
+    backgroundColor: '#FEF2F2',
   },
-  cancelledText: { fontSize: 14, color: '#EF4444', fontWeight: '600' },
+  cancelledIcon: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  cancelledTitle: { fontSize: 14, fontWeight: '700', color: '#DC2626' },
+  cancelledSub:   { fontSize: 12, color: '#F87171', marginTop: 2 },
+});
+
+const tl = StyleSheet.create({
+  card: {
+    backgroundColor: CARD, borderRadius: 18,
+    borderWidth: 1, borderColor: BORDER,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
+      android: { elevation: 2 },
+      default: {},
+    }),
+  },
+  headerRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 18, paddingTop: 14, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+  },
+  iconBox: {
+    width: 30, height: 30, borderRadius: 9,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  title: { fontSize: 14, fontWeight: '700', color: TEXT, flex: 1 },
+  countPill: {
+    minWidth: 24, height: 24, borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 7,
+  },
+  countText: { fontSize: 11, fontWeight: '700', color: '#64748B' },
+
+  body: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16 },
+
+  row: { flexDirection: 'row', gap: 14 },
+
+  /* Spine */
+  spine:    { alignItems: 'center', width: 26 },
+  dot: {
+    width: 26, height: 26, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center',
+    zIndex: 1, flexShrink: 0,
+  },
+  spineBar: { flex: 1, width: 2, borderRadius: 1, marginTop: 4, marginBottom: 4, minHeight: 16 },
+
+  /* Content */
+  content:  { flex: 1, paddingBottom: 20 },
+  statusChip: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 8, marginBottom: 4,
+  },
+  statusChipText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.1 },
+  time:  { fontSize: 11, color: '#94A3B8', marginBottom: 4 },
+  notesBox: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 6,
+    backgroundColor: '#F8FAFC', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 8, marginTop: 4,
+  },
+  notes: { flex: 1, fontSize: 12, color: '#475569', lineHeight: 18 },
 });
 
 /* ── Shared section card ── */
@@ -347,6 +519,9 @@ export default function JobDetailScreen() {
 
           {/* Job progress stepper */}
           <JobStepper status={data.status} />
+
+          {/* Activity timeline */}
+          <JobTimeline timelines={data.timelines} />
 
           {/* Complete button */}
           {(data.status === 'QUALITY_CHECK' || data.status === 'READY') && (
