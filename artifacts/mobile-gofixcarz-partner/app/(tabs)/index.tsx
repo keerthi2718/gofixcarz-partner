@@ -21,7 +21,7 @@ import {
 
 import { QUERY_KEYS } from '@/src/constants/api';
 import DashboardService from '@/src/services/dashboard.service';
-import JobService from '@/src/services/job.service';
+import BookingService from '@/src/services/booking.service';
 import GarageService from '@/src/services/garage.service';
 import { formatCurrency } from '@/src/utils/helpers';
 import { useNotificationContext } from '@/src/context/NotificationContext';
@@ -33,22 +33,19 @@ const SHADOW_CARD = Platform.select({
   default: {},
 });
 
-/* ─── Job status display config ─────────────────────────────────────────── */
-const JOB_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; bar: string }> = {
-  OPEN:              { label: 'Open',          color: '#3B5FA0', bg: '#EEF2FB', bar: '#5B8DEF' },
-  IN_PROGRESS:       { label: 'In Progress',   color: '#0369A1', bg: '#F0F8FF', bar: '#38A0D4' },
-  QUALITY_CHECK:     { label: 'QC Check',      color: '#5B4FA0', bg: '#F2F0FB', bar: '#8B80D4' },
-  WAITING_FOR_PARTS: { label: 'Waiting',       color: '#7C3AED', bg: '#F5F3FF', bar: '#8B5CF6' },
-  READY:             { label: 'Ready',         color: '#1A6E52', bg: '#EDFAF4', bar: '#34C987' },
-  COMPLETED:         { label: 'Done',          color: '#1A6E52', bg: '#EDFAF4', bar: '#34C987' },
-  CANCELLED:         { label: 'Cancelled',     color: '#DC2626', bg: '#FEF2F2', bar: '#EF4444' },
+/* ─── Status mapping ────────────────────────────────────────────────────── */
+const BOOKING_STATUS: Record<string, { label: string; color: string; bg: string; bar: string }> = {
+  PENDING:   { label: 'Pending',   color: '#D97706', bg: '#FFFBEB', bar: '#D97706' },
+  ACCEPTED:  { label: 'Confirmed', color: '#2563EB', bg: '#EFF6FF', bar: '#2563EB' },
+  CONVERTED: { label: 'Completed', color: '#059669', bg: '#ECFDF5', bar: '#059669' },
+  REJECTED:  { label: 'Cancelled', color: '#DC2626', bg: '#FEF2F2', bar: '#DC2626' },
 };
 
 
 /* ─── Quick actions ─────────────────────────────────────────────────────── */
 const QUICK_ACTIONS = [
-  { label: 'New Booking', Icon: Calendar,  route: '/(tabs)/bookings'       as const },
-  { label: 'Create Job',  Icon: Wrench,    route: '/(tabs)/jobs/create'    as const },
+  { label: 'New Booking', Icon: Calendar,  route: '/(tabs)/bookings' as const },
+  { label: 'Create Job',  Icon: Wrench,    route: '/jobs/create'     as const },
 
   { label: 'Reports',     Icon: BarChart2, route: '/(tabs)/analytics'as const },
 ];
@@ -68,15 +65,9 @@ export default function DashboardScreen() {
     queryFn:  DashboardService.get,
   });
 
-  /* Recent jobs — most recently created first, capped at 10 for the dashboard */
-  const {
-    data:        jobsData,
-    isLoading:   jobsLoading,
-    isRefetching: jobsRefetching,
-    refetch:     refetchJobs,
-  } = useQuery({
-    queryKey: QUERY_KEYS.JOBS({ page_size: 10, sort_by: 'created_at', sort_dir: 'desc' }),
-    queryFn:  () => JobService.list({ page_size: 10, sort_by: 'created_at', sort_dir: 'desc' }),
+  const { data: bookingsData, isLoading: bookingsLoading } = useQuery({
+    queryKey: QUERY_KEYS.BOOKINGS({ page_size: 50 }),
+    queryFn:  () => BookingService.list({ page_size: 50 }),
   });
 
   const { data: garage } = useQuery({
@@ -86,14 +77,20 @@ export default function DashboardScreen() {
 
   const { unreadCount } = useNotificationContext();
 
-  const garageName  = garage?.name ?? '';
-  const recentJobs  = jobsData?.items ?? [];
+  const garageName = garage?.name ?? '';
 
-  /* Combined pull-to-refresh — refreshes dashboard KPIs and jobs list together */
-  function onRefresh() {
-    refetch();
-    refetchJobs();
-  }
+  /* Filter to only today's bookings for the dashboard section */
+  const today = new Date();
+  const allBookings = bookingsData?.items ?? [];
+  const bookings = allBookings.filter(b => {
+    if (!b.booking_date) return false;
+    const d = new Date(b.booking_date);
+    return (
+      d.getFullYear() === today.getFullYear() &&
+      d.getMonth()    === today.getMonth()    &&
+      d.getDate()     === today.getDate()
+    );
+  });
 
   return (
     <View style={styles.root}>
@@ -108,8 +105,8 @@ export default function DashboardScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching || jobsRefetching}
-            onRefresh={onRefresh}
+            refreshing={isRefetching}
+            onRefresh={refetch}
             tintColor="#C41E3A"
           />
         }
@@ -143,11 +140,11 @@ export default function DashboardScreen() {
             </Text>
           </View>
 
-          {/* Active Jobs — open + in-progress combined */}
+          {/* Active Jobs */}
           <View style={[styles.kpiCard, SHADOW_CARD]}>
             <Text style={styles.kpiLabel}>Active Jobs</Text>
             <Text style={[styles.kpiValue, { color: '#0F172A' }]}>
-              {dashLoading ? '—' : ((data?.open_jobs ?? 0) + (data?.in_progress_jobs ?? 0))}
+              {dashLoading ? '—' : (data?.open_jobs ?? 0)}
             </Text>
             {!dashLoading && !!data?.in_progress_jobs && (
               <View style={styles.kpiSubRow}>
@@ -192,62 +189,72 @@ export default function DashboardScreen() {
           </ScrollView>
         </View>
 
-        {/* ── Recent Jobs header ── */}
+        {/* ── Today's Jobs header ── */}
         <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Recent Jobs</Text>
+          <Text style={styles.sectionTitle}>Today's Jobs</Text>
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => router.push('/(tabs)/jobs')}
+            onPress={() => router.push('/(tabs)/bookings')}
           >
             <Text style={styles.seeAll}>See all</Text>
           </TouchableOpacity>
         </View>
 
-        {/* ── Jobs list / skeletons / empty ── */}
-        {jobsLoading ? (
+        {/* ── Booking cards / skeletons ── */}
+        {bookingsLoading ? (
           <View style={styles.jobsList}>
             {[0, 1, 2].map(i => (
               <View key={i} style={styles.skeletonCard} />
             ))}
           </View>
-        ) : recentJobs.length === 0 ? (
+        ) : bookings.length === 0 ? (
           <View style={styles.emptyWrap}>
-            <Text style={styles.emptyText}>No jobs yet — tap Create Job to get started</Text>
+            <Text style={styles.emptyText}>No bookings scheduled for today</Text>
           </View>
         ) : (
           <View style={styles.jobsList}>
-            {recentJobs.slice(0, 5).map(item => {
-              const st = JOB_STATUS_CONFIG[item.status] ?? {
+            {bookings.slice(0, 5).map(item => {
+              const st = BOOKING_STATUS[item.status] ?? {
                 label: item.status,
                 color: '#64748B',
                 bg: '#F3F4F6',
                 bar: '#94A3B8',
               };
-              const vehicle = [item.brand, item.vehicle_model].filter(Boolean).join(' ')
-                           || item.registration_number
-                           || '—';
+              const scheduledAt = (item as any).scheduled_at;
+              const timeStr = scheduledAt
+                ? new Date(scheduledAt).toLocaleTimeString('en-IN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : null;
 
               return (
                 <TouchableOpacity
                   key={item.id}
                   activeOpacity={0.6}
                   style={styles.jobCard}
-                  onPress={() => router.push(`/(tabs)/jobs/${item.id}` as any)}
+                  onPress={() => router.push(`/(tabs)/bookings/${item.id}` as any)}
                 >
-                  {/* Left coloured bar — reflects job status at a glance */}
+                  {/* Left colored bar */}
                   <View style={[styles.jobBar, { backgroundColor: st.bar }]} />
 
                   {/* Content */}
                   <View style={styles.jobContent}>
                     <View style={styles.jobTopRow}>
                       <View style={styles.jobLeft}>
-                        {item.job_number ? (
-                          <Text style={styles.jobId}>#{item.job_number}</Text>
-                        ) : null}
+                        {timeStr && (
+                          <Text style={styles.jobId}>{timeStr}</Text>
+                        )}
                         <Text style={styles.jobTitle} numberOfLines={1}>
                           {item.customer_name ?? '—'}
+                          {(item as any).service_type
+                            ? <Text style={styles.jobTitleMuted}>{' · '}{(item as any).service_type}</Text>
+                            : null
+                          }
                         </Text>
-                        <Text style={styles.jobSub} numberOfLines={1}>{vehicle}</Text>
+                        <Text style={styles.jobSub} numberOfLines={1}>
+                          {(item as any).service_requested ?? (item as any).service_type ?? '—'}
+                        </Text>
                       </View>
                       <View style={[styles.statusChip, { backgroundColor: st.bg }]}>
                         <Text style={[styles.statusText, { color: st.color }]}>

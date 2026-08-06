@@ -64,16 +64,11 @@ const JobService = {
     return data.data;
   },
 
-  /**
-   * Attach photo URLs to a job (Step 3 of the job-photo upload flow).
-   *
-   * Always pass the FULL desired array — this replaces the photos field.
-   * Each URL is the permanent public URL returned by POST /jobs/upload-photo.
-   */
-  async updatePhotos(id: string, photoUrls: string[]) {
-    const { data } = await apiClient.patch<APIResponse<JobResponse>>(
-      ENDPOINTS.JOBS.UPDATE(id),
-      { photos: photoUrls },
+  async uploadPhoto(formData: FormData) {
+    const { data } = await apiClient.post<APIResponse<{ url: string }>>(
+      ENDPOINTS.JOBS.UPLOAD_PHOTO,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
     );
     return data.data;
   },

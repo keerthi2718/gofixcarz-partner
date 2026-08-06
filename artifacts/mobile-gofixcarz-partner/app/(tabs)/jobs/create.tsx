@@ -22,7 +22,6 @@ import {
 } from 'lucide-react-native';
 import JobService from '@/src/services/job.service';
 import GarageService from '@/src/services/garage.service';
-import ImageService from '@/src/services/image.service';
 import SelectDropdown from '@/src/components/ui/SelectDropdown';
 import { VEHICLE_BRANDS, getModelsForBrand } from '@/src/data/vehicleData';
 import { formatCurrency } from '@/src/utils/helpers';
@@ -38,13 +37,13 @@ const SUCCESS = '#059669';
 const DANGER  = '#DC2626';
 const WARN    = '#D97706';
 
-const STEPS: { label: string; Icon: any; color: string; bg: string }[] = [
-  { label: 'Customer', Icon: User,      color: '#2563EB', bg: '#DBEAFE' },
-  { label: 'Inspect',  Icon: Clipboard, color: '#D97706', bg: '#FEF3C7' },
-  { label: 'Services', Icon: Wrench,    color: '#7C3AED', bg: '#EDE9FE' },
-  { label: 'Labour',   Icon: Users,     color: '#0891B2', bg: '#CFFAFE' },
-  { label: 'Progress', Icon: Activity,  color: '#059669', bg: '#D1FAE5' },
-  { label: 'Invoice',  Icon: FileText,  color: '#C41E3A', bg: '#FEE2E2' },
+const STEPS = [
+  { label: 'Customer', Icon: User      },
+  { label: 'Inspect',  Icon: Clipboard },
+  { label: 'Services', Icon: Wrench    },
+  { label: 'Labour',   Icon: Users     },
+  { label: 'Progress', Icon: Activity  },
+  { label: 'Invoice',  Icon: FileText  },
 ];
 
 const FUEL_LEVELS = ['E', '1/4', '1/2', '3/4', 'F'];
@@ -428,23 +427,11 @@ export default function CreateJobScreen() {
         estimated_amount:    grandTotal    || null,
       });
 
-      // Step 2: upload before-service photos via multipart to POST /jobs/upload-photo.
-      // Each call returns a permanent public URL — no expiry concerns.
-      let photoUrls: string[] = [];
-      if (beforePhotos.length > 0 && job?.id) {
-        const results = await Promise.allSettled(
-          beforePhotos.map(p => ImageService.uploadJobPhoto(p.uri))
-        );
-        photoUrls = results
-          .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
-          .map(r => r.value);
-      }
-
-      // Step 3: enrich the job with services, labour, and inspection data
+      // Step 2: enrich the job with services, labour, and inspection data
       // (JobCreate has no these fields — they live on JobUpdate)
-      const hasServices = services.length > 0;
-      const hasLabour   = parseFloat(labourCharge) > 0;
-      const hasInspect  = !!(complaint || inspectionNotes);
+      const hasServices  = services.length > 0;
+      const hasLabour    = parseFloat(labourCharge) > 0;
+      const hasInspect   = !!(complaint || inspectionNotes);
 
       if (job?.id && (hasServices || hasLabour || hasInspect)) {
         await JobService.update(job.id, {
@@ -454,20 +441,13 @@ export default function CreateJobScreen() {
         });
       }
 
-      // Step 4: attach uploaded photo URLs to the job via PATCH.
-      if (job?.id && photoUrls.length > 0) {
-        await JobService.updatePhotos(job.id, photoUrls);
-      }
-
       return job;
     },
     onSuccess: (job) => {
       setCreateError(null);
       setCreatedJobId(job?.id ?? null);
-      // Invalidate all caches that depend on job data so every screen refreshes
-      qc.invalidateQueries({ queryKey: QUERY_KEYS.JOBS() });
-      qc.invalidateQueries({ queryKey: QUERY_KEYS.DASHBOARD });
-      qc.invalidateQueries({ queryKey: ['analytics'] }); // prefix — matches all periods
+      // Invalidate list so the new job shows immediately on navigate back
+      qc.invalidateQueries({ queryKey: ['jobs'] });
       setStep(4);
     },
     onError: (err: any) => {
@@ -525,6 +505,7 @@ export default function CreateJobScreen() {
             setDocuments([]);
             setServiceSearch('');
             setServices([]);
+            setSelectedTechId(null);
             setSelectedTechName('');
             setEstHours('');
             setLabourCharge('');
@@ -611,49 +592,20 @@ export default function CreateJobScreen() {
         </View>
       </View>
 
-      {/* ── Colourful step timeline ── */}
-      <View style={s.stepperWrap}>
-        {STEPS.map((st, i) => {
-          const done   = i < step;
-          const active = i === step;
-          const nodeBg    = done ? st.bg : active ? st.bg    : '#F1F5F9';
-          const nodeColor = done ? st.color : active ? st.color : '#CBD5E1';
-          const lineColor = done ? st.color : '#E5E7EB';
-          return (
-            <React.Fragment key={i}>
-              {/* Node */}
-              <View style={s.stepperNode}>
-                {/* Glow ring behind active circle */}
-                {active && (
-                  <View style={[s.stepperGlow, { borderColor: `${st.color}35` }]} />
-                )}
-                <View style={[
-                  s.stepperCircle,
-                  { backgroundColor: nodeBg, borderColor: nodeColor },
-                  active && { borderWidth: 2.5 },
-                ]}>
-                  {done
-                    ? <Check size={11} color={st.color} strokeWidth={3} />
-                    : <st.Icon size={12} color={nodeColor} strokeWidth={2} />
-                  }
-                </View>
-                <Text style={[
-                  s.stepperLabel,
-                  done   && { color: st.color, fontWeight: '700' },
-                  active && { color: st.color, fontWeight: '800' },
-                  !done && !active && { color: '#CBD5E1' },
-                ]} numberOfLines={1}>
-                  {st.label}
-                </Text>
-              </View>
+      {/* ── Progress segments ── */}
+      <View style={s.progressBar}>
+        {STEPS.map((_, i) => (
+          <View key={i} style={[s.seg, i < step && s.segDone, i === step && s.segActive]} />
+        ))}
+      </View>
 
-              {/* Connector line between nodes */}
-              {i < STEPS.length - 1 && (
-                <View style={[s.stepperLine, { backgroundColor: lineColor }]} />
-              )}
-            </React.Fragment>
-          );
-        })}
+      {/* ── Step labels ── */}
+      <View style={s.stepLabels}>
+        {STEPS.map((st, i) => (
+          <Text key={i} style={[s.stepLabel, i === step && s.stepLabelActive]} numberOfLines={1}>
+            {st.label}
+          </Text>
+        ))}
       </View>
 
       {/* ── Content ── */}
@@ -1202,116 +1154,48 @@ export default function CreateJobScreen() {
           )}
 
           {/* ═══════ STEP 4 — Job Progress ═══════ */}
-          {step === 4 && (() => {
-            const hasTech     = !!selectedTechName;
-            const tlItems = [
-              {
-                label: 'Job Created',
-                desc:  customerName ? `Customer: ${customerName}` : 'New job card',
-                color: '#2563EB', bg: '#DBEAFE',
-                Icon: Clipboard,
-                done: true, current: false,
-              },
-              {
-                label: 'Technician Assigned',
-                desc:  hasTech ? selectedTechName : 'Not yet assigned',
-                color: '#D97706', bg: '#FEF3C7',
-                Icon: Users,
-                done: hasTech, current: !hasTech,
-              },
-              {
-                label: 'Work In Progress',
-                desc:  services.length ? `${services.length} service${services.length > 1 ? 's' : ''} scheduled` : '',
-                color: '#7C3AED', bg: '#EDE9FE',
-                Icon: Wrench,
-                done: false, current: hasTech,
-              },
-              {
-                label: 'Quality Check',
-                desc:  'Inspection & sign-off',
-                color: '#0891B2', bg: '#CFFAFE',
-                Icon: CheckCircle,
-                done: false, current: false,
-              },
-              {
-                label: 'Ready for Delivery',
-                desc:  deliveryDate
-                  ? deliveryDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
-                  : 'Awaiting delivery date',
-                color: '#059669', bg: '#D1FAE5',
-                Icon: Tag,
-                done: false, current: false,
-              },
-              {
-                label: 'Job Completed',
-                desc:  'Final billing & closure',
-                color: '#16A34A', bg: '#DCFCE7',
-                Icon: Check,
-                done: false, current: false,
-              },
-            ];
-
-            return (
-              <SectionCard title="Job Timeline" iconBg="#F0FDF4" Icon={Activity} iconColor={SUCCESS}>
-                {tlItems.map((item, i) => {
-                  const isLast = i === tlItems.length - 1;
-                  const lineColor = item.done ? item.color : '#E5E7EB';
-
-                  return (
-                    <View key={i} style={s.tlRow}>
-                      {/* ── Left spine ── */}
-                      <View style={s.tlLeft}>
-                        {/* Circle */}
-                        <View style={[
-                          s.tlCircle,
-                          {
-                            backgroundColor: item.done || item.current ? item.bg  : '#F3F4F6',
-                            borderColor:     item.done || item.current ? item.color : '#D1D5DB',
-                            borderWidth:     item.current ? 2.5 : 1.5,
-                          },
-                        ]}>
-                          {item.done
-                            ? <Check size={12} color={item.color} strokeWidth={3} />
-                            : item.current
-                              ? <item.Icon size={12} color={item.color} strokeWidth={2} />
-                              : <Text style={[s.tlNum, { color: '#D1D5DB' }]}>{i + 1}</Text>
-                          }
-                        </View>
-                        {/* Connector */}
-                        {!isLast && (
-                          <View style={[s.tlLine, { backgroundColor: lineColor }]} />
-                        )}
-                      </View>
-
-                      {/* ── Content ── */}
-                      <View style={[s.tlContent, isLast && { paddingBottom: 0 }]}>
-                        <Text style={[
-                          s.tlLabel,
-                          (item.done || item.current) ? { color: TEXT } : { color: '#9CA3AF' },
-                          item.current && { fontWeight: '700' },
-                        ]}>
-                          {item.label}
-                        </Text>
-                        {!!item.desc && (
-                          <Text style={[s.tlDesc, item.done && { color: item.color }]}>
-                            {item.desc}
-                          </Text>
-                        )}
-                        {item.current && (
-                          <View style={[s.tlBadge, { backgroundColor: item.bg }]}>
-                            <View style={[s.tlBadgeDot, { backgroundColor: item.color }]} />
-                            <Text style={[s.tlBadgeText, { color: item.color }]}>
-                              {i === 1 ? 'Assign Technician' : 'Up Next'}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
+          {step === 4 && (
+            <SectionCard title="Job Timeline" iconBg="#F0FDF4" Icon={Activity} iconColor={SUCCESS}>
+              {[
+                { label: 'Job Created',         desc: '' },
+                { label: 'Technician Assigned', desc: selectedTechName || '' },
+                { label: 'Work Started',        desc: '' },
+                { label: 'Quality Check',       desc: '' },
+                { label: 'Ready for Delivery',  desc: '' },
+                { label: 'Completed',           desc: '' },
+              ].map((item, i, arr) => (
+                <View key={i} style={s.tlRow}>
+                  <View style={s.tlLeft}>
+                    <View style={[
+                      s.tlCircle,
+                      (item as any).done    && s.tlCircleDone,
+                      (item as any).current && s.tlCircleCurrent,
+                    ]}>
+                      {(item as any).done
+                        ? <Check size={11} color="#fff" strokeWidth={3} />
+                        : (item as any).current
+                          ? <View style={s.tlPulse} />
+                          : <Text style={s.tlNum}>{i + 1}</Text>
+                      }
                     </View>
-                  );
-                })}
-              </SectionCard>
-            );
-          })()}
+                    {i < arr.length - 1 && <View style={[s.tlLine, (item as any).done && s.tlLineDone]} />}
+                  </View>
+                  <View style={s.tlContent}>
+                    <Text style={[s.tlLabel, !(item as any).done && !(item as any).current && { color: MUTED }]}>
+                      {item.label}
+                    </Text>
+                    {item.desc ? <Text style={s.tlDesc}>{item.desc}</Text> : null}
+                    {(item as any).current && (
+                      <View style={s.tlBadge}>
+                        <View style={s.tlBadgeDot} />
+                        <Text style={s.tlBadgeText}>In Progress</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </SectionCard>
+          )}
 
           {/* ═══════ STEP 5 — Invoice ═══════ */}
           {step === 5 && (
@@ -1478,30 +1362,19 @@ const s = StyleSheet.create({
   stepBadgeText: { fontSize: 12, fontWeight: '700', color: TEXT },
   stepBadgeOf:   { fontSize: 10, fontWeight: '500', color: MUTED },
 
-  /* Colourful step timeline */
-  stepperWrap: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    paddingHorizontal: 12, paddingTop: 14, paddingBottom: 14,
-    backgroundColor: '#fff',
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER,
+  /* Progress */
+  progressBar: { flexDirection: 'row', gap: 3, paddingHorizontal: 16, backgroundColor: '#fff' },
+  seg:         { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB' },
+  segDone:     { backgroundColor: SUCCESS },
+  segActive:   { backgroundColor: PRIMARY },
+
+  /* Step labels */
+  stepLabels: {
+    flexDirection: 'row', paddingHorizontal: 16, paddingTop: 7, paddingBottom: 11,
+    backgroundColor: '#fff', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER,
   },
-  stepperNode: { alignItems: 'center', width: 44, position: 'relative' },
-  stepperGlow: {
-    position: 'absolute', top: -4, width: 38, height: 38,
-    borderRadius: 19, borderWidth: 4, zIndex: 0,
-  },
-  stepperCircle: {
-    width: 30, height: 30, borderRadius: 15,
-    borderWidth: 1.5,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 6, zIndex: 1,
-  },
-  stepperLabel: {
-    fontSize: 8.5, fontWeight: '600', textAlign: 'center', lineHeight: 12,
-  },
-  stepperLine: {
-    flex: 1, height: 2, borderRadius: 1, marginTop: 14,
-  },
+  stepLabel:       { flex: 1, fontSize: 9, color: '#D1D5DB', textAlign: 'center', fontWeight: '600' },
+  stepLabelActive: { color: PRIMARY },
 
   /* Body */
   body: { padding: 16 },
@@ -1769,27 +1642,30 @@ const s = StyleSheet.create({
   pickerDone:       { fontSize: 15, fontWeight: '700', color: PRIMARY },
 
   /* Timeline */
-  /* ── Job Timeline (Step 4) ── */
   tlRow:    { flexDirection: 'row', gap: 14 },
   tlLeft:   { alignItems: 'center', width: 30 },
   tlCircle: {
     width: 30, height: 30, borderRadius: 15,
-    borderWidth: 1.5, borderColor: '#D1D5DB',
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center', justifyContent: 'center', zIndex: 1,
+    borderWidth: 2, borderColor: '#D1D5DB',
+    backgroundColor: CARD, alignItems: 'center', justifyContent: 'center', zIndex: 1,
   },
-  tlLine:   { width: 2, flex: 1, minHeight: 28, borderRadius: 1 },
-  tlNum:    { fontSize: 10, fontWeight: '700' },
-  tlContent:{ flex: 1, paddingBottom: 22, paddingTop: 3 },
+  tlCircleDone:    { backgroundColor: SUCCESS, borderColor: SUCCESS },
+  tlCircleCurrent: { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  tlPulse:  { width: 10, height: 10, borderRadius: 5, backgroundColor: '#fff' },
+  tlLine:     { width: 2, flex: 1, backgroundColor: '#E5E7EB', minHeight: 24 },
+  tlLineDone: { backgroundColor: SUCCESS },
+  tlNum:    { fontSize: 10, fontWeight: '700', color: '#9CA3AF' },
+  tlContent:{ flex: 1, paddingBottom: 24, paddingTop: 5 },
   tlLabel:  { fontSize: 14, fontWeight: '600', color: TEXT },
-  tlDesc:   { fontSize: 12, color: MUTED, marginTop: 3 },
+  tlDesc:   { fontSize: 12, color: MUTED, marginTop: 2 },
   tlBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    marginTop: 7, alignSelf: 'flex-start',
-    borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4,
+    marginTop: 6, alignSelf: 'flex-start',
+    backgroundColor: '#FEF2F2', borderRadius: 7,
+    paddingHorizontal: 9, paddingVertical: 4,
   },
-  tlBadgeDot:  { width: 6, height: 6, borderRadius: 3 },
-  tlBadgeText: { fontSize: 11, fontWeight: '700' },
+  tlBadgeDot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: PRIMARY },
+  tlBadgeText: { fontSize: 11, fontWeight: '700', color: PRIMARY },
 
   /* Invoice */
   invoiceHero: {

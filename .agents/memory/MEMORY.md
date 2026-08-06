@@ -1,9 +1,1 @@
 - [Logo store pattern](logo-store-pattern.md) — profile screen must read logoUri from Zustand store, not local useState; local state causes drift on re-renders
-- [Query invalidation rules](query-invalidation-rules.md) — all job-mutating screens must invalidate JOBS, DASHBOARD, and ['analytics'] prefix; missing invalidation is a silent staleness bug
-- [Jobs list default stage](jobs-list-stage.md) — default stage must be 'All', not 'In Progress'; newly created jobs are OPEN and become invisible otherwise
-- [Dashboard shows jobs not bookings](dashboard-jobs-section.md) — "Recent Jobs" section queries JobService, not BookingService; See All routes to /(tabs)/jobs
-- [GoFixCarz Score formula](gofixcarz-score.md) — score computed client-side from status_counts; no score field in API
-- [Job detail refetch pattern](job-detail-refetch.md) — timeline needs 800ms delayed invalidate + useFocusEffect; status mutations race with server DB write
-- [Image upload endpoints](image-upload-endpoints.md) — job photos use POST /jobs/upload-photo (multipart, returns url); logo uses pre-signed URL flow via POST /images/upload-url
-- [Metro transform cache location](metro-cache-location.md) — Metro cache is in /tmp/metro-cache (not node_modules/.cache); dev script uses --clear to always rebuild fresh
-- [Web preview blank screen causes](web-preview-blank-screen.md) — Three causes of blank web preview in this Expo app; all fixed. Check here before debugging again.

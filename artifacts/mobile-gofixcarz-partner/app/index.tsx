@@ -9,9 +9,7 @@ import { Redirect } from 'expo-router';
 import { useAuthStore } from '@/src/store/auth.store';
 import LoadingState from '@/src/components/ui/LoadingState';
 
-// On web the 2.8 s splash is just dead time — skip it so the login screen
-// appears immediately. Native keeps the full branded animation.
-const SPLASH_MS = Platform.OS === 'web' ? 0 : 2800;
+const SPLASH_MS = 2800;
 const CRIMSON   = '#C41E3A';
 
 export default function Index() {

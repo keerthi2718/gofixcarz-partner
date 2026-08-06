@@ -17,31 +17,28 @@ import { QUERY_KEYS } from '@/src/constants/api';
 import JobService from '@/src/services/job.service';
 import { Filter, Plus, Wrench, Clock, ChevronRight, Search, X } from 'lucide-react-native';
 
-const DEFAULT_STAGE = 'All';
+const DEFAULT_STAGE = 'In Progress';
 
 /* ─────────────── Status config ─────────────── */
 const JOB_STATUS: Record<string, { label: string; color: string; bg: string; dot: string }> = {
-  OPEN:              { label: 'Open',          color: '#3B5FA0', bg: '#EEF2FB', dot: '#5B8DEF' },
-  IN_PROGRESS:       { label: 'In Progress',   color: '#0369A1', bg: '#F0F8FF', dot: '#38A0D4' },
-  QUALITY_CHECK:     { label: 'QC Check',      color: '#5B4FA0', bg: '#F2F0FB', dot: '#8B80D4' },
-  WAITING_FOR_PARTS: { label: 'Waiting Parts', color: '#7C3AED', bg: '#F5F3FF', dot: '#8B5CF6' },
-  READY:             { label: 'Ready',         color: '#1A6E52', bg: '#EDFAF4', dot: '#34C987' },
-  COMPLETED:         { label: 'Done',          color: '#1A6E52', bg: '#EDFAF4', dot: '#34C987' },
-  CANCELLED:         { label: 'Cancelled',     color: '#DC2626', bg: '#FEF2F2', dot: '#EF4444' },
+  OPEN:             { label: 'Open',        color: '#3B5FA0', bg: '#EEF2FB', dot: '#5B8DEF' },
+  IN_PROGRESS:      { label: 'In Progress', color: '#0369A1', bg: '#F0F8FF', dot: '#38A0D4' },
+  QUALITY_CHECK:    { label: 'QC Check',    color: '#5B4FA0', bg: '#F2F0FB', dot: '#8B80D4' },
+  READY:            { label: 'Ready',       color: '#1A6E52', bg: '#EDFAF4', dot: '#34C987' },
+  COMPLETED:        { label: 'Done',        color: '#1A6E52', bg: '#EDFAF4', dot: '#34C987' },
+  DELIVERED:        { label: 'Done',        color: '#1A6E52', bg: '#EDFAF4', dot: '#34C987' },
 };
 
 /* Stage id → status values it matches */
 const STAGE_STATUS_MAP: Record<string, string[]> = {
-  All:             ['OPEN', 'IN_PROGRESS', 'WAITING_FOR_PARTS', 'QUALITY_CHECK', 'READY', 'COMPLETED', 'CANCELLED'],
-  Open:            ['OPEN'],
-  'In Progress':   ['IN_PROGRESS', 'WAITING_FOR_PARTS'],
-  'Quality Check': ['QUALITY_CHECK'],
-  Ready:           ['READY'],
-  Done:            ['COMPLETED'],
-  Cancelled:       ['CANCELLED'],
+  Open:           ['OPEN'],
+  'In Progress':  ['IN_PROGRESS'],
+  'Quality Check':['QUALITY_CHECK'],
+  Ready:          ['READY'],
+  Delivered:      ['COMPLETED', 'DELIVERED'],
 };
 
-const STAGES = ['All', 'Open', 'In Progress', 'Quality Check', 'Ready', 'Done', 'Cancelled'];
+const STAGES = ['Open', 'In Progress', 'Quality Check', 'Ready', 'Delivered'];
 
 /* ─────────────── FAB Shadow ─────────────── */
 const FAB_SHADOW = Platform.select({
