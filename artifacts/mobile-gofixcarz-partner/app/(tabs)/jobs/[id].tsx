@@ -14,7 +14,7 @@ import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 import LoadingState from '@/src/components/ui/LoadingState';
 import ErrorState from '@/src/components/ui/ErrorState';
 import { formatCurrency, formatDateTime } from '@/src/utils/helpers';
-import type { JobStatus } from '@/src/types';
+import type { JobDetailResponse, JobResponse, JobStatus } from '@/src/types';
 
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
@@ -203,14 +203,40 @@ export default function JobDetailScreen() {
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: QUERY_KEYS.JOB(id) });
-    qc.invalidateQueries({ queryKey: QUERY_KEYS.JOBS() });
+    qc.invalidateQueries({ queryKey: ['jobs'] }); // prefix — matches all param variants
     qc.invalidateQueries({ queryKey: QUERY_KEYS.DASHBOARD });
     qc.invalidateQueries({ queryKey: ['analytics'] }); // prefix — matches all periods
   };
 
+  /** Push a new status into every relevant cache immediately so the list
+   *  updates without waiting for the background refetch to complete. */
+  const applyCachedStatus = (newStatus: JobStatus) => {
+    // Update the job detail cache
+    qc.setQueryData<JobDetailResponse>(QUERY_KEYS.JOB(id), (old) =>
+      old ? { ...old, status: newStatus } : old
+    );
+    // Update every jobs-list cache variant (all param shapes share the ['jobs'] prefix)
+    qc.setQueriesData<{ items: JobResponse[]; total: number }>(
+      { queryKey: ['jobs'] },
+      (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          items: old.items.map((j) =>
+            j.id === id ? { ...j, status: newStatus } : j
+          ),
+        };
+      }
+    );
+  };
+
   const statusMut = useMutation({
     mutationFn: (status: JobStatus) => JobService.updateStatus(id, { status }),
-    onSuccess:  () => { invalidate(); setShowStatusPicker(false); },
+    onSuccess:  (_result, newStatus) => {
+      applyCachedStatus(newStatus);
+      invalidate();
+      setShowStatusPicker(false);
+    },
     onError:    (err: any) => {
       const msg = err?.response?.data?.message ?? err?.message ?? 'Could not update status. Please try again.';
       Alert.alert('Status Update Failed', msg);
@@ -218,7 +244,11 @@ export default function JobDetailScreen() {
   });
   const completeMut = useMutation({
     mutationFn: () => JobService.complete(id, {}),
-    onSuccess:  () => { invalidate(); setShowComplete(false); },
+    onSuccess:  () => {
+      applyCachedStatus('COMPLETED');
+      invalidate();
+      setShowComplete(false);
+    },
     onError:    (err: any) => {
       const msg = err?.response?.data?.message ?? err?.message ?? 'Could not complete job. Please try again.';
       Alert.alert('Complete Job Failed', msg);
