@@ -38,13 +38,13 @@ const SUCCESS = '#059669';
 const DANGER  = '#DC2626';
 const WARN    = '#D97706';
 
-const STEPS = [
-  { label: 'Customer', Icon: User      },
-  { label: 'Inspect',  Icon: Clipboard },
-  { label: 'Services', Icon: Wrench    },
-  { label: 'Labour',   Icon: Users     },
-  { label: 'Progress', Icon: Activity  },
-  { label: 'Invoice',  Icon: FileText  },
+const STEPS: { label: string; Icon: any; color: string; bg: string }[] = [
+  { label: 'Customer', Icon: User,      color: '#2563EB', bg: '#DBEAFE' },
+  { label: 'Inspect',  Icon: Clipboard, color: '#D97706', bg: '#FEF3C7' },
+  { label: 'Services', Icon: Wrench,    color: '#7C3AED', bg: '#EDE9FE' },
+  { label: 'Labour',   Icon: Users,     color: '#0891B2', bg: '#CFFAFE' },
+  { label: 'Progress', Icon: Activity,  color: '#059669', bg: '#D1FAE5' },
+  { label: 'Invoice',  Icon: FileText,  color: '#C41E3A', bg: '#FEE2E2' },
 ];
 
 const FUEL_LEVELS = ['E', '1/4', '1/2', '3/4', 'F'];
@@ -527,7 +527,6 @@ export default function CreateJobScreen() {
             setDocuments([]);
             setServiceSearch('');
             setServices([]);
-            setSelectedTechId(null);
             setSelectedTechName('');
             setEstHours('');
             setLabourCharge('');
@@ -614,20 +613,49 @@ export default function CreateJobScreen() {
         </View>
       </View>
 
-      {/* ── Progress segments ── */}
-      <View style={s.progressBar}>
-        {STEPS.map((_, i) => (
-          <View key={i} style={[s.seg, i < step && s.segDone, i === step && s.segActive]} />
-        ))}
-      </View>
+      {/* ── Colourful step timeline ── */}
+      <View style={s.stepperWrap}>
+        {STEPS.map((st, i) => {
+          const done   = i < step;
+          const active = i === step;
+          const nodeBg    = done ? st.bg : active ? st.bg    : '#F1F5F9';
+          const nodeColor = done ? st.color : active ? st.color : '#CBD5E1';
+          const lineColor = done ? st.color : '#E5E7EB';
+          return (
+            <React.Fragment key={i}>
+              {/* Node */}
+              <View style={s.stepperNode}>
+                {/* Glow ring behind active circle */}
+                {active && (
+                  <View style={[s.stepperGlow, { borderColor: `${st.color}35` }]} />
+                )}
+                <View style={[
+                  s.stepperCircle,
+                  { backgroundColor: nodeBg, borderColor: nodeColor },
+                  active && { borderWidth: 2.5 },
+                ]}>
+                  {done
+                    ? <Check size={11} color={st.color} strokeWidth={3} />
+                    : <st.Icon size={12} color={nodeColor} strokeWidth={2} />
+                  }
+                </View>
+                <Text style={[
+                  s.stepperLabel,
+                  done   && { color: st.color, fontWeight: '700' },
+                  active && { color: st.color, fontWeight: '800' },
+                  !done && !active && { color: '#CBD5E1' },
+                ]} numberOfLines={1}>
+                  {st.label}
+                </Text>
+              </View>
 
-      {/* ── Step labels ── */}
-      <View style={s.stepLabels}>
-        {STEPS.map((st, i) => (
-          <Text key={i} style={[s.stepLabel, i === step && s.stepLabelActive]} numberOfLines={1}>
-            {st.label}
-          </Text>
-        ))}
+              {/* Connector line between nodes */}
+              {i < STEPS.length - 1 && (
+                <View style={[s.stepperLine, { backgroundColor: lineColor }]} />
+              )}
+            </React.Fragment>
+          );
+        })}
       </View>
 
       {/* ── Content ── */}
@@ -1384,19 +1412,30 @@ const s = StyleSheet.create({
   stepBadgeText: { fontSize: 12, fontWeight: '700', color: TEXT },
   stepBadgeOf:   { fontSize: 10, fontWeight: '500', color: MUTED },
 
-  /* Progress */
-  progressBar: { flexDirection: 'row', gap: 3, paddingHorizontal: 16, backgroundColor: '#fff' },
-  seg:         { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB' },
-  segDone:     { backgroundColor: SUCCESS },
-  segActive:   { backgroundColor: PRIMARY },
-
-  /* Step labels */
-  stepLabels: {
-    flexDirection: 'row', paddingHorizontal: 16, paddingTop: 7, paddingBottom: 11,
-    backgroundColor: '#fff', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER,
+  /* Colourful step timeline */
+  stepperWrap: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    paddingHorizontal: 12, paddingTop: 14, paddingBottom: 14,
+    backgroundColor: '#fff',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER,
   },
-  stepLabel:       { flex: 1, fontSize: 9, color: '#D1D5DB', textAlign: 'center', fontWeight: '600' },
-  stepLabelActive: { color: PRIMARY },
+  stepperNode: { alignItems: 'center', width: 44, position: 'relative' },
+  stepperGlow: {
+    position: 'absolute', top: -4, width: 38, height: 38,
+    borderRadius: 19, borderWidth: 4, zIndex: 0,
+  },
+  stepperCircle: {
+    width: 30, height: 30, borderRadius: 15,
+    borderWidth: 1.5,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 6, zIndex: 1,
+  },
+  stepperLabel: {
+    fontSize: 8.5, fontWeight: '600', textAlign: 'center', lineHeight: 12,
+  },
+  stepperLine: {
+    flex: 1, height: 2, borderRadius: 1, marginTop: 14,
+  },
 
   /* Body */
   body: { padding: 16 },
