@@ -4,15 +4,14 @@ import {
   StatusBar, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Feather } from '@/src/components/ui/FeatherIcon';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useFocusEffect } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
-import AnalyticsService from '@/src/services/analytics.service';
+import JobService from '@/src/services/job.service';
 import { formatCurrency } from '@/src/utils/helpers';
-import type { AnalyticsPeriod } from '@/src/types';
+import type { JobResponse } from '@/src/types';
 
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
@@ -25,8 +24,10 @@ const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
 
-const PERIODS: { label: string; value: AnalyticsPeriod }[] = [
-  { label: 'Daily',   value: 'week'  },
+type UIPeriod = 'week' | 'month' | 'year';
+
+const PERIODS: { label: string; value: UIPeriod }[] = [
+  { label: 'Weekly',  value: 'week'  },
   { label: 'Monthly', value: 'month' },
   { label: 'Yearly',  value: 'year'  },
 ];
@@ -38,22 +39,84 @@ const STATUS_COLORS: Record<string, string> = {
   QUALITY_CHECK:     '#6366F1',
   READY:             '#10B981',
   COMPLETED:         '#059669',
+  DELIVERED:         '#059669',
   CANCELLED:         '#EF4444',
 };
 
+/* ── Client-side analytics helpers ── */
+
+function jobRevenue(job: JobResponse): number {
+  return (job as any).billing?.grand_total ?? job.final_amount ?? job.estimated_amount ?? 0;
+}
+
+function isInPeriod(job: JobResponse, period: UIPeriod): boolean {
+  const d = new Date(job.created_at);
+  const now = new Date();
+  if (period === 'week') {
+    const cutoff = new Date(now);
+    cutoff.setDate(cutoff.getDate() - 6);
+    cutoff.setHours(0, 0, 0, 0);
+    return d >= cutoff;
+  }
+  if (period === 'month') {
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }
+  return d.getFullYear() === now.getFullYear();
+}
+
+interface GraphPoint { label: string; revenue: number; job_count: number; }
+
+function buildGraphData(jobs: JobResponse[], period: UIPeriod): GraphPoint[] {
+  const now = new Date();
+
+  if (period === 'week') {
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(now);
+      day.setDate(day.getDate() - (6 - i));
+      const dateStr = day.toISOString().slice(0, 10);
+      const dayJobs = jobs.filter(j => j.created_at.slice(0, 10) === dateStr);
+      return {
+        label: day.toLocaleDateString('en-IN', { weekday: 'short' }),
+        revenue: dayJobs.reduce((s, j) => s + jobRevenue(j), 0),
+        job_count: dayJobs.length,
+      };
+    });
+  }
+
+  if (period === 'month') {
+    const points: GraphPoint[] = [];
+    let weekStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    let wn = 1;
+    while (weekStart <= now) {
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      const wj = jobs.filter(j => { const d = new Date(j.created_at); return d >= weekStart && d <= weekEnd; });
+      points.push({ label: `W${wn}`, revenue: wj.reduce((s, j) => s + jobRevenue(j), 0), job_count: wj.length });
+      weekStart = new Date(weekStart); weekStart.setDate(weekStart.getDate() + 7); wn++;
+    }
+    return points;
+  }
+
+  return Array.from({ length: now.getMonth() + 1 }, (_, m) => {
+    const mj = jobs.filter(j => { const d = new Date(j.created_at); return d.getFullYear() === now.getFullYear() && d.getMonth() === m; });
+    return {
+      label: new Date(now.getFullYear(), m, 1).toLocaleDateString('en-IN', { month: 'short' }),
+      revenue: mj.reduce((s, j) => s + jobRevenue(j), 0),
+      job_count: mj.length,
+    };
+  });
+}
+
+/* ── UI helpers ── */
 function SkeletonBlock({ height = 16, width = '100%', radius = 8, style }: {
   height?: number; width?: number | string; radius?: number; style?: object;
 }) {
-  return (
-    <View style={[{ height, width: width as any, borderRadius: radius, backgroundColor: '#E2E8F0' }, style]} />
-  );
+  return <View style={[{ height, width: width as any, borderRadius: radius, backgroundColor: '#E2E8F0' }, style]} />;
 }
 
 function SectionCard({ icon, title, iconBg = '#FEE2E2', iconFg = PRIMARY, children }: {
   icon: React.ComponentProps<typeof Feather>['name'];
-  title: string;
-  iconBg?: string;
-  iconFg?: string;
+  title: string; iconBg?: string; iconFg?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -91,35 +154,38 @@ const cardSt = StyleSheet.create({
 
 export default function MoreAnalyticsScreen() {
   const insets = useSafeAreaInsets();
-  const [period, setPeriod] = useState<AnalyticsPeriod>('month');
+  const [period, setPeriod] = useState<UIPeriod>('month');
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
-  const { data, isLoading, isRefetching, error, refetch } = useQuery({
-    queryKey: QUERY_KEYS.ANALYTICS(period),
-    queryFn:  () => AnalyticsService.get({ period }),
-    retry: 1,
+  /* Fetch all jobs, compute analytics client-side */
+  const { data: jobsData, isLoading, isRefetching, refetch } = useQuery({
+    queryKey: QUERY_KEYS.JOBS({ page_size: 500 }),
+    queryFn:  () => JobService.list({ page_size: 500 }),
     staleTime: 0,
     refetchOnMount: 'always',
   });
 
-  /* Refetch whenever this screen comes into focus */
   useFocusEffect(
-    useCallback(() => {
-      refetch();
-    }, [period])
+    useCallback(() => { refetch(); }, [])
   );
 
-  /* Safe derived values */
-  const totalRevenue  = data?.total_revenue ?? 0;
-  const totalJobs     = data?.total_jobs    ?? 0;
-  const graphData     = Array.isArray(data?.graph_data) ? data!.graph_data : [];
-  const statusCounts  = data?.status_counts ?? {};
-  const maxRev        = graphData.length > 0 ? Math.max(...graphData.map(p => p.revenue ?? 0), 1) : 1;
-  const statusEntries = Object.entries(statusCounts).filter(([, v]) => (v ?? 0) > 0);
-  const totalFromStatus = statusEntries.reduce((acc, [, v]) => acc + (v ?? 0), 0);
-  const completedJobs  = statusCounts.COMPLETED ?? 0;
+  const allJobs = jobsData?.items ?? [];
+  const jobs    = allJobs.filter(j => isInPeriod(j, period));
+  const graphData = buildGraphData(jobs, period);
+
+  /* KPIs */
+  const totalRevenue   = jobs.reduce((s, j) => s + jobRevenue(j), 0);
+  const totalJobs      = jobs.length;
+  const completedJobs  = jobs.filter(j => j.status === 'COMPLETED' || j.status === 'DELIVERED').length;
   const avgJobValue    = totalJobs > 0 ? totalRevenue / totalJobs : 0;
   const completionRate = totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0;
+  const maxRev         = graphData.length > 0 ? Math.max(...graphData.map(p => p.revenue), 1) : 1;
+
+  /* Status breakdown */
+  const statusCounts: Record<string, number> = {};
+  for (const job of jobs) { statusCounts[job.status] = (statusCounts[job.status] ?? 0) + 1; }
+  const statusEntries   = Object.entries(statusCounts).filter(([, v]) => v > 0);
+  const totalFromStatus = statusEntries.reduce((a, [, v]) => a + v, 0);
 
   return (
     <View style={[styles.root, { backgroundColor: BG }]}>
@@ -138,17 +204,6 @@ export default function MoreAnalyticsScreen() {
           <ActivityIndicator size="small" color={PRIMARY} />
         )}
       </View>
-
-      {/* ── Error banner ── */}
-      {error && !isLoading && (
-        <View style={styles.errorBanner}>
-          <Feather name="wifi-off" size={13} color="#B45309" />
-          <Text style={styles.errorText}>Couldn't load live data.</Text>
-          <TouchableOpacity onPress={() => refetch()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.retryText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
       <ScrollView
         contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 40 }]}
@@ -218,23 +273,23 @@ export default function MoreAnalyticsScreen() {
                 </View>
               ))}
             </View>
-          ) : graphData.length === 0 ? (
+          ) : graphData.length === 0 || graphData.every(p => p.revenue === 0) ? (
             <View style={styles.emptyChart}>
               <Feather name="bar-chart-2" size={28} color="#CBD5E1" />
-              <Text style={styles.emptyChartText}>No revenue data for this period</Text>
+              <Text style={styles.emptyChartText}>No revenue recorded yet</Text>
             </View>
           ) : (
             <View style={styles.chart}>
               {graphData.slice(-10).map((pt, i) => {
-                const h     = Math.max(((pt.revenue ?? 0) / maxRev) * 100, 6);
-                const isMax = (pt.revenue ?? 0) === maxRev;
+                const h     = Math.max((pt.revenue / maxRev) * 100, 6);
+                const isMax = pt.revenue === maxRev && pt.revenue > 0;
                 return (
                   <View key={i} style={styles.barWrap}>
-                    {(pt.revenue ?? 0) > 0 && (
+                    {pt.revenue > 0 && (
                       <Text style={styles.barValue}>
-                        {(pt.revenue ?? 0) >= 1000
-                          ? `${((pt.revenue ?? 0) / 1000).toFixed(0)}k`
-                          : String(Math.round(pt.revenue ?? 0))}
+                        {pt.revenue >= 1000
+                          ? `${(pt.revenue / 1000).toFixed(0)}k`
+                          : String(Math.round(pt.revenue))}
                       </Text>
                     )}
                     <View style={styles.barTrack}>
@@ -253,7 +308,7 @@ export default function MoreAnalyticsScreen() {
         </SectionCard>
 
         {/* Booking Statistics */}
-        <SectionCard icon="calendar" title="Booking Statistics" iconBg="#FFF7ED" iconFg="#F97316">
+        <SectionCard icon="calendar" title="Summary" iconBg="#FFF7ED" iconFg="#F97316">
           {isLoading ? (
             <View style={{ gap: 12 }}>
               {[1,2,3].map(i => <SkeletonBlock key={i} height={14} radius={7} />)}
@@ -261,21 +316,21 @@ export default function MoreAnalyticsScreen() {
           ) : (
             <View style={styles.statList}>
               {[
-                { label: 'Total Bookings',   value: String(totalJobs),               color: '#F97316' },
-                { label: 'Completed',         value: String(completedJobs),           color: SUCCESS   },
-                { label: 'Avg Job Value',     value: formatCurrency(avgJobValue),     color: PRIMARY   },
-                { label: 'Completion Rate',   value: `${completionRate}%`,            color: INDIGO    },
-              ].map(s => (
-                <View key={s.label} style={styles.statRow}>
+                { label: 'Total Jobs',      value: String(totalJobs),           color: '#F97316' },
+                { label: 'Completed',        value: String(completedJobs),       color: SUCCESS   },
+                { label: 'Avg Job Value',    value: formatCurrency(avgJobValue), color: PRIMARY   },
+                { label: 'Completion Rate',  value: `${completionRate}%`,        color: INDIGO    },
+              ].map(stat => (
+                <View key={stat.label} style={styles.statRow}>
                   <View style={styles.statDotRow}>
-                    <View style={[styles.statDot, { backgroundColor: s.color }]} />
-                    <Text style={styles.statLabel}>{s.label}</Text>
+                    <View style={[styles.statDot, { backgroundColor: stat.color }]} />
+                    <Text style={styles.statLabel}>{stat.label}</Text>
                   </View>
-                  <Text style={[styles.statValue, { color: s.color }]}>{s.value}</Text>
+                  <Text style={[styles.statValue, { color: stat.color }]}>{stat.value}</Text>
                 </View>
               ))}
               {totalJobs === 0 && (
-                <Text style={styles.noDataNote}>No booking data for this period.</Text>
+                <Text style={styles.noDataNote}>No jobs recorded for this period.</Text>
               )}
             </View>
           )}
@@ -290,21 +345,23 @@ export default function MoreAnalyticsScreen() {
           ) : statusEntries.length === 0 ? (
             <View style={styles.emptyChart}>
               <Feather name="pie-chart" size={28} color="#CBD5E1" />
-              <Text style={styles.emptyChartText}>No job status data for this period</Text>
+              <Text style={styles.emptyChartText}>No jobs for this period</Text>
             </View>
           ) : (
             <View style={styles.statusList}>
               {statusEntries
-                .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0))
+                .sort(([, a], [, b]) => b - a)
                 .map(([status, count]) => {
-                  const pct   = totalFromStatus > 0 ? ((count ?? 0) / totalFromStatus) * 100 : 0;
+                  const pct   = totalFromStatus > 0 ? (count / totalFromStatus) * 100 : 0;
                   const color = STATUS_COLORS[status] ?? PRIMARY;
                   return (
                     <View key={status} style={styles.statusItem}>
                       <View style={styles.statusItemTop}>
                         <View style={styles.statusDotRow}>
                           <View style={[styles.statusDot, { backgroundColor: color }]} />
-                          <Text style={styles.statusItemLabel}>{status.replace(/_/g, ' ')}</Text>
+                          <Text style={styles.statusItemLabel}>
+                            {status.replace(/_/g, ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase())}
+                          </Text>
                         </View>
                         <Text style={[styles.statusCount, { color }]}>{count}</Text>
                       </View>
@@ -321,7 +378,7 @@ export default function MoreAnalyticsScreen() {
         <View style={styles.infoChip}>
           <Feather name="info" size={13} color={PRIMARY} />
           <Text style={styles.infoChipText}>
-            Showing data for the selected {period}. Pull down to refresh.
+            Showing {totalJobs} job{totalJobs !== 1 ? 's' : ''} for the selected period. Pull down to refresh.
           </Text>
         </View>
       </ScrollView>
@@ -348,16 +405,6 @@ const styles = StyleSheet.create({
   },
   pageTitle:    { fontSize: 20, fontWeight: '800', color: TEXT, letterSpacing: -0.4 },
   pageSubtitle: { fontSize: 12, color: MUTED, marginTop: 2 },
-
-  errorBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#FFFBEB',
-    borderRadius: 12, borderWidth: 1, borderColor: '#FDE68A',
-    marginHorizontal: 20, marginBottom: 10,
-    paddingHorizontal: 14, paddingVertical: 10,
-  },
-  errorText: { flex: 1, fontSize: 12, color: '#B45309' },
-  retryText: { fontSize: 12, fontWeight: '700', color: PRIMARY },
 
   body: { paddingHorizontal: 20 },
 
@@ -401,8 +448,8 @@ const styles = StyleSheet.create({
 
   chartSkeleton:    { flexDirection: 'row', alignItems: 'flex-end', height: 90, gap: 8 },
   chartSkeletonCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
-  emptyChart: { height: 80, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  emptyChartText: { fontSize: 13, color: MUTED, textAlign: 'center' },
+  emptyChart:       { height: 80, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  emptyChartText:   { fontSize: 13, color: MUTED, textAlign: 'center' },
 
   statList: { gap: 2 },
   statRow: {
@@ -421,7 +468,7 @@ const styles = StyleSheet.create({
   statusItemTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   statusDotRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
   statusDot:     { width: 8, height: 8, borderRadius: 4 },
-  statusItemLabel: { fontSize: 13, color: TEXT, fontWeight: '500', textTransform: 'capitalize' },
+  statusItemLabel: { fontSize: 13, color: TEXT, fontWeight: '500' },
   statusCount:   { fontSize: 13, fontWeight: '700' },
   trackBg:       { height: 6, borderRadius: 4, backgroundColor: '#F1F5F9', overflow: 'hidden' },
   trackFill:     { height: '100%', borderRadius: 4 },
@@ -429,9 +476,8 @@ const styles = StyleSheet.create({
   infoChip: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
     backgroundColor: '#FEE2E2', borderRadius: 14,
-    borderWidth: 1, borderColor: 'rgba(37,99,235,0.2)',
+    borderWidth: 1, borderColor: 'rgba(196,30,58,0.2)',
     padding: 14,
   },
   infoChipText: { flex: 1, fontSize: 13, color: PRIMARY, lineHeight: 18 },
-
 });

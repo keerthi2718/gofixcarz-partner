@@ -26,9 +26,9 @@ import Svg, {
 import { TrendingUp } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
-import AnalyticsService from '@/src/services/analytics.service';
+import JobService from '@/src/services/job.service';
 import { formatCurrency } from '@/src/utils/helpers';
-import type { TimeSeriesPoint, JobStatusCounts, AnalyticsPeriod } from '@/src/types/analytics.types';
+import type { JobResponse } from '@/src/types';
 
 /* ─── Tokens ─────────────────────────────────────────────── */
 const BG        = '#F8FAFC';
@@ -39,7 +39,6 @@ const MUTED     = '#64748B';
 const SUBTLE    = '#94A3B8';
 const DIVIDER   = '#F1F5F9';
 const SUCCESS   = '#059669';
-const SUCCESS_BG = '#ECFDF5';
 const INFO      = '#2563EB';
 const WARN      = '#D97706';
 
@@ -52,11 +51,6 @@ const SHADOW_CARD = Platform.select({
 /* ─── Period mapping ──────────────────────────────────────── */
 type UIPeriod = 'Weekly' | 'Monthly' | 'Yearly';
 const UI_PERIODS: UIPeriod[] = ['Weekly', 'Monthly', 'Yearly'];
-const PERIOD_API: Record<UIPeriod, AnalyticsPeriod> = {
-  Weekly:  'week',
-  Monthly: 'month',
-  Yearly:  'year',
-};
 const PERIOD_LABEL: Record<UIPeriod, string> = {
   Weekly:  'Last 7 days',
   Monthly: 'This month',
@@ -66,20 +60,117 @@ const PERIOD_LABEL: Record<UIPeriod, string> = {
 /* ─── Status display config ───────────────────────────────── */
 const STATUS_COLORS: Record<string, string> = {
   COMPLETED:         SUCCESS,
+  DELIVERED:         SUCCESS,
   IN_PROGRESS:       INFO,
   OPEN:              '#F97316',
   WAITING_FOR_PARTS: '#8B5CF6',
   QUALITY_CHECK:     '#0EA5E9',
+  READY:             '#10B981',
   CANCELLED:         PRIMARY,
 };
 const STATUS_LABELS: Record<string, string> = {
   COMPLETED:         'Completed',
+  DELIVERED:         'Delivered',
   IN_PROGRESS:       'In Progress',
   OPEN:              'Open',
   WAITING_FOR_PARTS: 'Waiting Parts',
   QUALITY_CHECK:     'Quality Check',
+  READY:             'Ready',
   CANCELLED:         'Cancelled',
 };
+
+/* ─── Client-side analytics helpers ──────────────────────── */
+
+interface TimeSeriesPoint {
+  label: string;
+  revenue: number;
+  job_count: number;
+  completed_count: number;
+}
+
+/** Revenue from a single job — billing takes priority, then final, then estimated */
+function jobRevenue(job: JobResponse): number {
+  return (job as any).billing?.grand_total ?? job.final_amount ?? job.estimated_amount ?? 0;
+}
+
+/** Is this job's created_at within the period? */
+function isInPeriod(job: JobResponse, period: UIPeriod): boolean {
+  const d = new Date(job.created_at);
+  const now = new Date();
+  if (period === 'Weekly') {
+    const cutoff = new Date(now);
+    cutoff.setDate(cutoff.getDate() - 6);
+    cutoff.setHours(0, 0, 0, 0);
+    return d >= cutoff;
+  }
+  if (period === 'Monthly') {
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }
+  // Yearly
+  return d.getFullYear() === now.getFullYear();
+}
+
+function buildGraphData(jobs: JobResponse[], period: UIPeriod): TimeSeriesPoint[] {
+  const now = new Date();
+
+  if (period === 'Weekly') {
+    const points: TimeSeriesPoint[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const day = new Date(now);
+      day.setDate(day.getDate() - i);
+      const dateStr = day.toISOString().slice(0, 10);
+      const dayJobs = jobs.filter(j => j.created_at.slice(0, 10) === dateStr);
+      points.push({
+        label: day.toLocaleDateString('en-IN', { weekday: 'short' }),
+        revenue: dayJobs.reduce((s, j) => s + jobRevenue(j), 0),
+        job_count: dayJobs.length,
+        completed_count: dayJobs.filter(j => j.status === 'COMPLETED' || j.status === 'DELIVERED').length,
+      });
+    }
+    return points;
+  }
+
+  if (period === 'Monthly') {
+    const points: TimeSeriesPoint[] = [];
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    let weekStart = new Date(firstDay);
+    let weekNum = 1;
+    while (weekStart <= now) {
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      const weekJobs = jobs.filter(j => {
+        const d = new Date(j.created_at);
+        return d >= weekStart && d <= weekEnd;
+      });
+      points.push({
+        label: `W${weekNum}`,
+        revenue: weekJobs.reduce((s, j) => s + jobRevenue(j), 0),
+        job_count: weekJobs.length,
+        completed_count: weekJobs.filter(j => j.status === 'COMPLETED' || j.status === 'DELIVERED').length,
+      });
+      weekStart = new Date(weekStart);
+      weekStart.setDate(weekStart.getDate() + 7);
+      weekNum++;
+    }
+    return points;
+  }
+
+  // Yearly — group by month Jan → current month
+  const points: TimeSeriesPoint[] = [];
+  for (let m = 0; m <= now.getMonth(); m++) {
+    const monthJobs = jobs.filter(j => {
+      const d = new Date(j.created_at);
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === m;
+    });
+    points.push({
+      label: new Date(now.getFullYear(), m, 1).toLocaleDateString('en-IN', { month: 'short' }),
+      revenue: monthJobs.reduce((s, j) => s + jobRevenue(j), 0),
+      job_count: monthJobs.length,
+      completed_count: monthJobs.filter(j => j.status === 'COMPLETED' || j.status === 'DELIVERED').length,
+    });
+  }
+  return points;
+}
 
 /* ─── Smooth bezier helper ────────────────────────────────── */
 function bezierPath(pts: { x: number; y: number }[]) {
@@ -104,10 +195,10 @@ function RevenueTrendChart({ graphData }: { graphData: TimeSeriesPoint[] }) {
   const padL   = 40;
   const innerW = chartW - padL;
 
-  if (!graphData.length) {
+  if (!graphData.length || graphData.every(p => p.revenue === 0)) {
     return (
       <View style={{ height: chartH, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: SUBTLE, fontSize: 13 }}>No data for this period</Text>
+        <Text style={{ color: SUBTLE, fontSize: 13 }}>No revenue recorded yet</Text>
       </View>
     );
   }
@@ -126,13 +217,11 @@ function RevenueTrendChart({ graphData }: { graphData: TimeSeriesPoint[] }) {
   const ttX      = Math.max(padL, Math.min(peak.x - ttW / 2, padL + innerW - ttW));
   const ttY      = Math.max(2, peak.y - 28);
 
-  // Thin the x labels if too many points
   const stride   = Math.ceil(graphData.length / 6);
   const xLabels  = graphData
     .map((p, i) => ({ lbl: p.label, x: pts[i].x, i }))
     .filter(({ i }) => i % stride === 0 || i === graphData.length - 1);
 
-  // Y gridlines
   const yTicks = [0, 25, 50, 75, 100];
 
   return (
@@ -145,7 +234,6 @@ function RevenueTrendChart({ graphData }: { graphData: TimeSeriesPoint[] }) {
           </SvgGrad>
         </Defs>
 
-        {/* Y grid */}
         {yTicks.map(t => {
           const gy = chartH - (t / 100) * chartH;
           return (
@@ -162,21 +250,17 @@ function RevenueTrendChart({ graphData }: { graphData: TimeSeriesPoint[] }) {
           );
         })}
 
-        {/* Area + line */}
         <Path d={area} fill="url(#revGrad)" />
         <Path d={line} fill="none" stroke={PRIMARY} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
 
-        {/* Peak drop line */}
         <Line
           x1={peak.x.toFixed(1)} y1={peak.y.toFixed(1)}
           x2={peak.x.toFixed(1)} y2={chartH}
           stroke={PRIMARY} strokeWidth={1} strokeDasharray="3 4" strokeOpacity={0.5}
         />
 
-        {/* Peak dot */}
         <Circle cx={peak.x} cy={peak.y} r={5} fill={PRIMARY} stroke={CARD} strokeWidth={2.5} />
 
-        {/* Peak tooltip */}
         <G transform={`translate(${ttX}, ${ttY})`}>
           <Rect width={ttW} height={20} rx={6} fill={TEXT} />
           <SvgText x={ttW / 2} y={13.5} fill={CARD} fontSize={9} fontWeight="bold" textAnchor="middle">
@@ -184,7 +268,6 @@ function RevenueTrendChart({ graphData }: { graphData: TimeSeriesPoint[] }) {
           </SvgText>
         </G>
 
-        {/* X axis labels */}
         {xLabels.map(({ lbl, x }) => (
           <SvgText key={lbl} x={x} y={chartH + 16} fill={SUBTLE} fontSize={9} textAnchor="middle">
             {lbl}
@@ -306,11 +389,12 @@ function DonutChart({ segments }: { segments: Segment[] }) {
 }
 
 /* ─── KPI card ────────────────────────────────────────────── */
-function KpiCard({ label, value }: { label: string; value: string }) {
+function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <View style={[s.kpiCard, SHADOW_CARD]}>
       <Text style={s.kpiLabel}>{label}</Text>
       <Text style={s.kpiValue}>{value}</Text>
+      {sub ? <Text style={s.kpiSub}>{sub}</Text> : null}
     </View>
   );
 }
@@ -320,35 +404,44 @@ export default function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
   const [period, setPeriod] = useState<UIPeriod>('Monthly');
 
-  const { data, isLoading, isRefetching, refetch } = useQuery({
-    queryKey: QUERY_KEYS.ANALYTICS(PERIOD_API[period]),
-    queryFn:  () => AnalyticsService.get({ period: PERIOD_API[period] }),
-    refetchOnMount: 'always',
+  /* Fetch all jobs — filter client-side by period */
+  const { data: jobsData, isLoading, isRefetching, refetch } = useQuery({
+    queryKey: QUERY_KEYS.JOBS({ page_size: 500 }),
+    queryFn:  () => JobService.list({ page_size: 500 }),
     staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   /* Refetch every time this tab comes into focus */
   useFocusEffect(
     useCallback(() => {
       refetch();
-    }, [PERIOD_API[period]])
+    }, [])
   );
 
-  const graphData    = data?.graph_data    ?? [];
-  const totalRevenue = data?.total_revenue ?? 0;
-  const totalJobs    = data?.total_jobs    ?? 0;
-  const avgTicket    = totalJobs > 0 ? Math.round(totalRevenue / totalJobs) : 0;
-  const statusCounts = data?.status_counts ?? {} as JobStatusCounts;
+  const allJobs   = jobsData?.items ?? [];
+  const jobs      = allJobs.filter(j => isInPeriod(j, period));
+  const graphData = buildGraphData(jobs, period);
 
-  /* Derive segments for donut from status_counts */
-  const totalStatusJobs = (Object.values(statusCounts) as (number | undefined)[])
-    .reduce((a, b) => a + (b ?? 0), 0);
+  /* ── KPI computations ── */
+  const totalJobs      = jobs.length;
+  const completedJobs  = jobs.filter(j => j.status === 'COMPLETED' || j.status === 'DELIVERED').length;
+  const totalRevenue   = jobs.reduce((s, j) => s + jobRevenue(j), 0);
+  const avgTicket      = totalJobs > 0 ? Math.round(totalRevenue / totalJobs) : 0;
+  const completionRate = totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0;
+
+  /* ── Status breakdown for donut ── */
+  const statusCounts: Record<string, number> = {};
+  for (const job of jobs) {
+    statusCounts[job.status] = (statusCounts[job.status] ?? 0) + 1;
+  }
+  const totalStatusJobs = Object.values(statusCounts).reduce((a, b) => a + b, 0);
   const segments: Segment[] = totalStatusJobs > 0
-    ? (Object.entries(statusCounts) as [string, number | undefined][])
-        .filter(([, v]) => v && v > 0)
+    ? Object.entries(statusCounts)
+        .filter(([, v]) => v > 0)
         .map(([key, val]) => ({
           name:  STATUS_LABELS[key] ?? key,
-          pct:   Math.round(((val ?? 0) / totalStatusJobs) * 100),
+          pct:   Math.round((val / totalStatusJobs) * 100),
           color: STATUS_COLORS[key] ?? MUTED,
         }))
         .sort((a, b) => b.pct - a.pct)
@@ -390,10 +483,41 @@ export default function AnalyticsScreen() {
 
         {/* ── KPI row ── */}
         <View style={s.kpiRow}>
-          <KpiCard label="Revenue"    value={isLoading ? '—' : formatCurrency(totalRevenue)} />
-          <KpiCard label="Jobs Done"  value={isLoading ? '—' : String(totalJobs)} />
-          <KpiCard label="Avg Ticket" value={isLoading ? '—' : formatCurrency(avgTicket)} />
+          <KpiCard
+            label="Revenue"
+            value={isLoading ? '—' : formatCurrency(totalRevenue)}
+          />
+          <KpiCard
+            label="Jobs"
+            value={isLoading ? '—' : String(totalJobs)}
+            sub={totalJobs > 0 ? `${completedJobs} done` : undefined}
+          />
+          <KpiCard
+            label="Avg Ticket"
+            value={isLoading ? '—' : formatCurrency(avgTicket)}
+          />
         </View>
+
+        {/* ── Completion rate strip ── */}
+        {!isLoading && totalJobs > 0 && (
+          <View style={[s.card, SHADOW_CARD, { paddingVertical: 12 }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={s.cardTitle}>Completion Rate</Text>
+              <Text style={[s.cardTitle, { color: completionRate >= 70 ? SUCCESS : WARN }]}>
+                {completionRate}%
+              </Text>
+            </View>
+            <View style={s.progressTrack}>
+              <View style={[s.progressFill, {
+                width: `${completionRate}%` as any,
+                backgroundColor: completionRate >= 70 ? SUCCESS : WARN,
+              }]} />
+            </View>
+            <Text style={[s.cardSub, { marginTop: 6 }]}>
+              {completedJobs} of {totalJobs} jobs completed
+            </Text>
+          </View>
+        )}
 
         {/* ── Revenue trend ── */}
         <View style={[s.card, SHADOW_CARD]}>
@@ -426,7 +550,9 @@ export default function AnalyticsScreen() {
           <View style={s.cardHead}>
             <View>
               <Text style={s.cardTitle}>Job Status Mix</Text>
-              <Text style={s.cardSub}>By current status</Text>
+              <Text style={s.cardSub}>
+                {totalJobs > 0 ? `${totalJobs} jobs this ${period === 'Weekly' ? 'week' : period === 'Monthly' ? 'month' : 'year'}` : 'By current status'}
+              </Text>
             </View>
           </View>
           {isLoading
@@ -483,6 +609,7 @@ const s = StyleSheet.create({
   },
   kpiLabel: { fontSize: 10, color: MUTED, marginBottom: 5 },
   kpiValue: { fontSize: 15, fontWeight: '700', color: TEXT },
+  kpiSub:   { fontSize: 10, color: MUTED, marginTop: 3 },
 
   /* Card */
   card: {
@@ -495,6 +622,14 @@ const s = StyleSheet.create({
   },
   cardTitle: { fontSize: 14, fontWeight: '600', color: TEXT },
   cardSub:   { fontSize: 11, color: MUTED, marginTop: 2 },
+
+  /* Completion progress */
+  progressTrack: {
+    height: 6, borderRadius: 4, backgroundColor: DIVIDER, overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%', borderRadius: 4,
+  },
 
   /* Donut */
   donutRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
