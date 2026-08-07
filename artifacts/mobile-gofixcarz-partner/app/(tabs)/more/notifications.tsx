@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Feather } from '@/src/components/ui/FeatherIcon';
+import { ChevronLeft } from 'lucide-react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import NotificationService from '@/src/services/notification.service';
@@ -16,18 +16,17 @@ import EmptyState from '@/src/components/ui/EmptyState';
 import ErrorState from '@/src/components/ui/ErrorState';
 
 /* ── Design tokens ── */
-const BG      = '#EEEEF6';
+const BG      = '#F8FAFC';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#C41E3A';
+const PRIMARY = '#2563EB';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
-const BORDER  = 'rgba(226,232,240,0.7)';
+const BORDER  = '#E2E8F0';
 
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const qc     = useQueryClient();
   const [unreadOnly, setUnreadOnly] = useState(false);
-  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
   const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: QUERY_KEYS.NOTIFICATIONS(unreadOnly),
@@ -43,13 +42,18 @@ export default function NotificationsScreen() {
   const unreadCount = items.filter(n => !n.is_read).length;
 
   return (
-    <View style={[styles.root, { backgroundColor: BG }]}>
+    <View style={[styles.root, { backgroundColor: BG, paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
 
       {/* ── Header ── */}
-      <View style={[styles.topBar, { paddingTop: topPad + 16 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Feather name="arrow-left" size={18} color={TEXT} />
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <ChevronLeft size={24} color={TEXT} strokeWidth={2.5} />
         </TouchableOpacity>
 
         <View style={styles.titleWrap}>
@@ -125,22 +129,21 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
 
   topBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 20, paddingBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: BG,
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
   },
   backBtn: {
-    width: 42, height: 42, borderRadius: 21,
-    backgroundColor: CARD, borderWidth: 1, borderColor: BORDER,
-    alignItems: 'center', justifyContent: 'center',
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
-      android: { elevation: 2 },
-      default: {},
-    }),
+    padding: 4,
   },
 
-  titleWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  pageTitle: { fontSize: 20, fontWeight: '800', color: TEXT, letterSpacing: -0.4 },
+  titleWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  pageTitle: { fontSize: 17, fontWeight: '800', color: TEXT, textAlign: 'center' },
   badge: {
     paddingHorizontal: 8, paddingVertical: 3,
     backgroundColor: PRIMARY, borderRadius: 10,

@@ -17,7 +17,7 @@ import { formatDate, formatDateTime } from '@/src/utils/helpers';
 /* ── Design tokens ── */
 const BG      = '#EEEEF6';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#C41E3A';
+const PRIMARY = '#2563EB';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
@@ -42,7 +42,7 @@ function InfoRow({ label, value, last = false }: { label: string; value: string;
   );
 }
 
-function SectionCard({ icon, title, iconBg = '#FEE2E2', iconFg = PRIMARY, children }: {
+function SectionCard({ icon, title, iconBg = '#EFF6FF', iconFg = PRIMARY, children }: {
   icon: React.ComponentProps<typeof Feather>['name'];
   title: string;
   iconBg?: string;
@@ -95,6 +95,8 @@ export default function BookingDetailScreen() {
     mutationFn: () => BookingService.createJob(id ?? ''),
     onSuccess:  () => {
       invalidateBookings();
+      qc.invalidateQueries({ queryKey: ['jobs'] });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.DASHBOARD });
       Alert.alert(
         'Job Card Created',
         `A job card has been created for ${booking?.customer_name ?? 'this customer'}.`,
@@ -175,7 +177,7 @@ export default function BookingDetailScreen() {
           <View style={styles.heroMeta}>
             {booking.service_requested ? (
               <View style={styles.heroMetaItem}>
-                <View style={[styles.heroMetaIcon, { backgroundColor: '#FEE2E2' }]}>
+                <View style={[styles.heroMetaIcon, { backgroundColor: '#EFF6FF' }]}>
                   <Feather name="tool" size={12} color={PRIMARY} />
                 </View>
                 <Text style={styles.heroMetaText} numberOfLines={2}>{booking.service_requested}</Text>

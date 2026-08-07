@@ -14,8 +14,8 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import {
-  ArrowLeft, ArrowRight, Check, AlertCircle, ChevronDown,
-  User, Phone, Hash, Truck, Tag, GitBranch, Navigation,
+  ArrowLeft, ArrowRight, Check, AlertCircle, ChevronDown, ChevronLeft,
+  User, Phone, Hash, Truck, Tag, GitBranch, Navigation, Gauge,
   Droplet, Clipboard, Camera, Search, Plus, Minus, Trash2,
   Users, Clock, Calendar, Wrench, Image as ImageIcon, Upload,
   FileText, Download, Share2, Activity, X, CheckCircle, RotateCcw,
@@ -27,43 +27,45 @@ import { VEHICLE_BRANDS, getModelsForBrand } from '@/src/data/vehicleData';
 import { formatCurrency } from '@/src/utils/helpers';
 
 /* ─────────────────────────── Tokens ─────────────────────────── */
-const BG      = '#F2F4F7';
-const CARD    = '#FFFFFF';
-const PRIMARY = '#C41E3A';
-const TEXT    = '#0D1117';
-const MUTED   = '#6B7280';
-const BORDER  = '#E5E7EB';
+const BG = '#FFFFFF';
+const CARD = '#FFFFFF';
+const PRIMARY = '#2563EB';
+const TEXT = '#0F172A';
+const MUTED = '#64748B';
+const BORDER = '#E2E8F0';
 const SUCCESS = '#059669';
-const DANGER  = '#DC2626';
-const WARN    = '#D97706';
+const DANGER = '#EF4444';
+const WARN = '#F59E0B';
 
 const STEPS = [
-  { label: 'Customer', Icon: User      },
-  { label: 'Inspect',  Icon: Clipboard },
-  { label: 'Services', Icon: Wrench    },
-  { label: 'Labour',   Icon: Users     },
-  { label: 'Progress', Icon: Activity  },
-  { label: 'Invoice',  Icon: FileText  },
+  { label: 'Customer', Icon: User },
+  { label: 'Inspect', Icon: Clipboard },
+  { label: 'Services', Icon: Wrench },
+  { label: 'Labour', Icon: Users },
+  { label: 'Progress', Icon: Activity },
+  { label: 'Invoice', Icon: FileText },
 ];
 
 const FUEL_LEVELS = ['E', '1/4', '1/2', '3/4', 'F'];
-const FUEL_TYPES  = ['Petrol', 'Diesel', 'CNG', 'Electric', 'Hybrid'];
+const FUEL_TYPES = ['Petrol', 'Diesel', 'CNG', 'Electric', 'Hybrid'];
 
 type ServiceItem = { name: string; price: number; qty: number };
-type PhotoItem   = { uri: string; name?: string };
-type DocItem     = { uri: string; name: string; mimeType?: string };
+type PhotoItem = { uri: string; name?: string };
+type DocItem = { uri: string; name: string; mimeType?: string };
 
 /* ─────────────────────────── InlineInput ────────────────────── */
 function InlineInput({
   label, value, onChangeText, placeholder, Icon, error,
   keyboardType, autoCapitalize, prefix, maxLength,
   multiline, numberOfLines, editable = true,
+  textContentType, autoComplete, importantForAutofill,
 }: {
   label?: string; value: string; onChangeText: (v: string) => void;
   placeholder?: string; Icon?: any; error?: string;
   keyboardType?: any; autoCapitalize?: any; prefix?: string;
   maxLength?: number; multiline?: boolean; numberOfLines?: number;
   editable?: boolean;
+  textContentType?: any; autoComplete?: any; importantForAutofill?: any;
 }) {
   const [focused, setFocused] = useState(false);
   const bc = error ? DANGER : focused ? PRIMARY : BORDER;
@@ -107,6 +109,9 @@ function InlineInput({
           numberOfLines={numberOfLines}
           textAlignVertical={multiline ? 'top' : 'center'}
           editable={editable}
+          textContentType={textContentType}
+          autoComplete={autoComplete}
+          importantForAutofill={importantForAutofill}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
         />
@@ -122,27 +127,22 @@ function InlineInput({
 }
 
 const inp = StyleSheet.create({
-  wrap:  { marginBottom: 16 },
-  label: { fontSize: 11, fontWeight: '700', color: '#4B5563', letterSpacing: 0.6, marginBottom: 7, textTransform: 'uppercase' },
+  wrap: { marginBottom: 10 },
+  label: { fontSize: 11, fontWeight: '700', color: '#475569', letterSpacing: 0.5, marginBottom: 4, textTransform: 'uppercase' },
   row: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: CARD, borderRadius: 12,
-    minHeight: 52, overflow: 'hidden',
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3 },
-      android: { elevation: 1 },
-      default: {},
-    }),
+    backgroundColor: CARD, borderRadius: 12, borderWidth: 1, borderColor: BORDER,
+    minHeight: 46, overflow: 'hidden',
   },
-  rowMulti: { alignItems: 'flex-start', minHeight: 100 },
-  iconSlot: { width: 48, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
-  prefixSlot: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16 },
+  rowMulti: { alignItems: 'flex-start', minHeight: 88 },
+  iconSlot: { width: 42, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
+  prefixSlot: { flexDirection: 'row', alignItems: 'center', paddingLeft: 14 },
   prefixText: { fontSize: 13, fontWeight: '600', color: MUTED },
-  prefixDivider: { width: 1, height: 18, backgroundColor: BORDER, marginLeft: 10 },
-  field: { flex: 1, fontSize: 15, color: TEXT, paddingRight: 16, height: 52 },
-  fieldMulti: { height: undefined, paddingTop: 14, paddingBottom: 14, paddingLeft: 4 },
-  errRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 },
-  errText: { fontSize: 11.5, color: DANGER, flex: 1 },
+  prefixDivider: { width: 1, height: 16, backgroundColor: BORDER, marginLeft: 8 },
+  field: { flex: 1, fontSize: 14, color: TEXT, paddingRight: 14, height: 46 },
+  fieldMulti: { height: undefined, paddingTop: 10, paddingBottom: 10, paddingLeft: 4 },
+  errRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  errText: { fontSize: 11, color: DANGER, flex: 1 },
 });
 
 /* ─────────────────────────── SectionCard ───────────────────── */
@@ -150,10 +150,10 @@ function SectionCard({ title, iconBg, Icon, iconColor = PRIMARY, children }: {
   title: string; iconBg: string; Icon: any; iconColor?: string; children: React.ReactNode;
 }) {
   return (
-    <View style={sc.card}>
+    <View style={sc.group}>
       <View style={sc.header}>
         <View style={[sc.iconCircle, { backgroundColor: iconBg }]}>
-          <Icon size={16} color={iconColor} strokeWidth={2} />
+          <Icon size={14} color={iconColor} strokeWidth={2.2} />
         </View>
         <Text style={sc.title}>{title}</Text>
       </View>
@@ -163,23 +163,16 @@ function SectionCard({ title, iconBg, Icon, iconColor = PRIMARY, children }: {
 }
 
 const sc = StyleSheet.create({
-  card: {
-    backgroundColor: CARD, borderRadius: 16, borderWidth: 1, borderColor: BORDER,
-    overflow: 'hidden', marginBottom: 16,
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
-      android: { elevation: 2 },
-      default: {},
-    }),
+  group: {
+    marginBottom: 14,
   },
   header: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 18, paddingVertical: 15,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginBottom: 8, paddingHorizontal: 2,
   },
-  iconCircle: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  iconCircle: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 14, fontWeight: '700', color: TEXT, letterSpacing: -0.2 },
-  body:  { padding: 18 },
+  body: { gap: 0 },
 });
 
 /* ─────────────────────────── Main screen ────────────────────── */
@@ -188,76 +181,76 @@ export default function CreateJobScreen() {
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
   const scrollRef = useRef<ScrollView>(null);
 
-  const [step,        setStep]        = useState(0);
-  const [errors,      setErrors]      = useState<Record<string, string>>({});
+  const [step, setStep] = useState(0);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [createError, setCreateError] = useState<string | null>(null);
-  const [pdfLoading,  setPdfLoading]  = useState<'download' | 'share' | null>(null);
+  const [pdfLoading, setPdfLoading] = useState<'download' | 'share' | null>(null);
 
-  const qc         = useQueryClient();
-  const invoiceNum  = useRef(`INV-${Date.now().toString().slice(-6)}`).current;
+  const qc = useQueryClient();
+  const invoiceNum = useRef(`INV-${Date.now().toString().slice(-6)}`).current;
 
   /* Garage profile — used for invoice branding */
   const { data: garage } = useQuery({
     queryKey: QUERY_KEYS.GARAGE,
-    queryFn:  GarageService.get,
+    queryFn: GarageService.get,
     staleTime: 1000 * 60 * 10,
   });
-  const garageName    = garage?.name    || 'My Garage';
+  const garageName = garage?.name || 'My Garage';
   const garageAddress = [garage?.address, garage?.city, garage?.state].filter(Boolean).join(', ');
-  const garagePhone   = garage?.phone   || '';
+  const garagePhone = garage?.phone || '';
 
   /* Service packages — used for quick-add chips on the Services step */
   const { data: pkgsData } = useQuery({
     queryKey: QUERY_KEYS.SERVICE_PACKAGES({}),
-    queryFn:  () => ServicePackageService.list({ page_size: 20 }),
+    queryFn: () => ServicePackageService.list({ page_size: 20 }),
     staleTime: 1000 * 60 * 5,
   });
   const servicePackages = pkgsData?.items ?? [];
 
   /* Step 0 */
-  const [customerName,  setCustomerName]  = useState('');
+  const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [regNumber,     setRegNumber]     = useState('');
-  const [brand,         setBrand]         = useState('');
-  const [model,         setModel]         = useState('');
-  const [fuelType,      setFuelType]      = useState('Petrol');
-  const [odometer,      setOdometer]      = useState('');
+  const [regNumber, setRegNumber] = useState('');
+  const [brand, setBrand] = useState('');
+  const [model, setModel] = useState('');
+  const [fuelType, setFuelType] = useState('Petrol');
+  const [odometer, setOdometer] = useState('');
 
   /* Step 1 */
-  const [fuelLevel,       setFuelLevel]       = useState('1/2');
-  const [complaint,       setComplaint]       = useState('');
+  const [fuelLevel, setFuelLevel] = useState('1/2');
+  const [complaint, setComplaint] = useState('');
   const [inspectionNotes, setInspectionNotes] = useState('');
-  const [beforePhotos,    setBeforePhotos]    = useState<PhotoItem[]>([]);
-  const [documents,       setDocuments]       = useState<DocItem[]>([]);
+  const [beforePhotos, setBeforePhotos] = useState<PhotoItem[]>([]);
+  const [documents, setDocuments] = useState<DocItem[]>([]);
 
   /* Step 2 */
   const [serviceSearch, setServiceSearch] = useState('');
-  const [services,      setServices]      = useState<ServiceItem[]>([]);
+  const [services, setServices] = useState<ServiceItem[]>([]);
 
   /* Step 3 */
   const [selectedTechName, setSelectedTechName] = useState('');
-  const [estHours,         setEstHours]         = useState('');
-  const [labourCharge,     setLabourCharge]      = useState('');
-  const [deliveryDate,     setDeliveryDate]      = useState<Date | null>(null);
-  const [deliveryTime,     setDeliveryTime]      = useState<Date | null>(null);
-  const [showDatePicker,   setShowDatePicker]    = useState(false);
-  const [showTimePicker,   setShowTimePicker]    = useState(false);
-  const [additionalNotes,  setAdditionalNotes]   = useState('');
+  const [estHours, setEstHours] = useState('');
+  const [labourCharge, setLabourCharge] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState<Date | null>(null);
+  const [deliveryTime, setDeliveryTime] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [additionalNotes, setAdditionalNotes] = useState('');
 
   /* Step 4/5 */
   const [createdJobId, setCreatedJobId] = useState<string | null>(null);
 
   const servicesTotal = services.reduce((sum, s) => sum + s.price * s.qty, 0);
-  const labourTotal   = parseFloat(labourCharge) || 0;
-  const subtotal      = servicesTotal + labourTotal;
-  const gst           = subtotal * 0.18;
-  const grandTotal    = subtotal + gst;
+  const labourTotal = parseFloat(labourCharge) || 0;
+  const subtotal = servicesTotal + labourTotal;
+  const gst = subtotal * 0.18;
+  const grandTotal = subtotal + gst;
 
   /* ── Invoice HTML ── */
   function buildInvoiceHtml() {
-    const now     = new Date();
+    const now = new Date();
     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
-    const dueStr  = deliveryDate
+    const dueStr = deliveryDate
       ? deliveryDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
       : '—';
     const vehicleLabel = [brand, model, fuelType].filter(Boolean).join(' · ') || '—';
@@ -274,7 +267,7 @@ export default function CreateJobScreen() {
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:-apple-system,Helvetica Neue,Arial,sans-serif;color:#1E293B;background:#F8FAFC;font-size:13px;}
   .page{max-width:680px;margin:0 auto;background:#fff;box-shadow:0 0 0 1px #E2E8F0;}
-  .header{background:linear-gradient(135deg,#7B0E20 0%,#C41E3A 55%,#E11D48 100%);padding:36px 36px 28px;color:#fff;}
+  .header{background:linear-gradient(135deg,#1E40AF 0%,#2563EB 55%,#3B82F6 100%);padding:36px 36px 28px;color:#fff;}
   .header-row{display:flex;justify-content:space-between;align-items:flex-start;}
   .brand-name{font-size:26px;font-weight:800;letter-spacing:-0.5px;}
   .brand-tag{font-size:11px;opacity:0.65;margin-top:5px;}
@@ -309,14 +302,14 @@ export default function CreateJobScreen() {
   .total-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#64748B;}
   .total-row span:last-child{font-weight:500;color:#475569;}
   .total-divider{border:none;border-top:1px dashed #CBD5E1;margin:12px 0;}
-  .grand-row{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:linear-gradient(135deg,#7B0E20,#C41E3A);border-radius:10px;margin-top:4px;}
+  .grand-row{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:linear-gradient(135deg,#1E40AF,#2563EB);border-radius:10px;margin-top:4px;}
   .grand-label{color:#fff;font-size:13px;font-weight:600;opacity:0.85;}
   .grand-amount{color:#fff;font-size:20px;font-weight:800;letter-spacing:-0.5px;}
-  .notes-block{margin:0 28px 24px;padding:14px 16px;background:#F8FAFC;border-left:3px solid #C41E3A;border-radius:0 6px 6px 0;}
+  .notes-block{margin:0 28px 24px;padding:14px 16px;background:#F8FAFC;border-left:3px solid #2563EB;border-radius:0 6px 6px 0;}
   .notes-label{font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
   .notes-text{font-size:12px;color:#475569;line-height:1.6;}
   .footer{background:#F8FAFC;border-top:1px solid #E2E8F0;padding:20px 28px;display:flex;justify-content:space-between;align-items:center;}
-  .footer-brand{font-size:13px;font-weight:700;color:#C41E3A;}
+  .footer-brand{font-size:13px;font-weight:700;color:#2563EB;}
   .footer-right{font-size:11px;color:#94A3B8;text-align:right;}
   .thank-you{font-size:11px;color:#64748B;margin-top:2px;}
 </style></head><body><div class="page">
@@ -388,19 +381,22 @@ export default function CreateJobScreen() {
   function validateStep(): Record<string, string> {
     const errs: Record<string, string> = {};
     if (step === 0) {
-      if (!customerName.trim())  errs.customerName  = 'Customer name is required.';
-      if (!regNumber.trim())     errs.regNumber     = 'Registration number is required.';
-      if (!brand.trim())         errs.brand         = 'Vehicle brand is required.';
-      if (!model.trim())         errs.model         = 'Vehicle model is required.';
+      if (!customerName.trim()) errs.customerName = 'Customer name is required.';
+      if (!regNumber.trim()) errs.regNumber = 'Registration number is required.';
+      if (!brand.trim()) errs.brand = 'Vehicle brand is required.';
+      if (!model.trim()) errs.model = 'Vehicle model is required.';
       if (customerPhone) {
         const d = customerPhone.replace(/\D/g, '');
         if (d.length !== 10) errs.customerPhone = 'Mobile number must be exactly 10 digits.';
       }
-      if (odometer && parseFloat(odometer) < 0) errs.odometer = 'Odometer must be a positive number.';
+      if (!odometer.trim()) errs.odometer = 'Odometer reading (km) is required.';
+      else if (parseFloat(odometer) < 0) errs.odometer = 'Odometer reading must be a positive number.';
     }
     if (step === 1) { if (!complaint.trim()) errs.complaint = 'Customer complaint is required.'; }
     if (step === 2) { if (services.length === 0) errs.services = 'Please add at least one service.'; }
     if (step === 3) {
+      if (!selectedTechName.trim()) errs.technician = 'Please assign a technician.';
+      if (!labourCharge.trim() || parseFloat(labourCharge) <= 0) errs.labourCharge = 'Please enter labour charge.';
       if (!deliveryDate) errs.deliveryDate = 'Please select an expected delivery date.';
       if (!deliveryTime) errs.deliveryTime = 'Please select an expected pickup time.';
     }
@@ -416,28 +412,28 @@ export default function CreateJobScreen() {
     mutationFn: async () => {
       // Step 1: create the job with customer + vehicle basics
       const job = await JobService.create({
-        customer_name:       customerName  || null,
-        customer_mobile:     customerPhone || null,
-        registration_number: regNumber     || null,
-        brand:               brand         || null,
-        vehicle_model:       model         || null,
-        fuel_type:           fuelType      || null,
-        odometer_km:         parseFloat(odometer) || null,
-        description:         additionalNotes || null,
-        estimated_amount:    grandTotal    || null,
+        customer_name: customerName || null,
+        customer_mobile: customerPhone || null,
+        registration_number: regNumber || null,
+        brand: brand || null,
+        vehicle_model: model || null,
+        fuel_type: fuelType || null,
+        odometer_km: parseFloat(odometer) || null,
+        description: additionalNotes || null,
+        estimated_amount: grandTotal || null,
       });
 
       // Step 2: enrich the job with services, labour, and inspection data
       // (JobCreate has no these fields — they live on JobUpdate)
-      const hasServices  = services.length > 0;
-      const hasLabour    = parseFloat(labourCharge) > 0;
-      const hasInspect   = !!(complaint || inspectionNotes);
+      const hasServices = services.length > 0;
+      const hasLabour = parseFloat(labourCharge) > 0;
+      const hasInspect = !!(complaint || inspectionNotes);
 
       if (job?.id && (hasServices || hasLabour || hasInspect)) {
         await JobService.update(job.id, {
-          ...(hasInspect  && { inspection: { findings: [complaint, inspectionNotes].filter(Boolean).join('\n') } }),
+          ...(hasInspect && { inspection: { findings: [complaint, inspectionNotes].filter(Boolean).join('\n') } }),
           ...(hasServices && { services: services.map(s => ({ name: s.name, price: s.price, qty: s.qty })) }),
-          ...(hasLabour   && { labour: { charge: parseFloat(labourCharge), description: estHours ? `${estHours} hrs` : null } }),
+          ...(hasLabour && { labour: { charge: parseFloat(labourCharge), description: estHours ? `${estHours} hrs` : null } }),
         });
       }
 
@@ -446,8 +442,9 @@ export default function CreateJobScreen() {
     onSuccess: (job) => {
       setCreateError(null);
       setCreatedJobId(job?.id ?? null);
-      // Invalidate list so the new job shows immediately on navigate back
+      // Invalidate list & dashboard so the new job shows immediately in jobs list & analytics
       qc.invalidateQueries({ queryKey: ['jobs'] });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.DASHBOARD });
       setStep(4);
     },
     onError: (err: any) => {
@@ -505,7 +502,6 @@ export default function CreateJobScreen() {
             setDocuments([]);
             setServiceSearch('');
             setServices([]);
-            setSelectedTechId(null);
             setSelectedTechName('');
             setEstHours('');
             setLabourCharge('');
@@ -580,8 +576,13 @@ export default function CreateJobScreen() {
 
       {/* ── Header ── */}
       <View style={[s.header, { paddingTop: topPad + 12 }]}>
-        <TouchableOpacity style={s.backBtn} onPress={handleBack} activeOpacity={0.7}>
-          <ArrowLeft size={18} color={TEXT} strokeWidth={2.5} />
+        <TouchableOpacity
+          style={s.backBtn}
+          onPress={handleBack}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <ChevronLeft size={24} color={TEXT} strokeWidth={2.5} />
         </TouchableOpacity>
         <View style={s.headerCenter}>
           <Text style={s.headerTitle}>New Job Card</Text>
@@ -599,28 +600,70 @@ export default function CreateJobScreen() {
         ))}
       </View>
 
-      {/* ── Step labels ── */}
-      <View style={s.stepLabels}>
-        {STEPS.map((st, i) => (
-          <Text key={i} style={[s.stepLabel, i === step && s.stepLabelActive]} numberOfLines={1}>
-            {st.label}
-          </Text>
-        ))}
-      </View>
+      {/* ── Step pills scroll ── */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.stepPillsRow}
+        style={s.stepPillsScroll}
+      >
+        {STEPS.map((st, i) => {
+          const { Icon } = st;
+          const isActive = i === step;
+          const isDone = i < step;
+          return (
+            <TouchableOpacity
+              key={i}
+              style={[
+                s.stepPill,
+                isActive && s.stepPillActive,
+                isDone && s.stepPillDone,
+              ]}
+              onPress={() => {
+                if (i < step) {
+                  setStep(i);
+                  scrollRef.current?.scrollTo({ y: 0, animated: true });
+                }
+              }}
+              activeOpacity={0.75}
+            >
+              <Icon
+                size={13}
+                color={isActive ? '#FFFFFF' : isDone ? '#059669' : '#9CA3AF'}
+                strokeWidth={2.2}
+              />
+              <Text
+                style={[
+                  s.stepPillText,
+                  isActive && s.stepPillTextActive,
+                  isDone && s.stepPillTextDone,
+                ]}
+              >
+                {st.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
       {/* ── Content ── */}
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 20}
+      >
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={[s.body, { paddingBottom: 24 }]}
+          contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 220 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets={true}
         >
 
           {/* ═══════ STEP 0 — Customer & Vehicle ═══════ */}
           {step === 0 && (
             <>
-              <SectionCard title="Customer Information" iconBg="#FEE2E2" Icon={User} iconColor={PRIMARY}>
+              <SectionCard title="Customer Information" iconBg="#EFF6FF" Icon={User} iconColor={PRIMARY}>
                 <InlineInput
                   label="Customer Name *"
                   value={customerName}
@@ -639,6 +682,8 @@ export default function CreateJobScreen() {
                   Icon={Phone}
                   prefix="+91"
                   maxLength={10}
+                  textContentType="telephoneNumber"
+                  autoComplete="tel"
                   error={errors.customerPhone}
                 />
               </SectionCard>
@@ -651,6 +696,9 @@ export default function CreateJobScreen() {
                   placeholder="KA 01 AB 1234"
                   autoCapitalize="characters"
                   Icon={Hash}
+                  textContentType="none"
+                  autoComplete="off"
+                  importantForAutofill="no"
                   error={errors.regNumber}
                 />
                 <SelectDropdown
@@ -689,12 +737,16 @@ export default function CreateJobScreen() {
                 </ScrollView>
 
                 <InlineInput
-                  label="Odometer (km)"
+                  label="Odometer (km) *"
                   value={odometer}
-                  onChangeText={v => { setOdometer(v); clearFieldError('odometer'); }}
+                  onChangeText={v => { setOdometer(v.replace(/\D/g, '').slice(0, 7)); clearFieldError('odometer'); }}
                   placeholder="e.g. 45230"
                   keyboardType="number-pad"
-                  Icon={Navigation}
+                  Icon={Gauge}
+                  maxLength={7}
+                  textContentType="none"
+                  autoComplete="off"
+                  importantForAutofill="no"
                   error={errors.odometer}
                 />
               </SectionCard>
@@ -728,7 +780,7 @@ export default function CreateJobScreen() {
                 </View>
               </SectionCard>
 
-              <SectionCard title="Inspection Details" iconBg="#FEE2E2" Icon={Clipboard} iconColor={PRIMARY}>
+              <SectionCard title="Inspection Details" iconBg="#EFF6FF" Icon={Clipboard} iconColor={PRIMARY}>
                 <Text style={s.areaLabel}>CUSTOMER COMPLAINT <Text style={{ color: DANGER }}>*</Text></Text>
                 <View style={[s.areaWrap, !!errors.complaint && s.areaError]}>
                   <TextInput
@@ -832,7 +884,7 @@ export default function CreateJobScreen() {
                 </View>
               )}
 
-              <SectionCard title="Add Services" iconBg="#FEE2E2" Icon={Wrench} iconColor={PRIMARY}>
+              <SectionCard title="Add Services" iconBg="#EFF6FF" Icon={Wrench} iconColor={PRIMARY}>
                 <View style={s.searchRow}>
                   <View style={s.searchBox}>
                     <Search size={15} color="#9CA3AF" strokeWidth={2} />
@@ -851,65 +903,114 @@ export default function CreateJobScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {servicePackages.length > 0 && (
-                  <>
-                    <Text style={s.chipLabel}>YOUR SERVICES</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
-                      {servicePackages.map(pkg => (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, marginBottom: 6 }}>
+                  <Text style={s.chipLabel}>YOUR SERVICES</Text>
+                  <TouchableOpacity
+                    onPress={() => router.push('/services/create')}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                    activeOpacity={0.7}
+                  >
+                    <Plus size={11} color={PRIMARY} strokeWidth={2.5} />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: PRIMARY }}>Manage Services</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {servicePackages.length > 0 ? (
+                  <View style={s.pkgGrid}>
+                    {servicePackages.map(pkg => {
+                      const isAdded = services.some(svc => svc.name.toLowerCase() === pkg.name.toLowerCase());
+                      return (
                         <TouchableOpacity
                           key={pkg.id}
-                          style={s.suggestChip}
-                          onPress={() => { setServices(prev => [...prev, { name: pkg.name, price: pkg.price ?? 0, qty: 1 }]); clearFieldError('services'); }}
+                          style={[s.pkgGridCard, isAdded && s.pkgGridCardAdded]}
+                          onPress={() => {
+                            if (!isAdded) {
+                              setServices(prev => [...prev, { name: pkg.name, price: pkg.price ?? 0, qty: 1 }]);
+                              clearFieldError('services');
+                            }
+                          }}
                           activeOpacity={0.8}
                         >
-                          <Plus size={11} color={PRIMARY} strokeWidth={2.5} />
-                          <Text style={s.suggestChipText}>{pkg.name}</Text>
+                          <View style={s.pkgGridTop}>
+                            <Text style={[s.pkgGridName, isAdded && { color: SUCCESS }]} numberOfLines={2}>
+                              {pkg.name}
+                            </Text>
+                          </View>
+
+                          <View style={s.pkgGridBottom}>
+                            <Text style={[s.pkgGridPrice, isAdded && { color: SUCCESS }]}>
+                              {formatCurrency(pkg.price)}
+                            </Text>
+                            <View style={[s.pkgGridBadge, isAdded && s.pkgGridBadgeAdded]}>
+                              {isAdded ? (
+                                <>
+                                  <Check size={10} color={SUCCESS} strokeWidth={3} />
+                                  <Text style={s.pkgGridBadgeTextAdded}>Added</Text>
+                                </>
+                              ) : (
+                                <>
+                                  <Plus size={10} color={PRIMARY} strokeWidth={3} />
+                                  <Text style={s.pkgGridBadgeText}>Add</Text>
+                                </>
+                              )}
+                            </View>
+                          </View>
                         </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[s.suggestChip, { borderStyle: 'dashed', marginTop: 4 }]}
+                    onPress={() => router.push('/services/create')}
+                    activeOpacity={0.8}
+                  >
+                    <Plus size={11} color={PRIMARY} strokeWidth={2.5} />
+                    <Text style={s.suggestChipText}>+ Add Custom Service Package</Text>
+                  </TouchableOpacity>
                 )}
               </SectionCard>
 
               {services.length > 0 && (
                 <SectionCard title={`Services Added (${services.length})`} iconBg="#F0FDF4" Icon={Check} iconColor={SUCCESS}>
                   {services.map((svc, i) => (
-                    <View key={i}>
-                      <View style={s.svcItem}>
-                        <View style={s.svcLeft}>
-                          <View style={s.svcDot}>
-                            <Wrench size={11} color={PRIMARY} strokeWidth={2} />
-                          </View>
-                          <Text style={s.svcName} numberOfLines={1}>{svc.name}</Text>
-                          <TouchableOpacity onPress={() => removeService(i)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                            <Trash2 size={14} color={DANGER + 'AA'} strokeWidth={2} />
+                    <View key={i} style={s.svcItemBox}>
+                      <View style={s.svcLeft}>
+                        <View style={s.svcDot}>
+                          <Wrench size={12} color={PRIMARY} strokeWidth={2} />
+                        </View>
+                        <Text style={s.svcName} numberOfLines={1}>{svc.name}</Text>
+                        <TouchableOpacity
+                          onPress={() => removeService(i)}
+                          style={s.svcDeleteBtn}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Trash2 size={13} color={DANGER} strokeWidth={2} />
+                        </TouchableOpacity>
+                      </View>
+                      <View style={s.svcRight}>
+                        <View style={s.priceWrap}>
+                          <Text style={s.rupee}>₹</Text>
+                          <TextInput
+                            style={s.priceInput}
+                            value={svc.price > 0 ? String(svc.price) : ''}
+                            onChangeText={v => updateServicePrice(i, v)}
+                            placeholder="0"
+                            placeholderTextColor="#9CA3AF"
+                            keyboardType="number-pad"
+                          />
+                        </View>
+                        <View style={s.qtyRow}>
+                          <TouchableOpacity style={s.qtyBtn} onPress={() => updateQty(i, -1)} activeOpacity={0.8}>
+                            <Minus size={12} color={TEXT} strokeWidth={2.5} />
+                          </TouchableOpacity>
+                          <Text style={s.qtyVal}>{svc.qty}</Text>
+                          <TouchableOpacity style={s.qtyBtn} onPress={() => updateQty(i, 1)} activeOpacity={0.8}>
+                            <Plus size={12} color={TEXT} strokeWidth={2.5} />
                           </TouchableOpacity>
                         </View>
-                        <View style={s.svcRight}>
-                          <View style={s.priceWrap}>
-                            <Text style={s.rupee}>₹</Text>
-                            <TextInput
-                              style={s.priceInput}
-                              value={svc.price > 0 ? String(svc.price) : ''}
-                              onChangeText={v => updateServicePrice(i, v)}
-                              placeholder="0"
-                              placeholderTextColor="#9CA3AF"
-                              keyboardType="number-pad"
-                            />
-                          </View>
-                          <View style={s.qtyRow}>
-                            <TouchableOpacity style={s.qtyBtn} onPress={() => updateQty(i, -1)} activeOpacity={0.8}>
-                              <Minus size={12} color={TEXT} strokeWidth={2.5} />
-                            </TouchableOpacity>
-                            <Text style={s.qtyVal}>{svc.qty}</Text>
-                            <TouchableOpacity style={s.qtyBtn} onPress={() => updateQty(i, 1)} activeOpacity={0.8}>
-                              <Plus size={12} color={TEXT} strokeWidth={2.5} />
-                            </TouchableOpacity>
-                          </View>
-                          <Text style={s.svcTotal}>{formatCurrency(svc.price * svc.qty)}</Text>
-                        </View>
+                        <Text style={s.svcTotal}>{formatCurrency(svc.price * svc.qty)}</Text>
                       </View>
-                      {i < services.length - 1 && <View style={s.svcDivider} />}
                     </View>
                   ))}
                   <View style={s.svcSummary}>
@@ -933,12 +1034,13 @@ export default function CreateJobScreen() {
 
               <SectionCard title="Assign Technician" iconBg="#EDE9FE" Icon={Users} iconColor="#7C3AED">
                 <InlineInput
-                  label="Technician Name"
+                  label="Technician Name *"
                   value={selectedTechName}
                   onChangeText={v => { setSelectedTechName(v); clearFieldError('technician'); }}
                   placeholder="Enter technician name"
                   autoCapitalize="words"
                   Icon={Users}
+                  error={errors.technician}
                 />
               </SectionCard>
 
@@ -977,28 +1079,35 @@ export default function CreateJobScreen() {
                   </View>
 
                   {/* Labour Charge — currency input */}
-                  <View style={s.labourTile}>
+                  <View style={[s.labourTile, !!errors.labourCharge && { borderColor: DANGER, borderWidth: 1.5 }]}>
                     <View style={s.labourTileTop}>
-                      <View style={[s.labourTileIcon, { backgroundColor: '#FEE2E2' }]}>
+                      <View style={[s.labourTileIcon, { backgroundColor: '#EFF6FF' }]}>
                         <Hash size={14} color={PRIMARY} strokeWidth={2} />
                       </View>
-                      <Text style={s.labourTileLabel}>CHARGE (₹)</Text>
+                      <Text style={s.labourTileLabel}>CHARGE (₹) <Text style={{ color: DANGER }}>*</Text></Text>
                     </View>
-                    <View style={s.labourAmtRow}>
+                    <View style={[s.labourAmtRow, !!errors.labourCharge && { borderColor: DANGER }]}>
                       <Text style={s.labourRupee}>₹</Text>
                       <TextInput
                         style={s.labourAmtInput}
                         value={labourCharge}
-                        onChangeText={setLabourCharge}
+                        onChangeText={v => { setLabourCharge(v); clearFieldError('labourCharge'); }}
                         placeholder="0"
                         placeholderTextColor="#C4C9D4"
                         keyboardType="number-pad"
                       />
                     </View>
-                    {labourCharge !== '' && parseFloat(labourCharge) > 0 && (
-                      <Text style={s.labourAmtHint}>
-                        + GST = {formatCurrency(parseFloat(labourCharge) * 1.18)}
-                      </Text>
+                    {!!errors.labourCharge ? (
+                      <View style={s.areaErrRow}>
+                        <AlertCircle size={11} color={DANGER} strokeWidth={2} />
+                        <Text style={s.areaErrText}>{errors.labourCharge}</Text>
+                      </View>
+                    ) : (
+                      labourCharge !== '' && parseFloat(labourCharge) > 0 && (
+                        <Text style={s.labourAmtHint}>
+                          + GST = {formatCurrency(parseFloat(labourCharge) * 1.18)}
+                        </Text>
+                      )
                     )}
                   </View>
 
@@ -1155,45 +1264,53 @@ export default function CreateJobScreen() {
 
           {/* ═══════ STEP 4 — Job Progress ═══════ */}
           {step === 4 && (
-            <SectionCard title="Job Timeline" iconBg="#F0FDF4" Icon={Activity} iconColor={SUCCESS}>
+            <SectionCard title="Job Timeline" iconBg="#ECFDF5" Icon={Activity} iconColor={SUCCESS}>
               {[
-                { label: 'Job Created',         desc: '' },
-                { label: 'Technician Assigned', desc: selectedTechName || '' },
-                { label: 'Work Started',        desc: '' },
-                { label: 'Quality Check',       desc: '' },
-                { label: 'Ready for Delivery',  desc: '' },
-                { label: 'Completed',           desc: '' },
-              ].map((item, i, arr) => (
-                <View key={i} style={s.tlRow}>
-                  <View style={s.tlLeft}>
-                    <View style={[
-                      s.tlCircle,
-                      (item as any).done    && s.tlCircleDone,
-                      (item as any).current && s.tlCircleCurrent,
-                    ]}>
-                      {(item as any).done
-                        ? <Check size={11} color="#fff" strokeWidth={3} />
-                        : (item as any).current
-                          ? <View style={s.tlPulse} />
-                          : <Text style={s.tlNum}>{i + 1}</Text>
-                      }
-                    </View>
-                    {i < arr.length - 1 && <View style={[s.tlLine, (item as any).done && s.tlLineDone]} />}
-                  </View>
-                  <View style={s.tlContent}>
-                    <Text style={[s.tlLabel, !(item as any).done && !(item as any).current && { color: MUTED }]}>
-                      {item.label}
-                    </Text>
-                    {item.desc ? <Text style={s.tlDesc}>{item.desc}</Text> : null}
-                    {(item as any).current && (
-                      <View style={s.tlBadge}>
-                        <View style={s.tlBadgeDot} />
-                        <Text style={s.tlBadgeText}>In Progress</Text>
+                { label: 'Job Created', desc: 'Job card initialized', done: true },
+                { label: 'Technician Assigned', desc: selectedTechName ? `Assigned to ${selectedTechName}` : 'Pending technician assignment', done: !!selectedTechName },
+                { label: 'Work Started', desc: 'Vehicle repair in progress', current: true },
+                { label: 'Quality Check', desc: 'Post-repair inspection & testing', done: false },
+                { label: 'Ready for Delivery', desc: 'Vehicle washed & prepared for handover', done: false },
+                { label: 'Completed', desc: 'Billing closed & vehicle handed over', done: false },
+              ].map((item, i, arr) => {
+                const isDone = item.done;
+                const isCurrent = item.current;
+                return (
+                  <View key={i} style={s.tlRow}>
+                    <View style={s.tlLeft}>
+                      <View style={[
+                        s.tlCircle,
+                        (isDone || isCurrent) && s.tlCircleDone,
+                      ]}>
+                        {isDone || isCurrent ? (
+                          <Check size={12} color="#fff" strokeWidth={3} />
+                        ) : (
+                          <Text style={s.tlNum}>{i + 1}</Text>
+                        )}
                       </View>
-                    )}
+                      {i < arr.length - 1 && (
+                        <View style={[s.tlLine, (isDone || isCurrent) && s.tlLineDone]} />
+                      )}
+                    </View>
+                    <View style={s.tlContent}>
+                      <Text style={[s.tlLabel, (isDone || isCurrent) ? { color: '#065F46', fontWeight: '700' } : { color: MUTED }]}>
+                        {item.label}
+                      </Text>
+                      {item.desc ? (
+                        <Text style={[s.tlDesc, (isDone || isCurrent) ? { color: '#047857' } : { color: '#94A3B8' }]}>
+                          {item.desc}
+                        </Text>
+                      ) : null}
+                      {isCurrent && (
+                        <View style={s.tlBadgeActive}>
+                          <View style={s.tlBadgeActiveDot} />
+                          <Text style={s.tlBadgeActiveText}>Current Phase</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </SectionCard>
           )}
 
@@ -1201,7 +1318,7 @@ export default function CreateJobScreen() {
           {step === 5 && (
             <>
               <LinearGradient
-                colors={['#921527', '#C41E3A', '#E11D48']}
+                colors={['#1E40AF', '#2563EB', '#3B82F6']}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                 style={s.invoiceHero}
               >
@@ -1227,7 +1344,7 @@ export default function CreateJobScreen() {
               </LinearGradient>
 
               {services.length > 0 && (
-                <SectionCard title="Services" iconBg="#FEE2E2" Icon={Wrench} iconColor={PRIMARY}>
+                <SectionCard title="Services" iconBg="#EFF6FF" Icon={Wrench} iconColor={PRIMARY}>
                   {services.map((sv, i) => (
                     <View key={i} style={[s.lineItem, i < services.length - 1 && { marginBottom: 12 }]}>
                       <Text style={s.lineItemName}>{sv.name}{sv.qty > 1 ? ` ×${sv.qty}` : ''}</Text>
@@ -1271,7 +1388,7 @@ export default function CreateJobScreen() {
                   style={[s.invoiceActionBtn, pdfLoading === 'download' && { opacity: 0.6 }]}
                   onPress={handleDownloadPdf} disabled={!!pdfLoading} activeOpacity={0.8}
                 >
-                  <View style={[s.invActionIcon, { backgroundColor: '#FEE2E2' }]}>
+                  <View style={[s.invActionIcon, { backgroundColor: '#EFF6FF' }]}>
                     {pdfLoading === 'download'
                       ? <ActivityIndicator size="small" color={PRIMARY} />
                       : <Download size={16} color={PRIMARY} strokeWidth={2} />}
@@ -1349,49 +1466,89 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
   },
   backBtn: {
-    width: 38, height: 38, borderRadius: 10, backgroundColor: '#F3F4F6',
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    paddingRight: 8,
+    paddingVertical: 4,
+    justifyContent: 'center',
   },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle:  { fontSize: 16, fontWeight: '700', color: TEXT, letterSpacing: -0.3 },
-  headerSub:    { fontSize: 11, color: MUTED, marginTop: 2 },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: TEXT, letterSpacing: -0.3 },
+  headerSub: { fontSize: 11, color: MUTED, marginTop: 2 },
   stepBadge: {
     minWidth: 38, height: 26, backgroundColor: '#F3F4F6', borderRadius: 13,
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, flexShrink: 0,
   },
   stepBadgeText: { fontSize: 12, fontWeight: '700', color: TEXT },
-  stepBadgeOf:   { fontSize: 10, fontWeight: '500', color: MUTED },
+  stepBadgeOf: { fontSize: 10, fontWeight: '500', color: MUTED },
 
   /* Progress */
   progressBar: { flexDirection: 'row', gap: 3, paddingHorizontal: 16, backgroundColor: '#fff' },
-  seg:         { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB' },
-  segDone:     { backgroundColor: SUCCESS },
-  segActive:   { backgroundColor: PRIMARY },
+  seg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB' },
+  segDone: { backgroundColor: SUCCESS },
+  segActive: { backgroundColor: PRIMARY },
 
-  /* Step labels */
-  stepLabels: {
-    flexDirection: 'row', paddingHorizontal: 16, paddingTop: 7, paddingBottom: 11,
-    backgroundColor: '#fff', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER,
+  /* Step pills */
+  stepPillsScroll: {
+    backgroundColor: '#fff',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: BORDER,
+    flexGrow: 0,
   },
-  stepLabel:       { flex: 1, fontSize: 9, color: '#D1D5DB', textAlign: 'center', fontWeight: '600' },
-  stepLabelActive: { color: PRIMARY },
+  stepPillsRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 10,
+    gap: 8,
+    alignItems: 'center',
+  },
+  stepPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  stepPillActive: {
+    backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
+  },
+  stepPillDone: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  stepPillText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: MUTED,
+  },
+  stepPillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  stepPillTextDone: {
+    color: '#065F46',
+    fontWeight: '600',
+  },
 
   /* Body */
-  body: { padding: 16 },
+  body: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
 
   /* Chip */
-  chipLabel: { fontSize: 11, fontWeight: '700', color: '#4B5563', letterSpacing: 0.6, marginBottom: 8, textTransform: 'uppercase' },
-  chipRow:   { gap: 8 },
+  chipLabel: { fontSize: 11, fontWeight: '700', color: '#475569', letterSpacing: 0.5, marginBottom: 6, textTransform: 'uppercase' },
+  chipRow: { gap: 8 },
   chip: {
-    paddingHorizontal: 16, paddingVertical: 9,
-    borderRadius: 10, borderWidth: 1.5, borderColor: BORDER, backgroundColor: CARD,
+    paddingHorizontal: 14, paddingVertical: 7,
+    borderRadius: 9, borderWidth: 1, borderColor: BORDER, backgroundColor: CARD,
   },
-  chipActive:     { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  chipText:       { fontSize: 13, fontWeight: '600', color: MUTED },
+  chipActive: { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  chipText: { fontSize: 12.5, fontWeight: '600', color: MUTED },
   chipTextActive: { color: '#fff' },
 
   /* Textarea */
-  areaLabel: { fontSize: 11, fontWeight: '700', color: '#4B5563', letterSpacing: 0.6, marginBottom: 7, textTransform: 'uppercase' },
+  areaLabel: { fontSize: 11, fontWeight: '700', color: '#475569', letterSpacing: 0.5, marginBottom: 5, textTransform: 'uppercase' },
   areaWrap: {
     backgroundColor: CARD, borderRadius: 12, borderWidth: 1, borderColor: BORDER,
     marginBottom: 16, overflow: 'hidden',
@@ -1412,11 +1569,11 @@ const s = StyleSheet.create({
     flex: 1, paddingVertical: 12, borderRadius: 10,
     borderWidth: 1.5, borderColor: BORDER, backgroundColor: '#F9FAFB', alignItems: 'center',
   },
-  fuelBtnActive:  { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  fuelText:       { fontSize: 12, fontWeight: '700', color: MUTED },
+  fuelBtnActive: { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  fuelText: { fontSize: 12, fontWeight: '700', color: MUTED },
   fuelTextActive: { color: '#fff' },
   gaugeTrack: { height: 6, borderRadius: 3, backgroundColor: '#F3F4F6', overflow: 'hidden' },
-  gaugeFill:  { height: '100%', borderRadius: 3 },
+  gaugeFill: { height: '100%', borderRadius: 3 },
 
   /* Photos */
   photoActionsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
@@ -1426,9 +1583,9 @@ const s = StyleSheet.create({
     backgroundColor: '#FEF2F2',
   },
   photoBtnText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
-  thumbRow:     { gap: 10, paddingBottom: 4 },
-  thumbWrap:    { position: 'relative' },
-  thumb:        { width: 90, height: 90, borderRadius: 12 },
+  thumbRow: { gap: 10, paddingBottom: 4 },
+  thumbWrap: { position: 'relative' },
+  thumb: { width: 90, height: 90, borderRadius: 12 },
   thumbDel: {
     position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: 11,
     backgroundColor: DANGER, alignItems: 'center', justifyContent: 'center',
@@ -1439,24 +1596,24 @@ const s = StyleSheet.create({
     borderStyle: 'dashed', backgroundColor: '#F9FAFB',
   },
   photoEmptyText: { fontSize: 13, color: MUTED },
-  photoCount:     { fontSize: 12, color: MUTED, marginTop: 10, textAlign: 'center' },
+  photoCount: { fontSize: 12, color: MUTED, marginTop: 10, textAlign: 'center' },
 
   /* Documents */
-  docHint:  { fontSize: 12, color: MUTED, marginBottom: 12 },
+  docHint: { fontSize: 12, color: MUTED, marginBottom: 12 },
   uploadBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 13, borderRadius: 12, borderWidth: 1.5, borderColor: PRIMARY + '33',
     backgroundColor: '#FEF2F2', marginBottom: 12,
   },
   uploadBtnText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
-  docList:  { gap: 8 },
+  docList: { gap: 8 },
   docRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 11, borderRadius: 10, backgroundColor: '#F9FAFB',
     borderWidth: 1, borderColor: BORDER,
   },
-  docIconWrap: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' },
-  docName:  { flex: 1, fontSize: 13, color: TEXT, fontWeight: '500' },
+  docIconWrap: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center' },
+  docName: { flex: 1, fontSize: 13, color: TEXT, fontWeight: '500' },
   docEmpty: { fontSize: 12, color: MUTED, textAlign: 'center', paddingVertical: 8 },
 
   /* Error banner */
@@ -1468,7 +1625,7 @@ const s = StyleSheet.create({
   errBannerText: { fontSize: 13, color: DANGER, fontWeight: '500', flex: 1 },
 
   /* Service search */
-  searchRow:  { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 14 },
+  searchRow: { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 14 },
   searchBox: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: '#F9FAFB', borderRadius: 12, borderWidth: 1, borderColor: BORDER,
@@ -1491,29 +1648,106 @@ const s = StyleSheet.create({
   },
   suggestChipText: { fontSize: 12, fontWeight: '600', color: PRIMARY },
 
+  /* 2-Column Services Grid */
+  pkgGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  pkgGridCard: {
+    width: '48.5%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 10,
+    justifyContent: 'space-between',
+    minHeight: 70,
+  },
+  pkgGridCardAdded: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  pkgGridTop: {
+    marginBottom: 8,
+  },
+  pkgGridName: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: TEXT,
+    lineHeight: 16,
+  },
+  pkgGridBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pkgGridPrice: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: PRIMARY,
+  },
+  pkgGridBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingVertical: 3,
+    paddingHorizontal: 7,
+    borderRadius: 6,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  pkgGridBadgeAdded: {
+    backgroundColor: '#D1FAE5',
+    borderColor: '#A7F3D0',
+  },
+  pkgGridBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: PRIMARY,
+  },
+  pkgGridBadgeTextAdded: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: SUCCESS,
+  },
+
   /* Service items */
-  svcItem:    { paddingVertical: 4 },
-  svcLeft:    { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  svcItemBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginBottom: 10,
+  },
+  svcLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   svcDot: {
     width: 26, height: 26, borderRadius: 7,
     backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center',
   },
-  svcName:    { flex: 1, fontSize: 14, fontWeight: '600', color: TEXT },
-  svcRight:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 36 },
+  svcName: { flex: 1, fontSize: 14, fontWeight: '600', color: TEXT },
+  svcDeleteBtn: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center',
+  },
+  svcRight: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 36 },
   priceWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     borderWidth: 1, borderColor: BORDER, borderRadius: 9,
     backgroundColor: '#F9FAFB', paddingHorizontal: 10, paddingVertical: 8, flex: 1,
   },
-  rupee:      { fontSize: 13, color: MUTED, fontWeight: '700' },
+  rupee: { fontSize: 13, color: MUTED, fontWeight: '700' },
   priceInput: { flex: 1, fontSize: 14, fontWeight: '600', color: TEXT, paddingVertical: 0 },
-  qtyRow:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   qtyBtn: {
     width: 30, height: 30, borderRadius: 8, borderWidth: 1, borderColor: BORDER,
     backgroundColor: CARD, alignItems: 'center', justifyContent: 'center',
   },
-  qtyVal:     { fontSize: 14, fontWeight: '700', color: TEXT, minWidth: 22, textAlign: 'center' },
-  svcTotal:   { fontSize: 14, fontWeight: '700', color: PRIMARY, minWidth: 66, textAlign: 'right' },
+  qtyVal: { fontSize: 14, fontWeight: '700', color: TEXT, minWidth: 22, textAlign: 'center' },
+  svcTotal: { fontSize: 14, fontWeight: '700', color: PRIMARY, minWidth: 66, textAlign: 'right' },
   svcDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#E5E7EB', marginVertical: 12 },
   svcSummary: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
@@ -1528,25 +1762,29 @@ const s = StyleSheet.create({
   /* ── Labour tiles ──────────────────────────────────────── */
   labourGrid: { flexDirection: 'row', gap: 12 },
   labourTile: {
-    flex: 1, backgroundColor: '#F9FAFB',
-    borderRadius: 14, borderWidth: 1, borderColor: BORDER,
-    padding: 14, gap: 12,
-  },
-  labourTileTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  labourTileIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  labourTileLabel: { fontSize: 10, fontWeight: '800', color: MUTED, letterSpacing: 0.6, textTransform: 'uppercase' },
-
-  /* Stepper */
-  stepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  stepperBtn: {
-    width: 34, height: 34, borderRadius: 10,
-    backgroundColor: CARD, borderWidth: 1, borderColor: BORDER,
-    alignItems: 'center', justifyContent: 'center',
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    gap: 10,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3 },
-      android: { elevation: 1 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6 },
+      android: { elevation: 2 },
       default: {},
     }),
+  },
+  labourTileTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  labourTileIcon: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  labourTileLabel: { fontSize: 10.5, fontWeight: '800', color: '#475569', letterSpacing: 0.6, textTransform: 'uppercase' },
+
+  /* Stepper */
+  stepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
+  stepperBtn: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0',
+    alignItems: 'center', justifyContent: 'center',
   },
   stepperVal: { alignItems: 'center' },
   stepperNum: { fontSize: 22, fontWeight: '800', color: TEXT, letterSpacing: -0.5 },
@@ -1554,28 +1792,43 @@ const s = StyleSheet.create({
 
   /* Labour charge input */
   labourAmtRow: {
-    flexDirection: 'row', alignItems: 'baseline', gap: 3,
-    borderBottomWidth: 2, borderBottomColor: BORDER, paddingBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 10,
+    height: 42,
+    marginTop: 4,
   },
-  labourRupee: { fontSize: 20, fontWeight: '700', color: MUTED },
-  labourAmtInput: { flex: 1, fontSize: 28, fontWeight: '800', color: TEXT, letterSpacing: -0.5, paddingVertical: 0 },
-  labourAmtHint: { fontSize: 10.5, color: MUTED, fontWeight: '500' },
+  labourRupee: { fontSize: 15, fontWeight: '700', color: PRIMARY },
+  labourAmtInput: { flex: 1, fontSize: 18, fontWeight: '800', color: TEXT, letterSpacing: -0.5, paddingVertical: 0 },
+  labourAmtHint: { fontSize: 10.5, color: '#059669', fontWeight: '600', marginTop: 2 },
 
   /* ── Delivery rows ──────────────────────────────────────── */
   deliveryRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingVertical: 14, marginBottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 10,
   },
-  deliveryRowSet:   { /* no extra style needed — driven by child colors */ },
-  deliveryRowError: { backgroundColor: '#FEF2F2', borderRadius: 10 },
+  deliveryRowSet: { backgroundColor: '#FFFFFF', borderColor: '#CBD5E1' },
+  deliveryRowError: { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' },
   deliveryIconWrap: {
-    width: 44, height: 44, borderRadius: 12,
+    width: 40, height: 40, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   deliveryContent: { flex: 1 },
-  deliveryLabel: { fontSize: 10, fontWeight: '800', color: MUTED, letterSpacing: 0.7, textTransform: 'uppercase', marginBottom: 4 },
-  deliveryValue: { fontSize: 15, fontWeight: '700', color: TEXT, letterSpacing: -0.2 },
-  deliveryPlaceholder: { fontSize: 14, color: '#9CA3AF', fontWeight: '400' },
+  deliveryLabel: { fontSize: 10, fontWeight: '800', color: '#475569', letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 2 },
+  deliveryValue: { fontSize: 14, fontWeight: '700', color: TEXT, letterSpacing: -0.2 },
+  deliveryPlaceholder: { fontSize: 13, color: '#9CA3AF', fontWeight: '500' },
   deliveryCheckBadge: {
     width: 26, height: 26, borderRadius: 13,
     backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#BBF7D0',
@@ -1604,14 +1857,14 @@ const s = StyleSheet.create({
     backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center',
   },
   techAvatarText: { fontSize: 18, fontWeight: '700', color: TEXT },
-  techName:       { fontSize: 14, fontWeight: '600', color: TEXT, marginBottom: 2 },
-  techRole:       { fontSize: 12, color: MUTED },
+  techName: { fontSize: 14, fontWeight: '600', color: TEXT, marginBottom: 2 },
+  techRole: { fontSize: 12, color: MUTED },
   availBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4,
   },
-  availDot:   { width: 6, height: 6, borderRadius: 3 },
-  availText:  { fontSize: 11, fontWeight: '600' },
+  availDot: { width: 6, height: 6, borderRadius: 3 },
+  availText: { fontSize: 11, fontWeight: '600' },
 
   /* Picker */
   pickerBtn: {
@@ -1628,8 +1881,8 @@ const s = StyleSheet.create({
     width: 34, height: 34, borderRadius: 9, backgroundColor: '#FEF2F2',
     alignItems: 'center', justifyContent: 'center',
   },
-  pickerLabel:       { fontSize: 10, color: MUTED, fontWeight: '700', marginBottom: 2, letterSpacing: 0.4 },
-  pickerVal:         { fontSize: 13, fontWeight: '600', color: TEXT },
+  pickerLabel: { fontSize: 10, color: MUTED, fontWeight: '700', marginBottom: 2, letterSpacing: 0.4 },
+  pickerVal: { fontSize: 13, fontWeight: '600', color: TEXT },
   pickerPlaceholder: { color: '#9CA3AF', fontWeight: '400' },
   pickerModal: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   pickerSheet: { backgroundColor: '#fff', borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingBottom: 32, overflow: 'hidden' },
@@ -1639,33 +1892,42 @@ const s = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: BORDER,
   },
   pickerSheetTitle: { fontSize: 16, fontWeight: '700', color: TEXT },
-  pickerDone:       { fontSize: 15, fontWeight: '700', color: PRIMARY },
+  pickerDone: { fontSize: 15, fontWeight: '700', color: PRIMARY },
 
   /* Timeline */
-  tlRow:    { flexDirection: 'row', gap: 14 },
-  tlLeft:   { alignItems: 'center', width: 30 },
+  tlRow: { flexDirection: 'row', gap: 14 },
+  tlLeft: { alignItems: 'center', width: 30 },
   tlCircle: {
     width: 30, height: 30, borderRadius: 15,
     borderWidth: 2, borderColor: '#D1D5DB',
     backgroundColor: CARD, alignItems: 'center', justifyContent: 'center', zIndex: 1,
   },
-  tlCircleDone:    { backgroundColor: SUCCESS, borderColor: SUCCESS },
+  tlCircleDone: { backgroundColor: SUCCESS, borderColor: SUCCESS },
   tlCircleCurrent: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  tlPulse:  { width: 10, height: 10, borderRadius: 5, backgroundColor: '#fff' },
-  tlLine:     { width: 2, flex: 1, backgroundColor: '#E5E7EB', minHeight: 24 },
+  tlPulse: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#fff' },
+  tlLine: { width: 2, flex: 1, backgroundColor: '#E5E7EB', minHeight: 24 },
   tlLineDone: { backgroundColor: SUCCESS },
-  tlNum:    { fontSize: 10, fontWeight: '700', color: '#9CA3AF' },
-  tlContent:{ flex: 1, paddingBottom: 24, paddingTop: 5 },
-  tlLabel:  { fontSize: 14, fontWeight: '600', color: TEXT },
-  tlDesc:   { fontSize: 12, color: MUTED, marginTop: 2 },
+  tlNum: { fontSize: 10, fontWeight: '700', color: '#9CA3AF' },
+  tlContent: { flex: 1, paddingBottom: 24, paddingTop: 5 },
+  tlLabel: { fontSize: 14, fontWeight: '600', color: TEXT },
+  tlDesc: { fontSize: 12, color: MUTED, marginTop: 2 },
   tlBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     marginTop: 6, alignSelf: 'flex-start',
     backgroundColor: '#FEF2F2', borderRadius: 7,
     paddingHorizontal: 9, paddingVertical: 4,
   },
-  tlBadgeDot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: PRIMARY },
+  tlBadgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: PRIMARY },
   tlBadgeText: { fontSize: 11, fontWeight: '700', color: PRIMARY },
+  tlBadgeActive: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    marginTop: 6, alignSelf: 'flex-start',
+    backgroundColor: '#ECFDF5', borderRadius: 7,
+    paddingHorizontal: 9, paddingVertical: 4,
+    borderWidth: 1, borderColor: '#A7F3D0',
+  },
+  tlBadgeActiveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: SUCCESS },
+  tlBadgeActiveText: { fontSize: 11, fontWeight: '700', color: SUCCESS },
 
   /* Invoice */
   invoiceHero: {
@@ -1681,17 +1943,17 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.07)',
   },
   invoiceHeroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  invBrand:    { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
-  invTag:      { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
+  invBrand: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
+  invTag: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
   invNumLabel: { fontSize: 9.5, color: 'rgba(255,255,255,0.6)', letterSpacing: 1.5, textTransform: 'uppercase' },
-  invNum:      { fontSize: 16, fontWeight: '700', color: '#fff', marginTop: 3 },
-  invMeta:     { gap: 6 },
-  invMetaRow:  { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  invNum: { fontSize: 16, fontWeight: '700', color: '#fff', marginTop: 3 },
+  invMeta: { gap: 6 },
+  invMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   invMetaText: { fontSize: 12.5, color: 'rgba(255,255,255,0.88)', fontWeight: '500' },
 
-  lineItem:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  lineItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   lineItemName: { fontSize: 13.5, color: TEXT, flex: 1 },
-  lineItemAmt:  { fontSize: 13.5, fontWeight: '600', color: PRIMARY },
+  lineItemAmt: { fontSize: 13.5, fontWeight: '600', color: PRIMARY },
 
   totalsCard: {
     backgroundColor: CARD, borderRadius: 14, borderWidth: 1, borderColor: BORDER,
@@ -1702,15 +1964,15 @@ const s = StyleSheet.create({
       default: {},
     }),
   },
-  totalRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  totalLabel:{ fontSize: 13, color: MUTED },
-  totalVal:  { fontSize: 13, fontWeight: '500', color: TEXT },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  totalLabel: { fontSize: 13, color: MUTED },
+  totalVal: { fontSize: 13, fontWeight: '500', color: TEXT },
   grandRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 14, marginTop: 2,
   },
   grandLabel: { fontSize: 15, fontWeight: '700', color: TEXT },
-  grandVal:   { fontSize: 24, fontWeight: '800', color: PRIMARY, letterSpacing: -0.5 },
+  grandVal: { fontSize: 24, fontWeight: '800', color: PRIMARY, letterSpacing: -0.5 },
 
   invoiceActions: { flexDirection: 'row', gap: 12, marginBottom: 8 },
   invoiceActionBtn: {
@@ -1727,34 +1989,60 @@ const s = StyleSheet.create({
 
   /* Footer */
   footer: {
-    flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingTop: 14,
-    backgroundColor: CARD, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: BORDER,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.06, shadowRadius: 12 },
-      android: { elevation: 10 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.05, shadowRadius: 10 },
+      android: { elevation: 8 },
       default: {},
     }),
   },
   footerBack: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    paddingVertical: 15, paddingHorizontal: 20,
-    borderRadius: 13, borderWidth: 1.5, borderColor: BORDER, backgroundColor: '#F3F4F6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 48,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
   },
-  footerBackText: { fontSize: 14, fontWeight: '600', color: TEXT },
+  footerBackText: { fontSize: 13.5, fontWeight: '600', color: '#334155' },
   footerReset: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingVertical: 15, paddingHorizontal: 16,
-    borderRadius: 13, borderWidth: 1.5, borderColor: '#FECACA', backgroundColor: '#FFF5F5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    height: 48,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
   },
-  footerResetText: { fontSize: 14, fontWeight: '600', color: DANGER },
+  footerResetText: { fontSize: 13, fontWeight: '600', color: DANGER },
   footerNext: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 15, borderRadius: 13, backgroundColor: PRIMARY,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: PRIMARY,
     ...Platform.select({
-      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.32, shadowRadius: 12 },
-      android: { elevation: 6 },
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8 },
+      android: { elevation: 4 },
       default: {},
     }),
   },
-  footerNextText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  footerNextText: { fontSize: 14.5, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.1 },
 });

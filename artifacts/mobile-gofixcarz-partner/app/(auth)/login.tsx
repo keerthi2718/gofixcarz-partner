@@ -14,21 +14,23 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Shield, AlertTriangle, CheckCircle } from 'lucide-react-native';
+import { ShieldCheck, AlertTriangle, CheckCircle, ChevronLeft } from 'lucide-react-native';
 import { useAuth } from '@/src/context/AuthContext';
 
 /* ─────────────── Tokens ─────────────── */
-const PRIMARY = '#C41E3A';
-const DANGER  = '#DC2626';
+const PRIMARY = '#2563EB';
+const PRIMARY_DARK = '#1E40AF';
+const DANGER = '#DC2626';
 const SUCCESS = '#16A34A';
-const MUTED   = '#94A3B8';
-const TEXT    = '#0F172A';
+const MUTED = '#94A3B8';
+const TEXT = '#0F172A';
 
 /* ── Shadow helpers ── */
 const SHADOW_CARD = Platform.select({
-  ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 },
+  ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 },
   android: { elevation: 4 },
   default: {},
 });
@@ -61,40 +63,42 @@ export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { signIn, isLoading, error, clearError } = useAuth();
 
-  const [mobile,  setMobile]  = useState('');
+  const [mobile, setMobile] = useState('');
   const [focused, setFocused] = useState(false);
   const [touched, setTouched] = useState(false);
 
   function handleChange(raw: string) {
     clearError();
-    setMobile(raw.replace(/\D/g, '').slice(0, 10));
+    const cleaned = raw.replace(/\D/g, '').slice(0, 10);
+    setMobile(cleaned);
+    if (cleaned.length === 0) {
+      setTouched(false);
+    }
   }
 
   const isValid = mobile.length === 10;
-  const isEmpty = touched && mobile.length === 0;
   const isTooShort = touched && mobile.length > 0 && mobile.length < 10;
 
   // Derive border color:
   // error/invalid → red | valid → green | focused → primary | default → grey
   function getBorderColor() {
-    if (error || isEmpty || isTooShort) return DANGER;
+    if (error || isTooShort) return DANGER;
     if (isValid && touched) return SUCCESS;
     if (focused) return PRIMARY;
     return '#E2E8F0';
   }
   const borderColor = getBorderColor();
-  const bgColor = (error || isEmpty || isTooShort)
+  const bgColor = (error || isTooShort)
     ? '#FEF2F2'
     : (isValid && touched)
-    ? '#F0FDF4'
-    : '#F8FAFC';
+      ? '#F0FDF4'
+      : '#F8FAFC';
 
   // Inline validation message
   const validationMsg: string | null =
-    isEmpty            ? 'Mobile number is required.'
-    : isTooShort       ? 'Please enter a valid 10-digit mobile number.'
-    : error            ? error
-    : null;
+    isTooShort ? 'Please enter a valid 10-digit mobile number.'
+      : error ? error
+        : null;
 
   const showSuccess = isValid && touched && !error;
 
@@ -106,27 +110,50 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView style={s.kav} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+      <StatusBar barStyle="light-content" backgroundColor={PRIMARY_DARK} />
 
       <ScrollView
         contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 48 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Top area */}
-        <View style={[s.topArea, { paddingTop: 64 + insets.top }]}>
+        {/* Executive Hero Header matching Sign Up page */}
+        <LinearGradient
+          colors={[PRIMARY_DARK, PRIMARY]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[s.heroHeader, { paddingTop: insets.top + (Platform.OS === 'web' ? 64 : 20) }]}
+        >
+          {router.canGoBack() && (
+            <TouchableOpacity
+              style={s.backBtn}
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <ChevronLeft size={24} color="#FFFFFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+          )}
+
           <Image
             source={require('@/assets/images/logo_clean.png')}
             style={s.logoImage}
             resizeMode="contain"
           />
-          <Text style={s.portalLabel}>Partner Portal</Text>
-        </View>
 
-        {/* Main card */}
-        <View style={[s.card, SHADOW_CARD]}>
-          <Text style={s.welcomeTitle}>Welcome back</Text>
-          <Text style={s.welcomeSub}>Enter your mobile number to continue</Text>
+          <View style={s.badgePill}>
+            <ShieldCheck size={12} color="#FFFFFF" strokeWidth={2.5} />
+            <Text style={s.badgePillText}>PARTNER PORTAL</Text>
+          </View>
+
+          <Text style={s.heroTitle}>Partner Sign In</Text>
+          <Text style={s.heroSubtitle}>Enter your registered mobile number to continue</Text>
+        </LinearGradient>
+
+        {/* Main Form Container */}
+        <View style={s.formContainer}>
+          <Text style={s.welcomeTitle}>Welcome Back</Text>
+          <Text style={s.welcomeSub}>Enter your registered mobile number to continue</Text>
 
           {/* Phone input */}
           <View style={[s.inputRow, { borderColor, backgroundColor: bgColor, borderWidth: 1.5 }]}>
@@ -149,7 +176,7 @@ export default function LoginScreen() {
               autoComplete="tel"
             />
             {/* Right-side status icon */}
-            {(isEmpty || isTooShort || !!error) && (
+            {(isTooShort || !!error) && (
               <AlertTriangle size={17} color={DANGER} strokeWidth={2} style={{ marginRight: 4 }} />
             )}
             {showSuccess && (
@@ -189,7 +216,7 @@ export default function LoginScreen() {
 
           <Text style={s.termsText}>
             {'By continuing, you agree to our '}
-            <Text style={s.termsLink}>Terms &amp; Privacy</Text>
+            <Text style={s.termsLink} onPress={() => router.push('/(tabs)/more/privacy' as never)}>Terms &amp; Privacy</Text>
           </Text>
         </View>
 
@@ -204,7 +231,7 @@ export default function LoginScreen() {
         {/* Trust strip */}
         <View style={s.trustStrip}>
           <View style={s.trustItem}>
-            <Shield size={14} color={MUTED} />
+            <ShieldCheck size={14} color={MUTED} />
             <Text style={s.trustLabel}>Secure Login</Text>
           </View>
         </View>
@@ -214,42 +241,69 @@ export default function LoginScreen() {
 }
 
 const s = StyleSheet.create({
-  kav:    { flex: 1, backgroundColor: '#F8FAFC' },
+  kav: { flex: 1, backgroundColor: '#F8FAFC' },
   scroll: { flexGrow: 1 },
 
-  topArea:     { alignItems: 'center', paddingHorizontal: 16 },
-  logoImage:   { width: 180, height: 72, marginBottom: 4 },
-  portalLabel: { fontSize: 14, color: MUTED, marginTop: 2 },
+  heroHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    alignItems: 'center',
+  },
+  backBtn: {
+    position: 'absolute',
+    left: 16,
+    top: Platform.OS === 'web' ? 76 : 54,
+    padding: 6,
+    zIndex: 10,
+  },
+  logoImage: { width: 180, height: 72, marginBottom: 4 },
+  badgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(255,255,255,0.3)',
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    marginBottom: 10,
+  },
+  badgePillText: { fontSize: 10, fontWeight: '700', color: '#FFFFFF', letterSpacing: 1 },
+  heroTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.4, textAlign: 'center' },
+  heroSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.85)', textAlign: 'center', marginTop: 4, paddingHorizontal: 20 },
 
-  card:         { marginHorizontal: 16, marginTop: 40, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24 },
-  welcomeTitle: { fontSize: 20, fontWeight: '700', color: TEXT },
-  welcomeSub:   { fontSize: 14, color: MUTED, marginTop: 4 },
+  formContainer: { paddingHorizontal: 20, paddingTop: 24 },
+  welcomeTitle: { fontSize: 18, fontWeight: '700', color: TEXT },
+  welcomeSub: { fontSize: 13, color: MUTED, marginTop: 4 },
 
   inputRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     marginTop: 20, borderRadius: 12, height: 52, paddingHorizontal: 16,
   },
   countryCode: { fontSize: 14, fontWeight: '700', color: TEXT },
-  divider:     { width: 1, height: 16, backgroundColor: '#E2E8F0' },
-  textInput:   { flex: 1, fontSize: 15, fontWeight: '500', color: TEXT, paddingVertical: 0, includeFontPadding: false },
+  divider: { width: 1, height: 16, backgroundColor: '#E2E8F0' },
+  textInput: { flex: 1, fontSize: 15, fontWeight: '500', color: TEXT, paddingVertical: 0, includeFontPadding: false },
 
-  inlineError:   { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
-  inlineErrorTxt:{ fontSize: 12, color: DANGER },
-  inlineSuccess:  { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
-  inlineSuccessTxt:{ fontSize: 12, color: SUCCESS, fontWeight: '500' },
+  inlineError: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
+  inlineErrorTxt: { fontSize: 12, color: DANGER },
+  inlineSuccess: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
+  inlineSuccessTxt: { fontSize: 12, color: SUCCESS, fontWeight: '500' },
 
-  otpButton:         { marginTop: 20, width: '100%', height: 52, backgroundColor: PRIMARY, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  otpButton: { marginTop: 20, width: '100%', height: 52, backgroundColor: PRIMARY, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   otpButtonDisabled: { opacity: 0.55 },
-  otpButtonText:     { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  otpButtonText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 
   termsText: { marginTop: 16, textAlign: 'center', fontSize: 12, color: MUTED },
   termsLink: { color: PRIMARY },
 
-  signupRow:  { marginTop: 24, alignItems: 'center' },
+  signupRow: { marginTop: 24, alignItems: 'center' },
   signupText: { fontSize: 14, color: MUTED, textAlign: 'center' },
   signupLink: { color: PRIMARY, fontWeight: '700' },
 
   trustStrip: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 32, paddingBottom: 8 },
-  trustItem:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  trustItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   trustLabel: { fontSize: 10, color: MUTED, fontWeight: '500' },
 });

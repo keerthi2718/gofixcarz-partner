@@ -7,9 +7,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const CRIMSON  = '#C41E3A';
-const CRIMSON2 = '#921527';
-const CRIMSON3 = '#6B0F1E';
+const PRIMARY  = '#2563EB';
+const PRIMARY2 = '#1E40AF';
+const PRIMARY3 = '#1E3A8A';
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
@@ -80,11 +80,11 @@ export default function WelcomeScreen() {
       activeOpacity={1}
       onPress={() => router.replace('/(auth)/login')}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#150408" />
+      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
       <LinearGradient
-        colors={['#150408', '#1E0610', '#2A0912', '#150408']}
-        locations={[0, 0.35, 0.65, 1]}
+        colors={['#0F172A', '#1E293B', '#0F172A']}
+        locations={[0, 0.5, 1]}
         style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom + 24 }]}
       >
         {/* ── Top brand chip ── */}
@@ -151,13 +151,13 @@ const styles = StyleSheet.create({
   topChip: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
     marginTop: 16,
-    backgroundColor: 'rgba(196,30,58,0.15)',
-    borderWidth: 1, borderColor: 'rgba(196,30,58,0.30)',
+    backgroundColor: 'rgba(37,99,235,0.15)',
+    borderWidth: 1, borderColor: 'rgba(37,99,235,0.30)',
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
   },
   topChipDot: {
     width: 6, height: 6, borderRadius: 3,
-    backgroundColor: CRIMSON,
+    backgroundColor: PRIMARY,
   },
   topChipText: {
     fontSize: 10, fontWeight: '700',
@@ -177,15 +177,15 @@ const styles = StyleSheet.create({
   },
   ring1: {
     width: 160, height: 160,
-    borderColor: `rgba(196,30,58,0.45)`,
+    borderColor: `rgba(37,99,235,0.45)`,
   },
   ring2: {
     width: 210, height: 210,
-    borderColor: `rgba(196,30,58,0.25)`,
+    borderColor: `rgba(37,99,235,0.25)`,
   },
   ring3: {
     width: 265, height: 265,
-    borderColor: `rgba(196,30,58,0.12)`,
+    borderColor: `rgba(37,99,235,0.12)`,
   },
 
   glowDisc: {
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     width: 130, height: 130, borderRadius: 65,
     backgroundColor: 'rgba(255,255,255,0.06)',
     ...Platform.select({
-      ios: { shadowColor: CRIMSON, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 30 },
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 30 },
       android: { elevation: 0 },
       default: {},
     }),
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: -0.8,
     ...Platform.select({
-      ios: { shadowColor: CRIMSON, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.6, shadowRadius: 10 },
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.6, shadowRadius: 10 },
       default: {},
     }),
   },
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   },
   dividerLine: {
     width: 30, height: 1,
-    backgroundColor: 'rgba(196,30,58,0.50)',
+    backgroundColor: 'rgba(37,99,235,0.50)',
   },
   tagline: {
     fontSize: 12, fontWeight: '600',
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     width: 20, borderRadius: 3,
-    backgroundColor: CRIMSON,
+    backgroundColor: PRIMARY,
   },
   tapHint: {
     fontSize: 11, color: 'rgba(255,255,255,0.28)',

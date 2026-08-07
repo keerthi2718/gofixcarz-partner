@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, CalendarClock, Wrench, BarChart2, MoreHorizontal } from 'lucide-react-native';
 
 /* ── Tokens ── */
-const PRIMARY  = '#C41E3A';
+const PRIMARY  = '#2563EB';
 const INACTIVE = '#94A3B8';
 const BORDER   = '#E2E8F0';
 
@@ -17,13 +17,20 @@ const TABS = [
   { name: 'more',      label: 'More',      Icon: MoreHorizontal},
 ];
 
-const HIDDEN_PATHS = ['/jobs/create'];
+const HIDDEN_PATH_PREFIXES = [
+  '/jobs/create',
+  '/services',
+  '/profile',
+  '/more/privacy',
+  '/more/help',
+  '/more/notifications',
+];
 
 function TabBar({ state, descriptors, navigation }: any) {
   const insets   = useSafeAreaInsets();
   const pathname = usePathname();
 
-  if (HIDDEN_PATHS.some(p => pathname.endsWith(p))) return null;
+  if (HIDDEN_PATH_PREFIXES.some(p => pathname.includes(p))) return null;
 
   return (
     <View style={[styles.bar, { paddingBottom: insets.bottom || 8 }]}>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Platform,
   RefreshControl,
@@ -14,15 +14,15 @@ import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import {
   Bell,
-  Calendar,
   Wrench,
-  BarChart2,
+  PlusCircle,
 } from 'lucide-react-native';
 
 import { QUERY_KEYS } from '@/src/constants/api';
 import DashboardService from '@/src/services/dashboard.service';
 import BookingService from '@/src/services/booking.service';
 import GarageService from '@/src/services/garage.service';
+import JobService from '@/src/services/job.service';
 import { formatCurrency } from '@/src/utils/helpers';
 import { useNotificationContext } from '@/src/context/NotificationContext';
 
@@ -44,11 +44,22 @@ const BOOKING_STATUS: Record<string, { label: string; color: string; bg: string;
 
 /* ─── Quick actions ─────────────────────────────────────────────────────── */
 const QUICK_ACTIONS = [
-  { label: 'New Booking', Icon: Calendar,  route: '/(tabs)/bookings' as const },
-  { label: 'Create Job',  Icon: Wrench,    route: '/jobs/create'     as const },
-
-  { label: 'Reports',     Icon: BarChart2, route: '/(tabs)/analytics'as const },
+  { label: 'Create Job',  Icon: Wrench,     route: '/jobs/create'     as const },
+  { label: 'Add Service', Icon: PlusCircle, route: '/services/create' as const },
 ];
+
+/* ─── Helpers ───────────────────────────────────────────────────────────── */
+/** Check if a date string falls on today (local time) */
+function isToday(dateStr: string | null | undefined): boolean {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth()    === now.getMonth() &&
+    d.getDate()     === now.getDate()
+  );
+}
 
 /* ─── Component ─────────────────────────────────────────────────────────── */
 export default function DashboardScreen() {
@@ -56,18 +67,24 @@ export default function DashboardScreen() {
 
   /* ── Queries ── */
   const {
-    data,
-    isLoading: dashLoading,
+    data: dashData,
     isRefetching,
     refetch,
   } = useQuery({
     queryKey: QUERY_KEYS.DASHBOARD,
     queryFn:  DashboardService.get,
+    retry: 1, // API may not exist — don't hammer
   });
 
   const { data: bookingsData, isLoading: bookingsLoading } = useQuery({
     queryKey: QUERY_KEYS.BOOKINGS({ page_size: 50 }),
     queryFn:  () => BookingService.list({ page_size: 50 }),
+  });
+
+  // Fetch jobs using shared query key so cache is shared with Analytics.
+  const { data: jobsData, isLoading: jobsLoading } = useQuery({
+    queryKey: QUERY_KEYS.JOBS({}),
+    queryFn:  () => JobService.list({}),
   });
 
   const { data: garage } = useQuery({
@@ -79,18 +96,51 @@ export default function DashboardScreen() {
 
   const garageName = garage?.name ?? '';
 
-  /* Filter to only today's bookings for the dashboard section */
-  const today = new Date();
+  /* ── Derive KPIs from real job + booking data (matching Analytics tab logic) ── */
+  const allJobs = jobsData?.items ?? [];
   const allBookings = bookingsData?.items ?? [];
-  const bookings = allBookings.filter(b => {
-    if (!b.booking_date) return false;
-    const d = new Date(b.booking_date);
-    return (
-      d.getFullYear() === today.getFullYear() &&
-      d.getMonth()    === today.getMonth()    &&
-      d.getDate()     === today.getDate()
-    );
-  });
+
+  const kpis = useMemo(() => {
+    // 1. Revenue Today — match Analytics jobRevenue calculation
+    let revenueToday = dashData?.revenue_today ?? 0;
+    if (!revenueToday) {
+      revenueToday = allJobs.reduce((sum, job) => {
+        const jobDate = job.completed_at ?? job.created_at ?? job.updated_at;
+        if (!isToday(jobDate)) return sum;
+        const amt = job.billing?.grand_total ?? job.final_amount ?? job.estimated_amount ?? (job as any).price ?? 0;
+        const numAmt = typeof amt === 'number' ? (isNaN(amt) ? 0 : amt) : parseFloat(amt) || 0;
+        return sum + numAmt;
+      }, 0);
+    }
+
+    // 2. Active Jobs — OPEN, IN_PROGRESS, WAITING_FOR_PARTS, QUALITY_CHECK, READY
+    const activeStatuses = new Set(['OPEN', 'IN_PROGRESS', 'WAITING_FOR_PARTS', 'QUALITY_CHECK', 'READY']);
+    const calculatedActive = allJobs.filter(j => activeStatuses.has(j.status)).length;
+    const activeJobs = (dashData?.open_jobs && dashData.open_jobs > 0) ? dashData.open_jobs : calculatedActive;
+
+    // 3. In Progress Jobs — IN_PROGRESS, WAITING_FOR_PARTS, QUALITY_CHECK
+    const calculatedInProgress = allJobs.filter(j => j.status === 'IN_PROGRESS' || j.status === 'WAITING_FOR_PARTS' || j.status === 'QUALITY_CHECK').length;
+    const inProgressJobs = (dashData?.in_progress_jobs && dashData.in_progress_jobs > 0) ? dashData.in_progress_jobs : calculatedInProgress;
+
+    // 4. Pending Bookings — PENDING status
+    const calculatedPending = allBookings.filter(b => b.status === 'PENDING').length;
+    const pendingBookings = (dashData?.pending_bookings && dashData.pending_bookings > 0) ? dashData.pending_bookings : calculatedPending;
+
+    // 5. Completed Jobs — COMPLETED or DELIVERED status (matching Analytics tab logic)
+    const completedJobs = allJobs.filter(j => j.status === 'COMPLETED' || (j.status as string) === 'DELIVERED').length;
+    const completedTodayJobs = allJobs.filter(j => {
+      if (j.status !== 'COMPLETED' && (j.status as string) !== 'DELIVERED') return false;
+      const d = j.completed_at ?? j.updated_at ?? j.created_at;
+      return isToday(d);
+    }).length;
+
+    return { revenueToday, activeJobs, inProgressJobs, pendingBookings, completedJobs, completedTodayJobs };
+  }, [dashData, allJobs, allBookings]);
+
+  const kpiLoading = jobsLoading;
+
+  /* Filter to only today's bookings for the dashboard section */
+  const bookings = allBookings.filter(b => isToday(b.booking_date));
 
   return (
     <View style={styles.root}>
@@ -107,12 +157,12 @@ export default function DashboardScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            tintColor="#C41E3A"
+            tintColor="#2563EB"
           />
         }
       >
         {/* ── Header ── */}
-        <View style={[styles.header, { paddingTop: 40 + insets.top }]}>
+        <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? 20 : 12) + insets.top }]}>
           <Text style={styles.headerGreeting}>Dashboard</Text>
           <TouchableOpacity
             activeOpacity={0.7}
@@ -135,8 +185,8 @@ export default function DashboardScreen() {
           {/* Today's Revenue */}
           <View style={[styles.kpiCard, SHADOW_CARD]}>
             <Text style={styles.kpiLabel}>Today's Revenue</Text>
-            <Text style={[styles.kpiValue, { color: '#C41E3A' }]}>
-              {dashLoading ? '—' : formatCurrency(data?.revenue_today ?? 0)}
+            <Text style={[styles.kpiValue, { color: '#2563EB' }]}>
+              {kpiLoading ? '—' : formatCurrency(kpis.revenueToday)}
             </Text>
           </View>
 
@@ -144,12 +194,12 @@ export default function DashboardScreen() {
           <View style={[styles.kpiCard, SHADOW_CARD]}>
             <Text style={styles.kpiLabel}>Active Jobs</Text>
             <Text style={[styles.kpiValue, { color: '#0F172A' }]}>
-              {dashLoading ? '—' : (data?.open_jobs ?? 0)}
+              {kpiLoading ? '—' : kpis.activeJobs}
             </Text>
-            {!dashLoading && !!data?.in_progress_jobs && (
+            {!kpiLoading && kpis.inProgressJobs > 0 && (
               <View style={styles.kpiSubRow}>
                 <View style={styles.urgentDot} />
-                <Text style={[styles.kpiSubText, { color: '#D97706' }]}>{data.in_progress_jobs} in progress</Text>
+                <Text style={[styles.kpiSubText, { color: '#D97706' }]}>{kpis.inProgressJobs} in progress</Text>
               </View>
             )}
           </View>
@@ -158,14 +208,28 @@ export default function DashboardScreen() {
           <View style={[styles.kpiCard, SHADOW_CARD]}>
             <Text style={styles.kpiLabel}>Bookings</Text>
             <Text style={[styles.kpiValue, { color: '#0F172A' }]}>
-              {dashLoading ? '—' : (data?.pending_bookings ?? 0)}
+              {kpiLoading ? '—' : kpis.pendingBookings}
             </Text>
             <Text style={[styles.kpiSubText, { color: '#64748B', marginTop: 6 }]}>
-              {dashLoading ? '' : `${data?.pending_bookings ?? 0} pending`}
+              {kpiLoading ? '' : `${kpis.pendingBookings} pending`}
             </Text>
           </View>
 
-
+          {/* Completed Jobs */}
+          <View style={[styles.kpiCard, SHADOW_CARD]}>
+            <Text style={styles.kpiLabel}>Completed Jobs</Text>
+            <Text style={[styles.kpiValue, { color: '#10B981' }]}>
+              {kpiLoading ? '—' : kpis.completedJobs}
+            </Text>
+            {!kpiLoading && (
+              <View style={styles.kpiSubRow}>
+                <View style={[styles.urgentDot, { backgroundColor: '#10B981' }]} />
+                <Text style={[styles.kpiSubText, { color: '#059669' }]}>
+                  {kpis.completedTodayJobs > 0 ? `${kpis.completedTodayJobs} done today` : 'Delivered & Done'}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {/* ── Quick Actions ── */}
@@ -296,7 +360,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   headerGreeting: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.5,
@@ -477,7 +541,7 @@ const styles = StyleSheet.create({
   seeAll: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#C41E3A',
+    color: '#2563EB',
   },
 
   /* Job list */

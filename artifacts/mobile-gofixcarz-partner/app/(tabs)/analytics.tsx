@@ -1,110 +1,84 @@
 import React, { useState, useCallback } from 'react';
 import {
-  Platform,
-  RefreshControl,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  useWindowDimensions,
+  ActivityIndicator, Platform, RefreshControl, ScrollView,
+  StatusBar, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, {
-  Path,
-  Circle,
-  Rect,
-  Line,
-  Defs,
-  LinearGradient as SvgGrad,
-  Stop,
-  Text as SvgText,
-  G,
-} from 'react-native-svg';
-import { TrendingUp } from 'lucide-react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { Feather } from '@/src/components/ui/FeatherIcon';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import JobService from '@/src/services/job.service';
-import { formatCurrency } from '@/src/utils/helpers';
+import DashboardService from '@/src/services/dashboard.service';
+import { QUERY_KEYS } from '@/src/constants/api';
+import { formatCurrency, formatDate } from '@/src/utils/helpers';
 import type { JobResponse } from '@/src/types';
 
-/* ─── Tokens ─────────────────────────────────────────────── */
-const BG        = '#F8FAFC';
-const CARD      = '#FFFFFF';
-const PRIMARY   = '#C41E3A';
-const TEXT      = '#0F172A';
-const MUTED     = '#64748B';
-const SUBTLE    = '#94A3B8';
-const DIVIDER   = '#F1F5F9';
-const SUCCESS   = '#059669';
-const INFO      = '#2563EB';
+/* ── Tokens ── */
+const BG      = '#EEEEF6';
+const CARD    = '#FFFFFF';
+const PRIMARY = '#2563EB';
+const INDIGO  = '#6366F1';
+const SUCCESS = '#10B981';
+const WARNING = '#F59E0B';
+const INFO    = '#3B82F6';
+const TEXT    = '#1E293B';
+const MUTED   = '#64748B';
+const BORDER  = 'rgba(226,232,240,0.7)';
 
-const SHADOW_CARD = Platform.select({
-  ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
-  android: { elevation: 2 },
-  default: {},
-}) ?? {};
-
-/* ─── Period ──────────────────────────────────────────────── */
 type UIPeriod = 'all' | 'year' | 'month' | 'week';
 
 const PERIODS: { label: string; value: UIPeriod }[] = [
-  { label: 'All Time', value: 'all'   },
-  { label: 'Yearly',   value: 'year'  },
-  { label: 'Monthly',  value: 'month' },
-  { label: 'Weekly',   value: 'week'  },
+  { label: 'All',     value: 'all'   },
+  { label: 'Yearly',  value: 'year'  },
+  { label: 'Monthly', value: 'month' },
+  { label: 'Weekly',  value: 'week'  },
 ];
 
-const PERIOD_LABEL: Record<UIPeriod, string> = {
-  all:   'All time',
-  year:  'This year',
-  month: 'This month',
-  week:  'Last 7 days',
+const STATUS_COLORS: Record<string, string> = {
+  OPEN:              '#3B82F6',
+  IN_PROGRESS:       '#8B5CF6',
+  WAITING_FOR_PARTS: '#F59E0B',
+  QUALITY_CHECK:     '#6366F1',
+  READY:             '#10B981',
+  COMPLETED:         '#059669',
+  DELIVERED:         '#059669',
+  CANCELLED:         '#EF4444',
 };
 
-/* ─── Status colors ───────────────────────────────────────── */
-const STATUS_COLORS: Record<string, string> = {
-  COMPLETED:         SUCCESS,
-  DELIVERED:         SUCCESS,
-  IN_PROGRESS:       INFO,
-  OPEN:              '#F97316',
-  WAITING_FOR_PARTS: '#8B5CF6',
-  QUALITY_CHECK:     '#0EA5E9',
-  READY:             '#10B981',
-  CANCELLED:         PRIMARY,
-};
 const STATUS_LABELS: Record<string, string> = {
-  COMPLETED:         'Completed',
-  DELIVERED:         'Delivered',
-  IN_PROGRESS:       'In Progress',
   OPEN:              'Open',
+  IN_PROGRESS:       'In Progress',
   WAITING_FOR_PARTS: 'Waiting Parts',
   QUALITY_CHECK:     'Quality Check',
-  READY:             'Ready',
+  READY:             'Ready for Pickup',
+  COMPLETED:         'Completed',
+  DELIVERED:         'Delivered',
   CANCELLED:         'Cancelled',
 };
 
-/* ─── Analytics helpers ───────────────────────────────────── */
-function jobRevenue(job: JobResponse): number {
-  return (job as any).billing?.grand_total ?? job.final_amount ?? job.estimated_amount ?? 0;
+/* ── Helpers ── */
+function getJobDate(job: JobResponse): Date {
+  if (!job.created_at) return new Date();
+  const d = new Date(job.created_at);
+  return isNaN(d.getTime()) ? new Date() : d;
 }
 
-function filterByPeriod(jobs: JobResponse[], period: UIPeriod): JobResponse[] {
-  if (period === 'all') return jobs;
+function jobRevenue(job: JobResponse): number {
+  const amt = (job as any).billing?.grand_total ?? job.final_amount ?? job.estimated_amount ?? (job as any).price ?? 0;
+  return typeof amt === 'number' ? (isNaN(amt) ? 0 : amt) : parseFloat(amt) || 0;
+}
+
+function filterByPeriod(allJobs: JobResponse[], period: UIPeriod): JobResponse[] {
+  if (period === 'all') return allJobs;
   const now = new Date();
-  return jobs.filter(j => {
-    const d = new Date(j.created_at);
+  return allJobs.filter(j => {
+    const d = getJobDate(j);
     if (period === 'week') {
-      const cutoff = new Date(now);
-      cutoff.setDate(cutoff.getDate() - 6);
-      cutoff.setHours(0, 0, 0, 0);
+      const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 6); cutoff.setHours(0,0,0,0);
       return d >= cutoff;
     }
-    if (period === 'month') {
-      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-    }
-    // year
+    if (period === 'month') return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
     return d.getFullYear() === now.getFullYear();
   });
 }
@@ -113,397 +87,476 @@ interface GraphPoint { label: string; revenue: number; job_count: number; }
 
 function buildGraph(jobs: JobResponse[], period: UIPeriod): GraphPoint[] {
   const now = new Date();
-
   if (period === 'week' || period === 'all') {
-    // Group last 7 days
     return Array.from({ length: 7 }, (_, i) => {
-      const day = new Date(now);
-      day.setDate(day.getDate() - (6 - i));
-      const dateStr = day.toISOString().slice(0, 10);
-      const dayJobs = jobs.filter(j => j.created_at.slice(0, 10) === dateStr);
+      const day = new Date(now); day.setDate(day.getDate() - (6 - i));
+      const dj = jobs.filter(j => {
+        const jd = getJobDate(j);
+        return jd.getFullYear() === day.getFullYear() &&
+               jd.getMonth() === day.getMonth() &&
+               jd.getDate() === day.getDate();
+      });
       return {
         label: day.toLocaleDateString('en-IN', { weekday: 'short' }),
-        revenue: dayJobs.reduce((s, j) => s + jobRevenue(j), 0),
-        job_count: dayJobs.length,
+        revenue: dj.reduce((s, j) => s + jobRevenue(j), 0),
+        job_count: dj.length,
       };
     });
   }
-
   if (period === 'month') {
-    const points: GraphPoint[] = [];
-    let weekStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    let wn = 1;
-    while (weekStart <= now) {
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 6);
-      const weekEnd2 = weekEnd; // copy for closure
-      const wj = jobs.filter(j => {
-        const d = new Date(j.created_at);
-        return d >= weekStart && d <= weekEnd2;
-      });
-      points.push({ label: `W${wn}`, revenue: wj.reduce((s, j) => s + jobRevenue(j), 0), job_count: wj.length });
-      weekStart = new Date(weekStart);
-      weekStart.setDate(weekStart.getDate() + 7);
-      wn++;
+    const pts: GraphPoint[] = [];
+    let ws = new Date(now.getFullYear(), now.getMonth(), 1); let wn = 1;
+    while (ws <= now) {
+      const we = new Date(ws); we.setDate(we.getDate() + 6); we.setHours(23,59,59,999);
+      const wj = jobs.filter(j => { const d = getJobDate(j); return d >= ws && d <= we; });
+      pts.push({ label: `W${wn}`, revenue: wj.reduce((s, j) => s + jobRevenue(j), 0), job_count: wj.length });
+      ws = new Date(ws); ws.setDate(ws.getDate() + 7); wn++;
     }
-    return points;
+    return pts;
   }
-
-  // year — group by month
-  const earliest = jobs.length
-    ? new Date(Math.min(...jobs.map(j => new Date(j.created_at).getTime())))
-    : new Date(now.getFullYear(), 0, 1);
-  const startMonth = earliest.getFullYear() < now.getFullYear() ? 0 : earliest.getMonth();
-  return Array.from({ length: now.getMonth() - startMonth + 1 }, (_, i) => {
-    const m = startMonth + i;
-    const mj = jobs.filter(j => {
-      const d = new Date(j.created_at);
-      return d.getFullYear() === now.getFullYear() && d.getMonth() === m;
-    });
-    return {
-      label: new Date(now.getFullYear(), m, 1).toLocaleDateString('en-IN', { month: 'short' }),
-      revenue: mj.reduce((s, j) => s + jobRevenue(j), 0),
-      job_count: mj.length,
-    };
+  return Array.from({ length: now.getMonth() + 1 }, (_, m) => {
+    const mj = jobs.filter(j => { const d = getJobDate(j); return d.getFullYear() === now.getFullYear() && d.getMonth() === m; });
+    return { label: new Date(now.getFullYear(), m, 1).toLocaleDateString('en-IN', { month: 'short' }), revenue: mj.reduce((s, j) => s + jobRevenue(j), 0), job_count: mj.length };
   });
 }
 
-/* ─── Bezier path ─────────────────────────────────────────── */
-function bezierPath(pts: { x: number; y: number }[]) {
-  if (pts.length < 2) return '';
-  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const dx = (pts[i + 1].x - pts[i].x) * 0.4;
-    d += ` C${(pts[i].x + dx).toFixed(1)},${pts[i].y.toFixed(1)} ${(pts[i + 1].x - dx).toFixed(1)},${pts[i + 1].y.toFixed(1)} ${pts[i + 1].x.toFixed(1)},${pts[i + 1].y.toFixed(1)}`;
-  }
-  return d;
+/* ── UI sub-components ── */
+function SkeletonBlock({ height = 16, width = '100%', radius = 8, style }: {
+  height?: number; width?: number | string; radius?: number; style?: object;
+}) {
+  return <View style={[{ height, width: width as any, borderRadius: radius, backgroundColor: '#E2E8F0' }, style]} />;
 }
 
-/* ─── Revenue chart ───────────────────────────────────────── */
-function RevenueTrendChart({ graphData }: { graphData: GraphPoint[] }) {
-  const { width } = useWindowDimensions();
-  const chartW = width - 72;
-  const chartH = 140;
-  const padL   = 40;
-  const innerW = chartW - padL;
-
-  const hasRevenue = graphData.some(p => p.revenue > 0);
-
-  if (!graphData.length || !hasRevenue) {
-    return (
-      <View style={{ height: chartH, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: SUBTLE, fontSize: 13 }}>No billing amounts recorded yet</Text>
+function SectionCard({ icon, title, iconBg = '#EFF6FF', iconFg = PRIMARY, children }: {
+  icon: React.ComponentProps<typeof Feather>['name']; title: string;
+  iconBg?: string; iconFg?: string; children: React.ReactNode;
+}) {
+  return (
+    <View style={cardSt.card}>
+      <View style={cardSt.header}>
+        <View style={[cardSt.iconWrap, { backgroundColor: iconBg }]}>
+          <Feather name={icon} size={15} color={iconFg} />
+        </View>
+        <Text style={cardSt.title}>{title}</Text>
       </View>
-    );
-  }
-
-  const maxRev  = Math.max(...graphData.map(p => p.revenue), 1);
-  const pts     = graphData.map((p, i) => ({
-    x: padL + (graphData.length === 1 ? innerW / 2 : (i / (graphData.length - 1)) * innerW),
-    y: chartH - Math.max((p.revenue / maxRev) * chartH * 0.88, 4),
-  }));
-  const line    = bezierPath(pts);
-  const area    = line + ` L${(padL + innerW).toFixed(1)},${chartH} L${padL.toFixed(1)},${chartH} Z`;
-  const peakIdx = graphData.reduce((mx, p, i) => (p.revenue > graphData[mx].revenue ? i : mx), 0);
-  const peak    = pts[peakIdx];
-  const ttW     = 64;
-  const ttX     = Math.max(padL, Math.min(peak.x - ttW / 2, padL + innerW - ttW));
-  const ttY     = Math.max(2, peak.y - 28);
-  const stride  = Math.ceil(graphData.length / 6);
-  const xLabels = graphData.map((p, i) => ({ lbl: p.label, x: pts[i].x, i }))
-    .filter(({ i }) => i % stride === 0 || i === graphData.length - 1);
-
-  return (
-    <View style={{ height: chartH + 28 }}>
-      <Svg width={chartW} height={chartH + 28}>
-        <Defs>
-          <SvgGrad id="rg" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%"   stopColor={PRIMARY} stopOpacity={0.12} />
-            <Stop offset="100%" stopColor={PRIMARY} stopOpacity={0} />
-          </SvgGrad>
-        </Defs>
-        {[0, 25, 50, 75, 100].map(t => {
-          const gy = chartH - (t / 100) * chartH;
-          return (
-            <G key={t}>
-              <Line x1={padL} y1={gy} x2={padL + innerW} y2={gy} stroke={DIVIDER} strokeWidth={1} />
-              {(t === 0 || t === 100) && (
-                <SvgText x={padL - 4} y={gy + 4} fill={SUBTLE} fontSize={8} textAnchor="end">
-                  {t === 0 ? '0' : 'Peak'}
-                </SvgText>
-              )}
-            </G>
-          );
-        })}
-        <Path d={area} fill="url(#rg)" />
-        <Path d={line} fill="none" stroke={PRIMARY} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        <Line x1={peak.x} y1={peak.y} x2={peak.x} y2={chartH} stroke={PRIMARY} strokeWidth={1} strokeDasharray="3 4" strokeOpacity={0.5} />
-        <Circle cx={peak.x} cy={peak.y} r={5} fill={PRIMARY} stroke={CARD} strokeWidth={2.5} />
-        <G transform={`translate(${ttX},${ttY})`}>
-          <Rect width={ttW} height={20} rx={6} fill={TEXT} />
-          <SvgText x={ttW / 2} y={13.5} fill={CARD} fontSize={9} fontWeight="bold" textAnchor="middle">
-            {formatCurrency(graphData[peakIdx].revenue)}
-          </SvgText>
-        </G>
-        {xLabels.map(({ lbl, x }) => (
-          <SvgText key={lbl} x={x} y={chartH + 16} fill={SUBTLE} fontSize={9} textAnchor="middle">{lbl}</SvgText>
-        ))}
-      </Svg>
+      <View style={cardSt.body}>{children}</View>
     </View>
   );
 }
 
-/* ─── Jobs bar chart ──────────────────────────────────────── */
-function JobsBarChart({ graphData }: { graphData: GraphPoint[] }) {
-  if (!graphData.length) return null;
-  const maxCount = Math.max(...graphData.map(p => p.job_count), 1);
-  const barH = 80;
-  return (
-    <View style={{ paddingTop: 4, flexDirection: 'row', alignItems: 'flex-end', gap: 4, paddingHorizontal: 4 }}>
-      {graphData.map(({ label, job_count }) => {
-        const fillH = Math.max((job_count / maxCount) * barH, job_count > 0 ? 4 : 0);
-        return (
-          <View key={label} style={{ flex: 1, alignItems: 'center', gap: 4 }}>
-            {job_count > 0 && <Text style={{ fontSize: 9, color: SUBTLE, fontWeight: '600' }}>{job_count}</Text>}
-            <View style={{ height: barH, justifyContent: 'flex-end', width: '100%', alignItems: 'center' }}>
-              <View style={{ height: fillH, width: '75%', backgroundColor: PRIMARY, borderRadius: 4, opacity: 0.85 }} />
-            </View>
-            <Text style={{ fontSize: 9, color: SUBTLE }} numberOfLines={1}>{label}</Text>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
+const cardSt = StyleSheet.create({
+  card: {
+    backgroundColor: CARD, borderRadius: 20, borderWidth: 1, borderColor: BORDER,
+    overflow: 'hidden', marginBottom: 14,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
+      android: { elevation: 2 }, default: {},
+    }),
+  },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  iconWrap: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  title: { flex: 1, fontSize: 14, fontWeight: '700', color: TEXT },
+  body:  { padding: 18 },
+});
 
-/* ─── Donut ───────────────────────────────────────────────── */
-interface Segment { name: string; pct: number; color: string; }
-function DonutChart({ segments }: { segments: Segment[] }) {
-  const R_OUTER = 52, R_INNER = 36, CX = 60, CY = 60, size = 120;
-  function polar(cx: number, cy: number, r: number, deg: number) {
-    const rad = ((deg - 90) * Math.PI) / 180;
-    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-  }
-  function arc(s: number, e: number) {
-    const sd = s * 3.6, ed = e * 3.6, large = ed - sd > 180 ? 1 : 0;
-    const o1 = polar(CX, CY, R_OUTER, sd), o2 = polar(CX, CY, R_OUTER, ed);
-    const i1 = polar(CX, CY, R_INNER, ed), i2 = polar(CX, CY, R_INNER, sd);
-    return `M${o1.x.toFixed(2)} ${o1.y.toFixed(2)} A${R_OUTER} ${R_OUTER} 0 ${large} 1 ${o2.x.toFixed(2)} ${o2.y.toFixed(2)} L${i1.x.toFixed(2)} ${i1.y.toFixed(2)} A${R_INNER} ${R_INNER} 0 ${large} 0 ${i2.x.toFixed(2)} ${i2.y.toFixed(2)} Z`;
-  }
-  if (!segments.length) return (
-    <View style={{ height: 120, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: SUBTLE, fontSize: 13 }}>No job data</Text>
-    </View>
-  );
-  const top = segments[0];
-  let cum = 0;
-  return (
-    <View style={s.donutRow}>
-      <Svg width={size} height={size}>
-        {segments.map(({ pct, color, name }) => {
-          const p = arc(cum, cum + pct); cum += pct;
-          return <Path key={name} d={p} fill={color} />;
-        })}
-        <SvgText x={CX} y={CY - 4}  fill={TEXT}  fontSize={16} fontWeight="bold" textAnchor="middle">{top.pct}%</SvgText>
-        <SvgText x={CX} y={CY + 11} fill={SUBTLE} fontSize={8}  textAnchor="middle">{top.name}</SvgText>
-      </Svg>
-      <View style={{ flex: 1, gap: 7, paddingLeft: 8 }}>
-        {segments.map(({ name, pct, color }) => (
-          <View key={name} style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-            <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: color }} />
-            <Text style={{ flex: 1, fontSize: 12, color: TEXT, fontWeight: '500' }} numberOfLines={1}>{name}</Text>
-            <Text style={{ fontSize: 12, color: MUTED, fontWeight: '600' }}>{pct}%</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-/* ─── KPI card ────────────────────────────────────────────── */
-function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <View style={[s.kpiCard, SHADOW_CARD]}>
-      <Text style={s.kpiLabel}>{label}</Text>
-      <Text style={s.kpiValue}>{value}</Text>
-      {sub ? <Text style={s.kpiSub}>{sub}</Text> : null}
-    </View>
-  );
-}
-
-/* ─── Screen ──────────────────────────────────────────────── */
 export default function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
   const [period, setPeriod] = useState<UIPeriod>('all');
+  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
-  /* Dedicated query key so it doesn't conflict with Workshop tab */
-  const { data: jobsData, isLoading, isRefetching, refetch } = useQuery({
-    queryKey: ['analytics', 'jobs'],
-    queryFn:  () => JobService.list({ page_size: 200 }),
-    staleTime: 30_000,
+  /* Shared Query key so cache invalidation on job creation immediately updates analytics */
+  const { data: jobsData, isLoading, isRefetching, refetch: refetchJobs } = useQuery({
+    queryKey: QUERY_KEYS.JOBS({}),
+    queryFn:  () => JobService.list({}),
+    staleTime: 5_000,
   });
 
-  useFocusEffect(useCallback(() => { refetch(); }, []));
+  /* Dashboard Query for today/month summary */
+  const { data: dashData, refetch: refetchDash } = useQuery({
+    queryKey: QUERY_KEYS.DASHBOARD,
+    queryFn:  DashboardService.get,
+    staleTime: 5_000,
+  });
 
-  const allJobs = jobsData?.items ?? [];
-  const jobs    = filterByPeriod(allJobs, period);
-  const graph   = buildGraph(jobs, period);
+  const refetch = useCallback(() => {
+    refetchJobs();
+    refetchDash();
+  }, [refetchJobs, refetchDash]);
 
-  const totalJobs      = jobs.length;
-  const completedJobs  = jobs.filter(j => j.status === 'COMPLETED').length;
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
+
+  const allJobs   = jobsData?.items ?? [];
+  const jobs      = filterByPeriod(allJobs, period);
+  const graphData = buildGraph(jobs, period);
+  const maxRev    = graphData.length ? Math.max(...graphData.map(p => p.revenue), 1) : 1;
+
+  /* ── Stats Calculations ── */
   const totalRevenue   = jobs.reduce((s, j) => s + jobRevenue(j), 0);
-  const avgTicket      = totalJobs > 0 ? Math.round(totalRevenue / totalJobs) : 0;
+  const totalJobs      = jobs.length;
+  const completedJobs  = jobs.filter(j => j.status === 'COMPLETED' || (j.status as string) === 'DELIVERED').length;
+  const inProgressJobs = jobs.filter(j => j.status === 'IN_PROGRESS' || j.status === 'WAITING_FOR_PARTS' || j.status === 'QUALITY_CHECK').length;
+  const openJobs       = jobs.filter(j => j.status === 'OPEN').length;
+  const readyJobs      = jobs.filter(j => j.status === 'READY').length;
+  const avgJobValue    = totalJobs > 0 ? totalRevenue / totalJobs : 0;
   const completionRate = totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0;
 
+  /* Revenue Breakdown (Services vs Labour vs GST) */
+  const servicesRev = jobs.reduce((s, j) => s + ((j as any).billing?.services_total ?? 0), 0);
+  const labourRev   = jobs.reduce((s, j) => s + ((j as any).billing?.labour_total ?? 0), 0);
+  const gstRev      = jobs.reduce((s, j) => s + ((j as any).billing?.gst_amount ?? 0), 0);
+  const isBillingAvailable = servicesRev > 0 || labourRev > 0 || gstRev > 0;
+
+  /* Status Breakdown */
   const statusCounts: Record<string, number> = {};
   for (const j of jobs) statusCounts[j.status] = (statusCounts[j.status] ?? 0) + 1;
-  const totalSt = Object.values(statusCounts).reduce((a, b) => a + b, 0);
-  const segments: Segment[] = totalSt > 0
-    ? Object.entries(statusCounts)
-        .filter(([, v]) => v > 0)
-        .map(([k, v]) => ({ name: STATUS_LABELS[k] ?? k, pct: Math.round((v / totalSt) * 100), color: STATUS_COLORS[k] ?? MUTED }))
-        .sort((a, b) => b.pct - a.pct)
-    : [];
+  const statusEntries   = Object.entries(statusCounts).filter(([, v]) => v > 0);
+  const totalFromStatus = statusEntries.reduce((a, [, v]) => a + v, 0);
+
+  /* Recent 5 Jobs for quick stats view */
+  const recentJobs = [...jobs].sort((a, b) => getJobDate(b).getTime() - getJobDate(a).getTime()).slice(0, 5);
 
   return (
-    <View style={s.root}>
+    <View style={[styles.root, { backgroundColor: BG }]}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
+
+      {/* Top Header */}
+      <View style={[styles.topBar, { paddingTop: (Platform.OS === 'web' ? 20 : 12) + insets.top }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.pageTitle}>Revenue & Analytics</Text>
+          <Text style={styles.pageSubtitle}>
+            {isLoading ? 'Loading stats…' : `${allJobs.length} total workshop jobs`}
+          </Text>
+        </View>
+        {(isLoading || isRefetching) && <ActivityIndicator size="small" color={PRIMARY} />}
+      </View>
+
       <ScrollView
+        contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 110 }]}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={PRIMARY} />}
       >
-        {/* Header */}
-        <View style={[s.header, { paddingTop: 40 + insets.top }]}>
-          <View>
-            <Text style={s.headerTitle}>Analytics</Text>
-            <Text style={s.headerSub}>
-              {isLoading ? 'Loading…' : `${allJobs.length} total jobs`}
-            </Text>
-          </View>
-          <View style={s.headerIcon}>
-            <TrendingUp size={18} color={PRIMARY} strokeWidth={2} />
-          </View>
-        </View>
-
-        {/* Period toggle */}
-        <View style={s.periodWrap}>
+        {/* Period selector */}
+        <View style={styles.periodWrap}>
           {PERIODS.map(p => (
             <TouchableOpacity
               key={p.value}
-              style={[s.periodBtn, period === p.value && s.periodActive]}
+              style={[styles.periodBtn, period === p.value && styles.periodBtnActive]}
               onPress={() => setPeriod(p.value)}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
             >
-              <Text style={[s.periodTxt, period === p.value && s.periodActiveTxt]}>{p.label}</Text>
+              <Text style={[styles.periodText, period === p.value && styles.periodTextActive]}>
+                {p.label}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* KPI row */}
-        <View style={s.kpiRow}>
-          <KpiCard label="Revenue"    value={isLoading ? '—' : formatCurrency(totalRevenue)} />
-          <KpiCard label="Jobs"       value={isLoading ? '—' : String(totalJobs)} sub={totalJobs > 0 ? `${completedJobs} done` : undefined} />
-          <KpiCard label="Avg Ticket" value={isLoading ? '—' : formatCurrency(avgTicket)} />
+        {/* Primary KPI Row */}
+        <View style={styles.kpiRow}>
+          <LinearGradient
+            colors={['#1E40AF', '#2563EB']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={[styles.kpiCard, { flex: 1.3 }]}
+          >
+            <View style={[styles.kpiIconWrap, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+              <Feather name="trending-up" size={16} color="#fff" />
+            </View>
+            {isLoading
+              ? <SkeletonBlock height={20} width={80} style={{ backgroundColor: 'rgba(255,255,255,0.3)' }} />
+              : <Text style={styles.kpiValue}>{formatCurrency(totalRevenue)}</Text>}
+            <Text style={styles.kpiLabel}>
+              {period === 'all' ? 'Total Revenue' : `${PERIODS.find(p => p.value === period)?.label} Revenue`}
+            </Text>
+
+            {/* Sub-pills for today */}
+            {dashData && (
+              <View style={styles.kpiSubRow}>
+                <Text style={styles.kpiSubText}>Today: {formatCurrency(dashData.revenue_today ?? 0)}</Text>
+              </View>
+            )}
+          </LinearGradient>
+
+          <View style={styles.kpiCol}>
+            <View style={[styles.kpiCardSmall, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}>
+              <Feather name="check-circle" size={15} color={SUCCESS} />
+              {isLoading
+                ? <SkeletonBlock height={16} width={32} radius={5} style={{ marginTop: 2 }} />
+                : <Text style={[styles.kpiValueSmall, { color: SUCCESS }]}>{completedJobs}</Text>}
+              <Text style={[styles.kpiLabelSmall, { color: '#065F46' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Completed Jobs</Text>
+            </View>
+
+            <View style={[styles.kpiCardSmall, { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }]}>
+              <Feather name="clock" size={15} color={WARNING} />
+              {isLoading
+                ? <SkeletonBlock height={16} width={36} radius={5} style={{ marginTop: 2 }} />
+                : <Text style={[styles.kpiValueSmall, { color: '#B45309' }]}>{inProgressJobs}</Text>}
+              <Text style={[styles.kpiLabelSmall, { color: '#92400E' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>In Progress Jobs</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Completion rate */}
-        {!isLoading && totalJobs > 0 && (
-          <View style={[s.card, SHADOW_CARD, { paddingVertical: 12 }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-              <Text style={s.cardTitle}>Completion Rate</Text>
-              <Text style={[s.cardTitle, { color: completionRate >= 70 ? SUCCESS : '#D97706' }]}>{completionRate}%</Text>
+        {/* Revenue Chart */}
+        <SectionCard icon="bar-chart-2" title="Revenue Trend">
+          {isLoading ? (
+            <View style={styles.chartSkeleton}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <View key={i} style={styles.chartSkeletonCol}>
+                  <SkeletonBlock height={20 + i * 10} width="65%" radius={5} />
+                </View>
+              ))}
             </View>
-            <View style={s.progressTrack}>
-              <View style={[s.progressFill, { width: `${completionRate}%` as any, backgroundColor: completionRate >= 70 ? SUCCESS : '#D97706' }]} />
+          ) : graphData.every(p => p.revenue === 0) ? (
+            <View style={styles.emptyChart}>
+              <Feather name="bar-chart-2" size={28} color="#CBD5E1" />
+              <Text style={styles.emptyChartText}>No revenue recorded for this period</Text>
             </View>
-            <Text style={[s.cardSub, { marginTop: 6 }]}>{completedJobs} of {totalJobs} jobs completed · {PERIOD_LABEL[period]}</Text>
-          </View>
+          ) : (
+            <View style={styles.chart}>
+              {graphData.slice(-10).map((pt, i) => {
+                const h = Math.max((pt.revenue / maxRev) * 100, 6);
+                const isMax = pt.revenue === maxRev && pt.revenue > 0;
+                return (
+                  <View key={i} style={styles.barWrap}>
+                    {pt.revenue > 0 && (
+                      <Text style={styles.barValue}>
+                        {pt.revenue >= 1000 ? `${(pt.revenue / 1000).toFixed(0)}k` : String(Math.round(pt.revenue))}
+                      </Text>
+                    )}
+                    <View style={styles.barTrack}>
+                      <LinearGradient
+                        colors={isMax ? ['#818CF8', INDIGO] : ['#93C5FD', PRIMARY]}
+                        start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+                        style={[styles.bar, { height: h }]}
+                      />
+                    </View>
+                    <Text style={styles.barLabel} numberOfLines={1}>{pt.label}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </SectionCard>
+
+        {/* Detailed Stats Summary */}
+        <SectionCard icon="calendar" title="Performance Overview" iconBg="#FFF7ED" iconFg="#F97316">
+          {isLoading ? (
+            <View style={{ gap: 12 }}>{[1,2,3,4].map(i => <SkeletonBlock key={i} height={14} radius={7} />)}</View>
+          ) : (
+            <View style={styles.statList}>
+              {[
+                { label: 'Total Jobs Created', value: String(totalJobs),           color: '#F97316' },
+                { label: 'Completed Jobs',     value: String(completedJobs),       color: SUCCESS   },
+                { label: 'Active Jobs',        value: String(inProgressJobs + openJobs), color: INFO },
+                { label: 'Avg Job Revenue',    value: formatCurrency(avgJobValue), color: PRIMARY   },
+                { label: 'Completion Rate',    value: `${completionRate}%`,        color: INDIGO    },
+              ].map(stat => (
+                <View key={stat.label} style={styles.statRow}>
+                  <View style={styles.statDotRow}>
+                    <View style={[styles.statDot, { backgroundColor: stat.color }]} />
+                    <Text style={styles.statLabel}>{stat.label}</Text>
+                  </View>
+                  <Text style={[styles.statValue, { color: stat.color }]}>{stat.value}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </SectionCard>
+
+        {/* Revenue Breakdown (Services vs Labour vs GST) */}
+        {isBillingAvailable && (
+          <SectionCard icon="dollar-sign" title="Revenue Breakdown" iconBg="#ECFDF5" iconFg={SUCCESS}>
+            <View style={styles.breakdownWrap}>
+              {[
+                { label: 'Services Revenue', amount: servicesRev, color: '#10B981' },
+                { label: 'Labour Charges',   amount: labourRev,   color: '#6366F1' },
+                { label: 'GST & Taxes',       amount: gstRev,      color: '#F59E0B' },
+              ].map(item => (
+                <View key={item.label} style={styles.breakdownItem}>
+                  <View style={styles.breakdownTop}>
+                    <Text style={styles.breakdownLabel}>{item.label}</Text>
+                    <Text style={[styles.breakdownValue, { color: item.color }]}>
+                      {formatCurrency(item.amount)}
+                    </Text>
+                  </View>
+                  <View style={styles.trackBg}>
+                    <View
+                      style={[
+                        styles.trackFill,
+                        {
+                          width: totalRevenue > 0 ? `${Math.min(100, Math.round((item.amount / totalRevenue) * 100))}%` : '0%',
+                          backgroundColor: item.color,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+              ))}
+            </View>
+          </SectionCard>
         )}
 
-        {/* Revenue trend */}
-        <View style={[s.card, SHADOW_CARD]}>
-          <View style={s.cardHead}>
-            <Text style={s.cardTitle}>Revenue Trend</Text>
-            <Text style={s.cardSub}>{PERIOD_LABEL[period]}</Text>
-          </View>
-          {isLoading
-            ? <View style={{ height: 140, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: SUBTLE }}>Loading…</Text></View>
-            : <RevenueTrendChart graphData={graph} />}
-        </View>
+        {/* Jobs by Status */}
+        <SectionCard icon="pie-chart" title="Jobs by Status" iconBg="#F5F3FF" iconFg="#C41E3A">
+          {isLoading ? (
+            <View style={{ gap: 14 }}>{[1,2,3].map(i => <SkeletonBlock key={i} height={12} radius={6} />)}</View>
+          ) : statusEntries.length === 0 ? (
+            <View style={styles.emptyChart}>
+              <Feather name="pie-chart" size={28} color="#CBD5E1" />
+              <Text style={styles.emptyChartText}>No jobs found for this period</Text>
+            </View>
+          ) : (
+            <View style={styles.statusList}>
+              {statusEntries.sort(([, a], [, b]) => b - a).map(([status, count]) => {
+                const pct   = totalFromStatus > 0 ? (count / totalFromStatus) * 100 : 0;
+                const color = STATUS_COLORS[status] ?? PRIMARY;
+                const label = STATUS_LABELS[status] ?? status;
+                return (
+                  <View key={status} style={styles.statusItem}>
+                    <View style={styles.statusItemTop}>
+                      <View style={styles.statusDotRow}>
+                        <View style={[styles.statusDot, { backgroundColor: color }]} />
+                        <Text style={styles.statusItemLabel}>{label}</Text>
+                      </View>
+                      <Text style={[styles.statusCount, { color }]}>{count} ({Math.round(pct)}%)</Text>
+                    </View>
+                    <View style={styles.trackBg}>
+                      <View style={[styles.trackFill, { width: `${pct}%` as any, backgroundColor: color }]} />
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </SectionCard>
 
-        {/* Jobs trend */}
-        <View style={[s.card, SHADOW_CARD]}>
-          <View style={s.cardHead}>
-            <Text style={s.cardTitle}>Jobs</Text>
-            <Text style={s.cardSub}>{PERIOD_LABEL[period]}</Text>
-          </View>
-          {isLoading
-            ? <View style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: SUBTLE }}>Loading…</Text></View>
-            : totalJobs === 0
-            ? <View style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: SUBTLE, fontSize: 13 }}>No jobs in this period</Text>
-              </View>
-            : <JobsBarChart graphData={graph} />}
-        </View>
+        {/* Recent Activity / Jobs */}
+        {recentJobs.length > 0 && (
+          <SectionCard icon="file-text" title="Recent Jobs Stats" iconBg="#EFF6FF" iconFg={INFO}>
+            <View style={styles.recentList}>
+              {recentJobs.map(j => {
+                const amount = jobRevenue(j);
+                const statusColor = STATUS_COLORS[j.status] ?? PRIMARY;
+                const statusLabel = STATUS_LABELS[j.status] ?? j.status;
+                const carInfo = [j.brand, j.vehicle_model].filter(Boolean).join(' ') || j.registration_number || 'Vehicle';
+                const dateObj = getJobDate(j);
+                return (
+                  <TouchableOpacity
+                    key={j.id}
+                    style={styles.recentRow}
+                    onPress={() => router.push(`/(tabs)/jobs` as any)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.recentTitle}>{j.job_number || 'Job'} • {carInfo}</Text>
+                      <Text style={styles.recentSub}>{j.customer_name ?? 'Customer'} • {formatDate(dateObj.toISOString())}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                      <Text style={styles.recentAmount}>{formatCurrency(amount)}</Text>
+                      <View style={[styles.statusBadge, { backgroundColor: `${statusColor}15` }]}>
+                        <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusLabel}</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </SectionCard>
+        )}
 
-        {/* Status mix */}
-        <View style={[s.card, SHADOW_CARD]}>
-          <View style={s.cardHead}>
-            <Text style={s.cardTitle}>Job Status Mix</Text>
-            <Text style={s.cardSub}>{totalJobs} jobs · {PERIOD_LABEL[period]}</Text>
-          </View>
-          {isLoading
-            ? <View style={{ height: 120, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: SUBTLE }}>Loading…</Text></View>
-            : <DonutChart segments={segments} />}
+        <View style={styles.infoChip}>
+          <Feather name="info" size={13} color={PRIMARY} />
+          <Text style={styles.infoChipText}>
+            Showing stats for {jobs.length} of {allJobs.length} total jobs. Pull down to refresh data.
+          </Text>
         </View>
-
       </ScrollView>
     </View>
   );
 }
 
-/* ─── Styles ─────────────────────────────────────────────── */
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: CARD, paddingHorizontal: 16, paddingBottom: 14,
-    borderBottomWidth: 1, borderBottomColor: DIVIDER,
-  },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: TEXT },
-  headerSub:   { fontSize: 12, color: MUTED, marginTop: 2 },
-  headerIcon:  { width: 36, height: 36, borderRadius: 10, backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center' },
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  topBar: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, paddingHorizontal: 20, paddingBottom: 14 },
+  pageTitle:    { fontSize: 24, fontWeight: '800', color: TEXT, letterSpacing: -0.5 },
+  pageSubtitle: { fontSize: 12, color: MUTED, marginTop: 2 },
+
+  body: { paddingHorizontal: 20 },
 
   periodWrap: {
-    flexDirection: 'row', marginHorizontal: 16, marginTop: 12,
-    backgroundColor: DIVIDER, borderRadius: 10, padding: 3,
+    flexDirection: 'row', backgroundColor: CARD,
+    borderRadius: 16, borderWidth: 1, borderColor: BORDER,
+    padding: 4, gap: 4, marginBottom: 14,
   },
-  periodBtn:       { flex: 1, paddingVertical: 7, borderRadius: 8, alignItems: 'center' },
-  periodActive:    {
-    backgroundColor: CARD,
+  periodBtn:        { flex: 1, paddingVertical: 9, borderRadius: 12, alignItems: 'center' },
+  periodBtnActive:  { backgroundColor: PRIMARY },
+  periodText:       { fontSize: 12, fontWeight: '700', color: MUTED },
+  periodTextActive: { color: '#fff' },
+
+  kpiRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  kpiCard: {
+    borderRadius: 20, padding: 18, gap: 4,
     ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2 },
-      android: { elevation: 2 },
-      default: {},
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10 },
+      android: { elevation: 6 }, default: {},
     }),
   },
-  periodTxt:       { fontSize: 11, fontWeight: '500', color: SUBTLE },
-  periodActiveTxt: { fontWeight: '700', color: TEXT },
+  kpiIconWrap:  { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  kpiValue:     { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
+  kpiLabel:     { fontSize: 11, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
+  kpiSubRow:    { marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)' },
+  kpiSubText:   { fontSize: 10, color: 'rgba(255,255,255,0.9)', fontWeight: '600' },
 
-  kpiRow:  { flexDirection: 'row', paddingHorizontal: 16, marginTop: 12, gap: 8 },
-  kpiCard: { flex: 1, backgroundColor: CARD, borderRadius: 16, padding: 12, overflow: 'hidden' },
-  kpiLabel:{ fontSize: 10, color: MUTED, marginBottom: 5 },
-  kpiValue:{ fontSize: 15, fontWeight: '700', color: TEXT },
-  kpiSub:  { fontSize: 10, color: MUTED, marginTop: 3 },
+  kpiCol:       { flex: 1, gap: 10 },
+  kpiCardSmall: { flex: 1, borderRadius: 16, borderWidth: 1, padding: 12, justifyContent: 'center' },
+  kpiValueSmall:{ fontSize: 18, fontWeight: '800', marginTop: 4 },
+  kpiLabelSmall:{ fontSize: 11.5, fontWeight: '700' },
 
-  card: { backgroundColor: CARD, borderRadius: 16, marginHorizontal: 16, marginTop: 12, padding: 16 },
-  cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
-  cardTitle:{ fontSize: 14, fontWeight: '600', color: TEXT },
-  cardSub:  { fontSize: 11, color: MUTED, marginTop: 2 },
+  chart:            { flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 120 },
+  barWrap:          { flex: 1, alignItems: 'center', gap: 3 },
+  barValue:         { fontSize: 8, color: MUTED, fontWeight: '600' },
+  barTrack:         { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'flex-end' },
+  bar:              { width: '65%', borderRadius: 5, minHeight: 4 },
+  barLabel:         { fontSize: 8, color: MUTED, textAlign: 'center' },
+  chartSkeleton:    { flexDirection: 'row', alignItems: 'flex-end', height: 90, gap: 8 },
+  chartSkeletonCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  emptyChart:       { height: 80, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  emptyChartText:   { fontSize: 13, color: MUTED, textAlign: 'center' },
 
-  progressTrack: { height: 6, borderRadius: 4, backgroundColor: DIVIDER, overflow: 'hidden' },
-  progressFill:  { height: '100%', borderRadius: 4 },
+  statList: { gap: 2 },
+  statRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F8FAFC' },
+  statDotRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  statDot:    { width: 8, height: 8, borderRadius: 4 },
+  statLabel:  { fontSize: 13, color: TEXT, fontWeight: '500' },
+  statValue:  { fontSize: 14, fontWeight: '800' },
 
-  donutRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  breakdownWrap: { gap: 14 },
+  breakdownItem: { gap: 6 },
+  breakdownTop:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  breakdownLabel:{ fontSize: 13, color: TEXT, fontWeight: '500' },
+  breakdownValue:{ fontSize: 13, fontWeight: '700' },
+
+  statusList:      { gap: 14 },
+  statusItem:      { gap: 8 },
+  statusItemTop:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  statusDotRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  statusDot:       { width: 8, height: 8, borderRadius: 4 },
+  statusItemLabel: { fontSize: 13, color: TEXT, fontWeight: '500' },
+  statusCount:     { fontSize: 13, fontWeight: '700' },
+  trackBg:         { height: 6, borderRadius: 4, backgroundColor: '#F1F5F9', overflow: 'hidden' },
+  trackFill:       { height: '100%', borderRadius: 4 },
+
+  recentList:  { gap: 12 },
+  recentRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F8FAFC' },
+  recentTitle: { fontSize: 13, fontWeight: '700', color: TEXT },
+  recentSub:   { fontSize: 11, color: MUTED, marginTop: 2 },
+  recentAmount:{ fontSize: 13, fontWeight: '700', color: TEXT },
+  statusBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
+  statusBadgeText: { fontSize: 10, fontWeight: '700' },
+
+  infoChip: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: '#EFF6FF', borderRadius: 14,
+    borderWidth: 1, borderColor: '#BFDBFE', padding: 14,
+  },
+  infoChipText: { flex: 1, fontSize: 13, color: PRIMARY, lineHeight: 18 },
 });

@@ -14,13 +14,14 @@ import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 import LoadingState from '@/src/components/ui/LoadingState';
 import ErrorState from '@/src/components/ui/ErrorState';
 import { formatCurrency, formatDateTime } from '@/src/utils/helpers';
+import { ChevronLeft } from 'lucide-react-native';
 import type { JobStatus } from '@/src/types';
 
 /* ── Design tokens ── */
 import { getValidNextStatuses } from '@/src/constants/jobTransitions';
-const BG      = '#EEEEF6';
+const BG      = '#FFFFFF';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#C41E3A';
+const PRIMARY = '#2563EB';
 const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
@@ -118,7 +119,7 @@ const sp = StyleSheet.create({
   },
   iconBox: {
     width: 30, height: 30, borderRadius: 9,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center', justifyContent: 'center',
   },
   title: { fontSize: 14, fontWeight: '700', color: TEXT },
@@ -219,13 +220,18 @@ export default function JobDetailScreen() {
 
       {/* ── Header ── */}
       <View style={[styles.topBar, { paddingTop: topPad + 10 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Feather name="arrow-left" size={18} color={TEXT} />
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <ChevronLeft size={24} color={TEXT} strokeWidth={2.5} />
         </TouchableOpacity>
         <Text style={styles.pageTitle}>
           {data ? `Job #${data.job_number}` : 'Job Detail'}
         </Text>
-        <View style={{ width: 42 }} />
+        <View style={{ width: 28 }} />
       </View>
 
       {isLoading ? <LoadingState /> : error ? <ErrorState onRetry={refetch} /> : !data ? null : (
@@ -329,7 +335,7 @@ export default function JobDetailScreen() {
           <View style={styles.sheet}>
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Change Status</Text>
-            {getValidNextStatuses(data.status).map(s => (
+            {data?.status && getValidNextStatuses(data.status).map(s => (
               <TouchableOpacity
                 key={s}
                 style={styles.sheetOption}
@@ -366,22 +372,26 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
 
   topBar: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, paddingBottom: 14,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E2E8F0',
   },
   backBtn: {
-    width: 42, height: 42, borderRadius: 21,
-    backgroundColor: CARD, borderWidth: 1, borderColor: BORDER,
-    alignItems: 'center', justifyContent: 'center',
-    ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
-      android: { elevation: 2 },
-      default: {},
-    }),
+    paddingRight: 8,
+    paddingVertical: 4,
+    justifyContent: 'center',
   },
   pageTitle: {
-    flex: 1, textAlign: 'center',
-    fontSize: 18, fontWeight: '700', color: TEXT,
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '700',
+    color: TEXT,
+    letterSpacing: -0.3,
   },
 
   content: { paddingHorizontal: 20, gap: 14 },
@@ -402,7 +412,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 12, paddingVertical: 6,
     borderRadius: 10, borderWidth: 1.5, borderColor: PRIMARY + '40',
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#EFF6FF',
   },
   changeStatusText: { fontSize: 12, fontWeight: '700', color: PRIMARY },
   statusDate:       { fontSize: 11, color: MUTED },
@@ -424,7 +434,7 @@ const styles = StyleSheet.create({
   },
   sectionIconWrap: {
     width: 30, height: 30, borderRadius: 9,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center', justifyContent: 'center',
   },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: TEXT },

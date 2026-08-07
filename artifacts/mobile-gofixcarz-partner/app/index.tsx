@@ -10,7 +10,7 @@ import { useAuthStore } from '@/src/store/auth.store';
 import LoadingState from '@/src/components/ui/LoadingState';
 
 const SPLASH_MS = 2800;
-const CRIMSON   = '#C41E3A';
+const PRIMARY = '#2563EB';
 
 export default function Index() {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -80,11 +80,11 @@ export default function Index() {
   if (!splashDone) {
     return (
       <LinearGradient
-        colors={['#120307', '#1C0509', '#28080D', '#120307']}
-        locations={[0, 0.3, 0.7, 1]}
+        colors={['#0F172A', '#1E293B', '#0F172A']}
+        locations={[0, 0.5, 1]}
         style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
       >
-        <StatusBar barStyle="light-content" backgroundColor="#120307" />
+        <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
         {/* ── Top pill chip ── */}
         <View style={styles.topChip}>
@@ -152,12 +152,12 @@ const styles = StyleSheet.create({
   topChip: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
     marginTop: 20,
-    backgroundColor: 'rgba(196,30,58,0.14)',
-    borderWidth: 1, borderColor: 'rgba(196,30,58,0.28)',
+    backgroundColor: 'rgba(37,99,235,0.14)',
+    borderWidth: 1, borderColor: 'rgba(37,99,235,0.28)',
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
   },
   chipDot: {
-    width: 6, height: 6, borderRadius: 3, backgroundColor: CRIMSON,
+    width: 6, height: 6, borderRadius: 3, backgroundColor: PRIMARY,
   },
   chipText: {
     fontSize: 10, fontWeight: '700',
@@ -176,15 +176,15 @@ const styles = StyleSheet.create({
   },
   ringInner: {
     width: 158, height: 158,
-    borderColor: 'rgba(196,30,58,0.50)',
+    borderColor: 'rgba(37,99,235,0.50)',
   },
   ringMid: {
     width: 212, height: 212,
-    borderColor: 'rgba(196,30,58,0.28)',
+    borderColor: 'rgba(37,99,235,0.28)',
   },
   ringOuter: {
     width: 272, height: 272,
-    borderColor: 'rgba(196,30,58,0.13)',
+    borderColor: 'rgba(37,99,235,0.13)',
   },
 
   logoCircle: {
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     letterSpacing: -1.0,
     ...Platform.select({
       ios: {
-        shadowColor: CRIMSON,
+        shadowColor: PRIMARY,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.55,
         shadowRadius: 12,
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   },
   taglineLine: {
     width: 28, height: 1,
-    backgroundColor: 'rgba(196,30,58,0.55)',
+    backgroundColor: 'rgba(37,99,235,0.55)',
   },
   taglineText: {
     fontSize: 11, fontWeight: '600',
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   },
   barFill: {
     height: '100%',
-    backgroundColor: CRIMSON,
+    backgroundColor: PRIMARY,
     borderRadius: 1,
   },
 });

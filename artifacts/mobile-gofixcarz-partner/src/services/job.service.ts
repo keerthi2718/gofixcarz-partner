@@ -68,7 +68,10 @@ const JobService = {
     const { data } = await apiClient.post<APIResponse<{ url: string }>>(
       ENDPOINTS.JOBS.UPLOAD_PHOTO,
       formData,
-      { headers: { 'Content-Type': 'multipart/form-data' } }
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        transformRequest: (data) => data,
+      }
     );
     return data.data;
   },

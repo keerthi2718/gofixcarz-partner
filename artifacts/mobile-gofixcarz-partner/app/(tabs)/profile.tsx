@@ -18,9 +18,10 @@ import { useLogoStore } from '@/src/store/logo.store';
 import ProfileService from '@/src/services/profile.service';
 import GarageService from '@/src/services/garage.service';
 import type { WorkingHours } from '@/src/types';
+import * as Location from 'expo-location';
 import {
-  ChevronRight, LogOut, HelpCircle, Shield, Info, Lock,
-  Camera, Sun, Moon, CheckCircle, AlertTriangle,
+  ChevronRight, ChevronLeft, LogOut, HelpCircle, Shield, Info, Lock,
+  Camera, Sun, Moon, CheckCircle, AlertTriangle, ArrowLeft, Navigation,
 } from 'lucide-react-native';
 
 /* ─────────────── Tokens ─────────────── */
@@ -28,13 +29,13 @@ const BG      = '#FFFFFF';
 const TEXT    = '#1A1A1A';
 const MUTED   = '#9CA3AF';
 const LINE    = '#D1D5DB';
-const PRIMARY = '#C41E3A';
+const PRIMARY = '#2563EB';
 const DANGER  = '#DC2626';
 const SUCCESS = '#16A34A';
 const WARN    = '#D97706';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const GOOGLE_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY ?? '';
+const GOOGLE_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || 'AIzaSyBUCnvnJyRUoph57Ft2X3Qhkkbfz8Ldkls';
 
 /* ─────────────── Helpers ────────────── */
 function getInitials(name: string) {
@@ -105,12 +106,53 @@ function TwoCol({ children }: { children: React.ReactNode }) {
 }
 
 /* ─────────────── AddressInput (Google Places) ─────────────── */
-interface Suggestion {
-  place_id: string;
-  description: string;
-  structured_formatting: { main_text: string; secondary_text: string };
-}
+const COMMON_INDIAN_LOCATIONS = [
+  { main: 'Warangal', sub: 'Telangana 506002', city: 'Warangal', state: 'Telangana', pincode: '506002', country: 'India' },
+  { main: 'Hanamkonda', sub: 'Warangal, Telangana 506001', city: 'Warangal', state: 'Telangana', pincode: '506001', country: 'India' },
+  { main: 'Kazipet', sub: 'Warangal, Telangana 506003', city: 'Warangal', state: 'Telangana', pincode: '506003', country: 'India' },
+  { main: 'Karimnagar', sub: 'Telangana 505001', city: 'Karimnagar', state: 'Telangana', pincode: '505001', country: 'India' },
+  { main: 'Nizamabad', sub: 'Telangana 503001', city: 'Nizamabad', state: 'Telangana', pincode: '503001', country: 'India' },
+  { main: 'Khammam', sub: 'Telangana 507001', city: 'Khammam', state: 'Telangana', pincode: '507001', country: 'India' },
+  { main: 'Gachibowli', sub: 'Hyderabad, Telangana 500032', city: 'Hyderabad', state: 'Telangana', pincode: '500032', country: 'India' },
+  { main: 'HITECH City', sub: 'Hyderabad, Telangana 500081', city: 'Hyderabad', state: 'Telangana', pincode: '500081', country: 'India' },
+  { main: 'Kukatpally', sub: 'Hyderabad, Telangana 500072', city: 'Hyderabad', state: 'Telangana', pincode: '500072', country: 'India' },
+  { main: 'Secunderabad', sub: 'Telangana 500003', city: 'Hyderabad', state: 'Telangana', pincode: '500003', country: 'India' },
+  { main: 'Vijayawada', sub: 'Andhra Pradesh 520001', city: 'Vijayawada', state: 'Andhra Pradesh', pincode: '520001', country: 'India' },
+  { main: 'Visakhapatnam (Vizag)', sub: 'Andhra Pradesh 530001', city: 'Visakhapatnam', state: 'Andhra Pradesh', pincode: '530001', country: 'India' },
+  { main: 'Guntur', sub: 'Andhra Pradesh 522002', city: 'Guntur', state: 'Andhra Pradesh', pincode: '522002', country: 'India' },
+  { main: 'Tirupati', sub: 'Andhra Pradesh 517501', city: 'Tirupati', state: 'Andhra Pradesh', pincode: '517501', country: 'India' },
+  { main: 'Koramangala', sub: 'Bengaluru, Karnataka 560034', city: 'Bengaluru', state: 'Karnataka', pincode: '560034', country: 'India' },
+  { main: 'Indiranagar', sub: 'Bengaluru, Karnataka 560038', city: 'Bengaluru', state: 'Karnataka', pincode: '560038', country: 'India' },
+  { main: 'HSR Layout', sub: 'Bengaluru, Karnataka 560102', city: 'Bengaluru', state: 'Karnataka', pincode: '560102', country: 'India' },
+  { main: 'Whitefield', sub: 'Bengaluru, Karnataka 560066', city: 'Bengaluru', state: 'Karnataka', pincode: '560066', country: 'India' },
+  { main: 'Peenya Industrial Area', sub: 'Bengaluru, Karnataka 560058', city: 'Bengaluru', state: 'Karnataka', pincode: '560058', country: 'India' },
+  { main: 'Mysuru (Mysore)', sub: 'Karnataka 570001', city: 'Mysuru', state: 'Karnataka', pincode: '570001', country: 'India' },
+  { main: 'Hubballi', sub: 'Karnataka 580020', city: 'Hubballi', state: 'Karnataka', pincode: '580020', country: 'India' },
+  { main: 'Mangaluru', sub: 'Karnataka 575001', city: 'Mangaluru', state: 'Karnataka', pincode: '575001', country: 'India' },
+  { main: 'Andheri West', sub: 'Mumbai, Maharashtra 400053', city: 'Mumbai', state: 'Maharashtra', pincode: '400053', country: 'India' },
+  { main: 'Andheri East', sub: 'Mumbai, Maharashtra 400069', city: 'Mumbai', state: 'Maharashtra', pincode: '400069', country: 'India' },
+  { main: 'Bandra West', sub: 'Mumbai, Maharashtra 400050', city: 'Mumbai', state: 'Maharashtra', pincode: '400050', country: 'India' },
+  { main: 'Thane West', sub: 'Mumbai, Maharashtra 400601', city: 'Thane', state: 'Maharashtra', pincode: '400601', country: 'India' },
+  { main: 'Viman Nagar', sub: 'Pune, Maharashtra 411014', city: 'Pune', state: 'Maharashtra', pincode: '411014', country: 'India' },
+  { main: 'Nagpur', sub: 'Maharashtra 440001', city: 'Nagpur', state: 'Maharashtra', pincode: '440001', country: 'India' },
+  { main: 'Nashik', sub: 'Maharashtra 422001', city: 'Nashik', state: 'Maharashtra', pincode: '422001', country: 'India' },
+  { main: 'Connaught Place', sub: 'New Delhi, Delhi 110001', city: 'New Delhi', state: 'Delhi', pincode: '110001', country: 'India' },
+  { main: 'DLF Cyber City', sub: 'Gurugram, Haryana 122002', city: 'Gurugram', state: 'Haryana', pincode: '122002', country: 'India' },
+  { main: 'Noida Sector 62', sub: 'Noida, Uttar Pradesh 201301', city: 'Noida', state: 'Uttar Pradesh', pincode: '201301', country: 'India' },
+  { main: 'T. Nagar', sub: 'Chennai, Tamil Nadu 600017', city: 'Chennai', state: 'Tamil Nadu', pincode: '600017', country: 'India' },
+  { main: 'Coimbatore', sub: 'Tamil Nadu 641001', city: 'Coimbatore', state: 'Tamil Nadu', pincode: '641001', country: 'India' },
+  { main: 'Madurai', sub: 'Tamil Nadu 625001', city: 'Madurai', state: 'Tamil Nadu', pincode: '625001', country: 'India' },
+  { main: 'Kochi', sub: 'Kerala 682001', city: 'Kochi', state: 'Kerala', pincode: '682001', country: 'India' },
+  { main: 'Kozhikode', sub: 'Kerala 673001', city: 'Kozhikode', state: 'Kerala', pincode: '673001', country: 'India' },
+  { main: 'Thiruvananthapuram', sub: 'Kerala 695001', city: 'Thiruvananthapuram', state: 'Kerala', pincode: '695001', country: 'India' },
+  { main: 'SG Highway', sub: 'Ahmedabad, Gujarat 380054', city: 'Ahmedabad', state: 'Gujarat', pincode: '380054', country: 'India' },
+  { main: 'Surat', sub: 'Gujarat 395002', city: 'Surat', state: 'Gujarat', pincode: '395002', country: 'India' },
+  { main: 'Vadodara', sub: 'Gujarat 390001', city: 'Vadodara', state: 'Gujarat', pincode: '390001', country: 'India' },
+  { main: 'Park Street', sub: 'Kolkata, West Bengal 700016', city: 'Kolkata', state: 'West Bengal', pincode: '700016', country: 'India' },
+  { main: 'Jaipur', sub: 'Rajasthan 302001', city: 'Jaipur', state: 'Rajasthan', pincode: '302001', country: 'India' },
+];
 
+/* ─────────────── AddressInput ──────── */
 function AddressInput({ value, onChange, onSelect, error }: {
   value: string;
   onChange: (v: string) => void;
@@ -118,48 +160,237 @@ function AddressInput({ value, onChange, onSelect, error }: {
   error?: string;
 }) {
   const [focused,     setFocused]     = useState(false);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loading,     setLoading]     = useState(false);
+  const [gpsLoading,  setGpsLoading]  = useState(false);
   const [show,        setShow]        = useState(false);
-  const debounced = useDebounce(value, 400);
+  const isSelected = useRef(false);
+  const debounced = useDebounce(value, 300);
 
   useEffect(() => {
-    if (!GOOGLE_KEY || debounced.length < 3) { setSuggestions([]); setShow(false); return; }
+    if (!focused || isSelected.current || debounced.length < 2) {
+      setSuggestions([]);
+      setShow(false);
+      setLoading(false);
+      return;
+    }
+
+    const q = debounced.toLowerCase();
+    const fallbackMatched = COMMON_INDIAN_LOCATIONS.filter(
+      loc => loc.main.toLowerCase().includes(q) || loc.sub.toLowerCase().includes(q) || loc.city.toLowerCase().includes(q)
+    ).map((loc, idx) => ({
+      place_id: `common_${idx}`,
+      description: `${loc.main}, ${loc.sub}`,
+      main_text: loc.main,
+      secondary_text: loc.sub,
+      city: loc.city,
+      state: loc.state,
+      pincode: loc.pincode,
+      country: loc.country,
+      isGoogle: false,
+    }));
+
     let cancelled = false;
     setLoading(true);
-    fetch(
-      `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(debounced)}&types=address&components=country:in&key=${GOOGLE_KEY}`
-    )
-      .then(r => r.json())
-      .then(d => { if (!cancelled) { setSuggestions(d.predictions ?? []); setShow((d.predictions ?? []).length > 0); } })
-      .catch(() => { if (!cancelled) setSuggestions([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [debounced]);
 
-  async function pick(s: Suggestion) {
-    setShow(false); onChange(s.description);
+    if (GOOGLE_KEY) {
+      const targetUrl = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(debounced)}&components=country:in&key=${GOOGLE_KEY}`;
+      const fetchUrl = Platform.OS === 'web' ? `https://corsproxy.io/?${encodeURIComponent(targetUrl)}` : targetUrl;
+
+      fetch(fetchUrl)
+        .then(r => r.json())
+        .then(d => {
+          if (!cancelled) {
+            const googlePreds = (d.predictions ?? []).map((p: any) => ({
+              place_id: p.place_id,
+              description: p.description,
+              main_text: p.structured_formatting?.main_text || p.description,
+              secondary_text: p.structured_formatting?.secondary_text || '',
+              isGoogle: true,
+            }));
+            if (googlePreds.length > 0) {
+              setSuggestions(googlePreds);
+              setShow(true);
+              return;
+            }
+          }
+          fetchOsm();
+        })
+        .catch(() => { if (!cancelled) fetchOsm(); });
+    } else {
+      fetchOsm();
+    }
+
+    function fetchOsm() {
+      fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(debounced)}&countrycodes=in&format=json&addressdetails=1&limit=6`)
+        .then(r => r.json())
+        .then(data => {
+          if (!cancelled && data && Array.isArray(data) && data.length > 0) {
+            const osmPreds = data.map((item: any, idx: number) => {
+              const addr = item.address || {};
+              const main = item.name || addr.suburb || addr.city || addr.town || item.display_name.split(',')[0];
+              const sub = item.display_name;
+              const city = addr.city || addr.town || addr.suburb || addr.county || addr.district || '';
+              const state = addr.state || '';
+              const pincode = addr.postcode || '';
+              return {
+                place_id: `osm_${idx}_${Date.now()}`,
+                description: sub,
+                main_text: main,
+                secondary_text: sub,
+                city,
+                state,
+                pincode,
+                country: addr.country || 'India',
+                isGoogle: false,
+              };
+            });
+            setSuggestions(osmPreds);
+            setShow(true);
+          } else if (!cancelled) {
+            setSuggestions(fallbackMatched);
+            setShow(fallbackMatched.length > 0);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setSuggestions(fallbackMatched);
+            setShow(fallbackMatched.length > 0);
+          }
+        })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }
+
+    return () => { cancelled = true; };
+  }, [debounced, focused]);
+
+  async function handleUseGps() {
+    try {
+      setGpsLoading(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const { latitude, longitude } = loc.coords;
+
+      if (GOOGLE_KEY) {
+        const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_KEY}`);
+        const data = await res.json();
+        if (data.results && data.results.length > 0) {
+          const first = data.results[0];
+          const comps: { types: string[]; long_name: string }[] = first.address_components ?? [];
+          const get = (...types: string[]) => {
+            for (const t of types) {
+              const found = comps.find(c => c.types.includes(t));
+              if (found?.long_name) return found.long_name;
+            }
+            return '';
+          };
+          const city = get('locality', 'sublocality_level_1', 'administrative_area_level_2');
+          const state = get('administrative_area_level_1');
+          const pincode = get('postal_code');
+          const country = get('country');
+          isSelected.current = true;
+          setShow(false);
+          onChange(first.formatted_address);
+          onSelect({ address: first.formatted_address, city, state, pincode, country });
+          return;
+        }
+      }
+
+      const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (geo && geo.length > 0) {
+        const place = geo[0];
+        const addr = [place.name, place.street, place.subregion, place.city].filter(Boolean).join(', ');
+        isSelected.current = true;
+        setShow(false);
+        onChange(addr);
+        onSelect({
+          address: addr,
+          city: place.city || place.subregion || '',
+          state: place.region || '',
+          pincode: place.postalCode || '',
+          country: place.country || 'India',
+        });
+      }
+    } catch (e) {
+      console.error('Location error:', e);
+    } finally {
+      setGpsLoading(false);
+    }
+  }
+
+  async function pick(s: any) {
+    isSelected.current = true;
+    setShow(false);
+    onChange(s.description);
+
+    if (!s.isGoogle) {
+      onSelect({
+        address: s.description,
+        city: s.city,
+        state: s.state,
+        pincode: s.pincode,
+        country: s.country,
+      });
+      return;
+    }
+
     if (!GOOGLE_KEY) return;
     try {
       const res  = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${s.place_id}&fields=address_components,formatted_address&key=${GOOGLE_KEY}`);
       const data = await res.json();
       const comps: { types: string[]; long_name: string }[] = data.result?.address_components ?? [];
-      const get = (t: string) => comps.find(c => c.types.includes(t))?.long_name ?? '';
-      onSelect({ address: data.result?.formatted_address ?? s.description, city: get('locality') || get('administrative_area_level_2'), state: get('administrative_area_level_1'), pincode: get('postal_code'), country: get('country') });
+      const get = (...types: string[]) => {
+        for (const t of types) {
+          const found = comps.find(c => c.types.includes(t));
+          if (found?.long_name) return found.long_name;
+        }
+        return '';
+      };
+      const city = get('locality', 'sublocality_level_1', 'administrative_area_level_2');
+      const state = get('administrative_area_level_1');
+      const pincode = get('postal_code');
+      const country = get('country');
+      onSelect({ address: data.result?.formatted_address ?? s.description, city, state, pincode, country });
     } catch {}
   }
 
   return (
     <View style={addr.wrap}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+        <Text style={{ fontSize: 11, fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5 }}>Street Address</Text>
+        <TouchableOpacity
+          onPress={handleUseGps}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+          activeOpacity={0.7}
+          disabled={gpsLoading}
+        >
+          {gpsLoading ? (
+            <ActivityIndicator size="small" color={PRIMARY} />
+          ) : (
+            <>
+              <Navigation size={12} color={PRIMARY} strokeWidth={2.5} />
+              <Text style={{ fontSize: 11, fontWeight: '700', color: PRIMARY }}>Use Current GPS</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
       <View style={[ui.row, { borderBottomColor: error ? DANGER : focused ? PRIMARY : LINE }]}>
         <TextInput
           style={ui.input}
           value={value}
-          onChangeText={v => { onChange(v); setShow(v.length >= 3); }}
-          placeholder="Street Address"
+          onChangeText={v => {
+            isSelected.current = false;
+            onChange(v);
+            setShow(v.length >= 2);
+          }}
+          placeholder="Search area, landmark or street..."
           placeholderTextColor={MUTED}
           autoCapitalize="words"
-          onFocus={() => setFocused(true)}
+          onFocus={() => { setFocused(true); if (!isSelected.current && suggestions.length > 0) setShow(true); }}
           onBlur={() => { setFocused(false); setTimeout(() => setShow(false), 350); }}
         />
         {loading
@@ -171,12 +402,13 @@ function AddressInput({ value, onChange, onSelect, error }: {
         <View style={addr.list}>
           {suggestions.map((s, i) => (
             <TouchableOpacity
-              key={s.place_id}
+              key={s.place_id || i}
               style={[addr.item, i < suggestions.length - 1 && addr.itemBorder]}
-              onPress={() => pick(s)} activeOpacity={0.7}
+              onPress={() => pick(s)}
+              activeOpacity={0.7}
             >
-              <Text style={addr.main} numberOfLines={1}>{s.structured_formatting.main_text}</Text>
-              <Text style={addr.sub}  numberOfLines={1}>{s.structured_formatting.secondary_text}</Text>
+              <Text style={addr.main} numberOfLines={1}>{s.main_text}</Text>
+              <Text style={addr.sub} numberOfLines={1}>{s.secondary_text}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -419,24 +651,18 @@ export default function ProfileScreen() {
       console.warn('[Profile] FileSystem.copyAsync failed — keeping temp URI:', String(copyErr));
     }
 
-    // Step 3 — upload to server.
-    // Use the stable local copy if available, otherwise the temp URI.
-    GarageService.uploadLogo(savedUri ?? picked).then(async serverUrl => {
+    // Step 3 — upload to server via S3 pre-signed URL flow.
+    GarageService.uploadLogo(savedUri ?? picked).then(async updatedGarage => {
+      const serverUrl = updatedGarage?.logo_url ?? null;
       if (serverUrl) {
-        // Store the raw server URL — no query-param cache-busting which can break
-        // image CDNs that serve files at exact paths.
         await applyLogo(serverUrl, true);
-        // Propagate to React Query cache so every screen reading QUERY_KEYS.GARAGE
-        // (More, Dashboard, etc.) immediately gets the new logo_url without waiting
-        // for a background refetch.
         qc.setQueryData(QUERY_KEYS.GARAGE, (old: any) =>
           old ? { ...old, logo_url: serverUrl } : old
         );
-        // Background refetch to confirm the server state is consistent.
         qc.invalidateQueries({ queryKey: QUERY_KEYS.GARAGE });
       }
     }).catch((uploadErr) => {
-      console.warn('[Profile] uploadLogo failed:', String(uploadErr));
+      console.warn('[Profile] S3 uploadLogo failed:', String(uploadErr));
     });
   }
 
@@ -481,6 +707,7 @@ export default function ProfileScreen() {
           state:            stateVal.trim() || null,
           zipcode:          zipcode.trim() || null,
           working_hours,
+          logo_url:         logoUri || null,
         }),
       ]);
       router.push('/(tabs)/more' as never);
@@ -503,8 +730,19 @@ export default function ProfileScreen() {
 
       {/* Header */}
       <View style={[s.header, { paddingTop: topPad + 10 }]}>
-        <Text style={s.headerTitle}>My Profile</Text>
-        {memberSince && <Text style={s.headerSub}>Partner since {memberSince}</Text>}
+        <TouchableOpacity
+          style={s.backBtn}
+          onPress={() => router.push('/(tabs)/more' as never)}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <ChevronLeft size={24} color={TEXT} strokeWidth={2.5} />
+        </TouchableOpacity>
+        <View style={s.headerCenter}>
+          <Text style={s.headerTitle}>My Profile</Text>
+          {memberSince && <Text style={s.headerSub}>Partner since {memberSince}</Text>}
+        </View>
+        <View style={{ width: 28 }} />
       </View>
 
       {isLoading ? (
@@ -688,11 +926,22 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: BG },
 
   header: {
-    backgroundColor: BG, paddingHorizontal: 20, paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: LINE,
+    backgroundColor: BG,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: LINE,
   },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: TEXT, letterSpacing: -0.4 },
-  headerSub:   { fontSize: 12, color: MUTED, marginTop: 3 },
+  backBtn: {
+    paddingRight: 8,
+    paddingVertical: 4,
+    justifyContent: 'center',
+  },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: TEXT, letterSpacing: -0.3 },
+  headerSub:   { fontSize: 11, color: MUTED, marginTop: 1 },
 
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body:        { paddingHorizontal: 20, paddingTop: 10 },

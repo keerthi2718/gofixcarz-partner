@@ -7,10 +7,10 @@ import { Feather } from '@/src/components/ui/FeatherIcon';
 import { radius, spacing, typography } from '@/constants/theme';
 
 /* ── Design tokens (kept local so the component is self-contained) ─── */
-const PRIMARY        = '#C41E3A';
-const ICON_BG        = '#FEF2F2';
+const PRIMARY        = '#2563EB';
+const ICON_BG        = '#EFF6FF';
 const BORDER_DEFAULT = '#E2E8F0';
-const BORDER_FOCUS   = '#C41E3A';
+const BORDER_FOCUS   = '#2563EB';
 const BORDER_ERROR   = '#EF4444';
 const TEXT_COLOR     = '#1E293B';
 const PLACEHOLDER    = '#94A3B8';
@@ -34,8 +34,8 @@ interface Props extends TextInputProps {
   label?: string;
   error?: string;
   hint?: string;
-  leadingIcon?: keyof typeof Feather.glyphMap;
-  trailingIcon?: keyof typeof Feather.glyphMap;
+  leadingIcon?: React.ComponentProps<typeof Feather>['name'];
+  trailingIcon?: React.ComponentProps<typeof Feather>['name'];
   onTrailingIconPress?: () => void;
   containerStyle?: ViewStyle;
   isPassword?: boolean;
@@ -72,7 +72,7 @@ export default function InputField({
 
   const shadowColor = glowAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['rgba(196,30,58,0)', 'rgba(196,30,58,0.15)'],
+    outputRange: ['rgba(37,99,235,0)', 'rgba(37,99,235,0.15)'],
   });
 
   return (

@@ -123,7 +123,7 @@ export default function CreateServiceScreen() {
       <View style={[s.header, { paddingTop: topPad + 12 }]}>
         <TouchableOpacity
           style={s.backBtn}
-          onPress={() => router.back()}
+          onPress={() => router.push('/(tabs)' as never)}
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
@@ -147,7 +147,7 @@ export default function CreateServiceScreen() {
         >
           {/* ── Form Section Header ── */}
           <View style={s.sectionHeader}>
-            <View style={[s.iconCircle, { backgroundColor: '#FEE2E2' }]}>
+            <View style={[s.iconCircle, { backgroundColor: '#EFF6FF' }]}>
               <Wrench size={14} color={PRIMARY} strokeWidth={2.2} />
             </View>
             <Text style={s.sectionTitle}>Service Details</Text>

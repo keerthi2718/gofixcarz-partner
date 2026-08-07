@@ -200,7 +200,7 @@ export default function MoreAnalyticsScreen() {
         {/* KPI Row */}
         <View style={styles.kpiRow}>
           <LinearGradient
-            colors={['#921527', '#C41E3A']}
+            colors={['#1E40AF', '#2563EB']}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={[styles.kpiCard, { flex: 1.3 }]}
           >
@@ -215,18 +215,18 @@ export default function MoreAnalyticsScreen() {
 
           <View style={styles.kpiCol}>
             <View style={[styles.kpiCardSmall, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}>
-              <Feather name="briefcase" size={14} color={SUCCESS} />
+              <Feather name="briefcase" size={15} color={SUCCESS} />
               {isLoading
                 ? <SkeletonBlock height={16} width={32} radius={5} style={{ marginTop: 2 }} />
                 : <Text style={[styles.kpiValueSmall, { color: SUCCESS }]}>{totalJobs}</Text>}
-              <Text style={[styles.kpiLabelSmall, { color: '#064E3B' }]}>Jobs</Text>
+              <Text style={[styles.kpiLabelSmall, { color: '#065F46' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Total Jobs</Text>
             </View>
             <View style={[styles.kpiCardSmall, { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }]}>
-              <Feather name="percent" size={14} color={WARNING} />
+              <Feather name="percent" size={15} color={WARNING} />
               {isLoading
                 ? <SkeletonBlock height={16} width={36} radius={5} style={{ marginTop: 2 }} />
                 : <Text style={[styles.kpiValueSmall, { color: '#B45309' }]}>{completionRate}%</Text>}
-              <Text style={[styles.kpiLabelSmall, { color: '#92400E' }]}>Done</Text>
+              <Text style={[styles.kpiLabelSmall, { color: '#92400E' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Completion Rate</Text>
             </View>
           </View>
         </View>
@@ -385,9 +385,9 @@ const styles = StyleSheet.create({
   kpiValue:     { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
   kpiLabel:     { fontSize: 11, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
   kpiCol:       { flex: 1, gap: 10 },
-  kpiCardSmall: { flex: 1, borderRadius: 16, borderWidth: 1, padding: 12, gap: 2 },
-  kpiValueSmall:{ fontSize: 16, fontWeight: '800' },
-  kpiLabelSmall:{ fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
+  kpiCardSmall: { flex: 1, borderRadius: 16, borderWidth: 1, padding: 12, justifyContent: 'center' },
+  kpiValueSmall:{ fontSize: 18, fontWeight: '800', marginTop: 4 },
+  kpiLabelSmall:{ fontSize: 11.5, fontWeight: '700' },
 
   chart:            { flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 120 },
   barWrap:          { flex: 1, alignItems: 'center', gap: 3 },
@@ -420,8 +420,8 @@ const styles = StyleSheet.create({
 
   infoChip: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: '#FEE2E2', borderRadius: 14,
-    borderWidth: 1, borderColor: 'rgba(196,30,58,0.2)', padding: 14,
+    backgroundColor: '#EFF6FF', borderRadius: 14,
+    borderWidth: 1, borderColor: '#BFDBFE', padding: 14,
   },
   infoChipText: { flex: 1, fontSize: 13, color: PRIMARY, lineHeight: 18 },
 });

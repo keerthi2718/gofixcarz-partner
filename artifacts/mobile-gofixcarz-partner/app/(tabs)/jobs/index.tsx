@@ -15,18 +15,19 @@ import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import JobService from '@/src/services/job.service';
+import { formatCurrency } from '@/src/utils/helpers';
 import { Filter, Plus, Wrench, Clock, ChevronRight, Search, X } from 'lucide-react-native';
 
-const DEFAULT_STAGE = 'In Progress';
+const DEFAULT_STAGE = 'Open';
 
 /* ─────────────── Status config ─────────────── */
 const JOB_STATUS: Record<string, { label: string; color: string; bg: string; dot: string }> = {
-  OPEN:             { label: 'Open',        color: '#3B5FA0', bg: '#EEF2FB', dot: '#5B8DEF' },
-  IN_PROGRESS:      { label: 'In Progress', color: '#0369A1', bg: '#F0F8FF', dot: '#38A0D4' },
-  QUALITY_CHECK:    { label: 'QC Check',    color: '#5B4FA0', bg: '#F2F0FB', dot: '#8B80D4' },
-  READY:            { label: 'Ready',       color: '#1A6E52', bg: '#EDFAF4', dot: '#34C987' },
-  COMPLETED:        { label: 'Done',        color: '#1A6E52', bg: '#EDFAF4', dot: '#34C987' },
-  DELIVERED:        { label: 'Done',        color: '#1A6E52', bg: '#EDFAF4', dot: '#34C987' },
+  OPEN:             { label: 'Open',        color: '#2563EB', bg: '#EFF6FF', dot: '#3B82F6' },
+  IN_PROGRESS:      { label: 'In Progress', color: '#D97706', bg: '#FFFBEB', dot: '#F59E0B' },
+  QUALITY_CHECK:    { label: 'QC Check',    color: '#7C3AED', bg: '#F5F3FF', dot: '#8B5CF6' },
+  READY:            { label: 'Ready',       color: '#059669', bg: '#ECFDF5', dot: '#10B981' },
+  COMPLETED:        { label: 'Completed',    color: '#059669', bg: '#ECFDF5', dot: '#10B981' },
+  DELIVERED:        { label: 'Delivered',    color: '#059669', bg: '#ECFDF5', dot: '#10B981' },
 };
 
 /* Stage id → status values it matches */
@@ -42,7 +43,7 @@ const STAGES = ['Open', 'In Progress', 'Quality Check', 'Ready', 'Delivered'];
 
 /* ─────────────── FAB Shadow ─────────────── */
 const FAB_SHADOW = Platform.select({
-  ios:     { shadowColor: '#C41E3A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12 },
+  ios:     { shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12 },
   android: { elevation: 8 },
   default: {},
 });
@@ -59,12 +60,12 @@ function getInitials(name?: string): string {
 }
 
 const AVATAR_PALETTE = [
-  { bg: '#DBEAFE', fg: '#1E40AF' },
-  { bg: '#D1FAE5', fg: '#065F46' },
-  { bg: '#FEF3C7', fg: '#92400E' },
-  { bg: '#FCE7F3', fg: '#9D174D' },
-  { bg: '#EDE9FE', fg: '#4C1D95' },
-  { bg: '#FEE2E2', fg: '#991B1B' },
+  { bg: '#EFF6FF', fg: '#2563EB' },
+  { bg: '#ECFDF5', fg: '#059669' },
+  { bg: '#FFFBEB', fg: '#D97706' },
+  { bg: '#F5F3FF', fg: '#7C3AED' },
+  { bg: '#F0F9FF', fg: '#0284C7' },
+  { bg: '#EEF2FF', fg: '#4F46E5' },
 ];
 
 function getAvatarColor(name?: string): { bg: string; fg: string } {
@@ -120,27 +121,16 @@ export default function JobsScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
 
       {/* ── Header ── */}
-      <View style={[styles.header, { paddingTop: 40 + insets.top }]}>
+      <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? 20 : 12) + insets.top }]}>
         <Text style={styles.headerTitle}>Workshop</Text>
         <View style={styles.headerRight}>
           <Text style={styles.headerSub}>Today, {allItems.length} jobs</Text>
-          {isFiltered && (
-            <TouchableOpacity
-              onPress={resetFilters}
-              activeOpacity={0.7}
-              style={styles.headerResetBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <X size={12} color="#C41E3A" strokeWidth={3} />
-              <Text style={styles.headerResetText}>Reset</Text>
-            </TouchableOpacity>
-          )}
           <TouchableOpacity
             style={[styles.filterBtn, (searchOpen || isFiltered) && styles.filterBtnActive]}
             activeOpacity={0.7}
             onPress={() => { setSearchOpen(v => !v); if (searchOpen) setSearch(''); }}
           >
-            <Search size={16} color={searchOpen || isFiltered ? '#C41E3A' : '#64748B'} strokeWidth={2} />
+            <Search size={16} color={searchOpen || isFiltered ? '#2563EB' : '#64748B'} strokeWidth={2} />
             {isFiltered && <View style={styles.filterDot} />}
           </TouchableOpacity>
         </View>
@@ -154,7 +144,7 @@ export default function JobsScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            tintColor="#C41E3A"
+            tintColor="#2563EB"
           />
         }
         contentContainerStyle={[
@@ -165,22 +155,32 @@ export default function JobsScreen() {
         {/* ── Search bar ── */}
         {searchOpen && (
           <View style={styles.searchWrap}>
-            <View style={styles.searchBox}>
-              <Search size={15} color="#94A3B8" strokeWidth={2} />
+            <View style={[styles.searchBox, !!search && styles.searchBoxActive]}>
+              <Search size={16} color={search ? '#2563EB' : '#94A3B8'} strokeWidth={2.2} />
               <TextInput
                 style={styles.searchInput}
                 value={search}
                 onChangeText={setSearch}
-                placeholder="Search plate, name, job #..."
+                placeholder="Search plate, customer name, or job #..."
                 placeholderTextColor="#94A3B8"
                 autoFocus
               />
               {!!search && (
-                <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <X size={15} color="#94A3B8" strokeWidth={2.5} />
+                <TouchableOpacity
+                  onPress={() => setSearch('')}
+                  style={styles.searchClearBtn}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <X size={13} color="#64748B" strokeWidth={2.5} />
                 </TouchableOpacity>
               )}
             </View>
+            {!!search && (
+              <View style={styles.searchResultBadge}>
+                <Text style={styles.searchResultText}>{filteredJobs.length} found</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -194,7 +194,7 @@ export default function JobsScreen() {
           {/* Reset pill — shown when any filter or search is active */}
           {isFiltered && (
             <TouchableOpacity style={styles.resetPill} onPress={resetFilters} activeOpacity={0.75}>
-              <X size={11} color="#C41E3A" strokeWidth={3} />
+              <X size={11} color="#2563EB" strokeWidth={3} />
               <Text style={styles.resetPillText}>Reset</Text>
             </TouchableOpacity>
           )}
@@ -243,95 +243,103 @@ export default function JobsScreen() {
         <View style={styles.jobList}>
           {isLoading ? (
             /* Skeleton rows */
-            [0, 1, 2, 3].map(i => (
+            [0, 1, 2].map(i => (
               <View key={i} style={styles.skeleton} />
             ))
           ) : filteredJobs.length === 0 ? (
             /* Empty state */
             <View style={styles.empty}>
               <View style={styles.emptyIconWrap}>
-                <Wrench size={28} color="#C41E3A" strokeWidth={2} />
+                <Wrench size={26} color="#2563EB" strokeWidth={2} />
               </View>
-              <Text style={styles.emptyTitle}>No jobs here</Text>
+              <Text style={styles.emptyTitle}>No {activeStage} Jobs</Text>
               <Text style={styles.emptySubtitle}>
-                No jobs found for the selected filters
+                There are currently no job cards in {activeStage.toLowerCase()} stage.
               </Text>
+              <TouchableOpacity
+                style={styles.emptyCreateBtn}
+                onPress={() => router.push('/jobs/create' as any)}
+                activeOpacity={0.8}
+              >
+                <Plus size={15} color="#FFFFFF" strokeWidth={2.5} />
+                <Text style={styles.emptyCreateText}>Create Job Card</Text>
+              </TouchableOpacity>
             </View>
           ) : (
-            filteredJobs.map((item, index) => {
+            filteredJobs.map(item => {
               const st = JOB_STATUS[item.status] ?? { label: item.status, color: '#475569', bg: '#F3F4F6', dot: '#94A3B8' };
               const vehicleLine = [item.brand, item.vehicle_model].filter(Boolean).join(' ');
-              const serviceNames = item.services?.map(s => s.name).join(' · ') ?? '';
-              const techName = item.customer_name ?? '—';
+              const serviceNames = item.services?.map(s => s.name).join(' · ') || item.description || '';
+              const customerName = item.customer_name ?? 'Walk-in Customer';
               const jobRef = item.job_number ?? `#${item.id.substring(0, 6).toUpperCase()}`;
               const plate = item.registration_number
                 ? item.registration_number.toUpperCase().replace(/([A-Z]{2})(\d{2})([A-Z]{1,2})(\d{4})/, '$1 $2 $3 $4')
                 : null;
-              const avatar = getAvatarColor(techName);
-              const isLast = index === filteredJobs.length - 1;
+              const avatar = getAvatarColor(customerName);
+              const estAmount = item.estimated_amount ?? item.final_amount ?? null;
 
               return (
                 <TouchableOpacity
                   key={item.id}
-                  activeOpacity={0.6}
-                  style={[styles.row, isLast && styles.rowLast]}
+                  activeOpacity={0.7}
+                  style={styles.card}
                   onPress={() => router.push(`/(tabs)/jobs/${item.id}` as any)}
                 >
-                  {/* Left accent strip — status at a glance */}
-                  <View style={[styles.rowStrip, { backgroundColor: st.dot }]} />
+                  {/* Status Indicator Bar */}
+                  <View style={[styles.cardBar, { backgroundColor: st.dot }]} />
 
-                  {/* Row body */}
-                  <View style={styles.rowBody}>
-
-                    {/* Row 1: vehicle name (dominant) + chevron */}
-                    <View style={styles.rowHeadRow}>
-                      <Text style={styles.vehicleName} numberOfLines={1}>
-                        {vehicleLine || 'Unknown Vehicle'}
+                  <View style={styles.cardInner}>
+                    {/* Header: Title + Status */}
+                    <View style={styles.cardHeader}>
+                      <Text style={styles.vehicleTitle} numberOfLines={1}>
+                        {vehicleLine || 'Vehicle Job Card'}
                       </Text>
-                      <ChevronRight size={15} color="#D1D5DB" strokeWidth={2} />
+                      <View style={[styles.statusBadge, { backgroundColor: st.bg }]}>
+                        <View style={[styles.statusDot, { backgroundColor: st.dot }]} />
+                        <Text style={[styles.statusLabel, { color: st.color }]}>{st.label}</Text>
+                      </View>
                     </View>
 
-                    {/* Row 2: plate badge + status pill */}
-                    <View style={styles.rowSubRow}>
+                    {/* Badges: Plate + Ref */}
+                    <View style={styles.badgeRow}>
                       {!!plate && (
                         <View style={styles.plateBadge}>
                           <Text style={styles.plateText}>{plate}</Text>
                         </View>
                       )}
-                      <View style={[styles.statusPill, { backgroundColor: st.bg }]}>
-                        <View style={[styles.statusDot, { backgroundColor: st.dot }]} />
-                        <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
+                      <View style={styles.refBadge}>
+                        <Text style={styles.refText}>{jobRef}</Text>
                       </View>
                     </View>
 
-                    {/* Row 3: services */}
+                    {/* Services / Complaint Box */}
                     {!!serviceNames && (
-                      <View style={styles.servicesRow}>
-                        <Wrench size={11} color="#9CA3AF" strokeWidth={2} />
-                        <Text style={styles.serviceText} numberOfLines={1}>{serviceNames}</Text>
+                      <View style={styles.serviceBox}>
+                        <Wrench size={12} color="#64748B" strokeWidth={2} />
+                        <Text style={styles.serviceText} numberOfLines={2}>{serviceNames}</Text>
                       </View>
                     )}
 
-                    {/* Divider */}
-                    <View style={styles.rowDivider} />
-
-                    {/* Footer: tech avatar + name, job ref, est time */}
-                    <View style={styles.rowFooter}>
-                      <View style={styles.rowTechRow}>
-                        <View style={[styles.techAvatar, { backgroundColor: avatar.bg }]}>
-                          <Text style={[styles.techInitials, { color: avatar.fg }]}>
-                            {getInitials(techName)}
+                    {/* Footer Row */}
+                    <View style={styles.cardFooter}>
+                      <View style={styles.customerRow}>
+                        <View style={[styles.avatar, { backgroundColor: avatar.bg }]}>
+                          <Text style={[styles.avatarText, { color: avatar.fg }]}>
+                            {getInitials(customerName)}
                           </Text>
                         </View>
-                        <Text style={styles.techName} numberOfLines={1}>{techName}</Text>
-                        <Text style={styles.jobRef}>{jobRef}</Text>
+                        <Text style={styles.customerName} numberOfLines={1}>{customerName}</Text>
                       </View>
-                      <View style={styles.estWrap}>
-                        <Clock size={10} color="#9CA3AF" strokeWidth={2.5} />
-                        <Text style={styles.estTime}>2h</Text>
+
+                      <View style={styles.footerRight}>
+                        {estAmount ? (
+                          <Text style={styles.amountText}>{formatCurrency(estAmount)}</Text>
+                        ) : null}
+                        <View style={styles.chevronCircle}>
+                          <ChevronRight size={14} color="#64748B" strokeWidth={2.5} />
+                        </View>
                       </View>
                     </View>
-
                   </View>
                 </TouchableOpacity>
               );
@@ -343,7 +351,7 @@ export default function JobsScreen() {
       {/* ── FAB ── */}
       <TouchableOpacity
         activeOpacity={0.85}
-        style={[styles.fab, { bottom: insets.bottom + 76 }, FAB_SHADOW]}
+        style={[styles.fab, { bottom: insets.bottom + 24 }, FAB_SHADOW]}
         onPress={() => router.push('/jobs/create' as any)}
       >
         <Plus size={24} color="#FFFFFF" strokeWidth={2.5} />
@@ -372,9 +380,10 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
     color: '#0F172A',
+    letterSpacing: -0.5,
   },
   headerRight: {
     flexDirection: 'row',
@@ -385,22 +394,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
   },
-  headerResetBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#FFF1F3',
-    borderWidth: 1,
-    borderColor: '#FECDD3',
-  },
-  headerResetText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#C41E3A',
-  },
   filterBtn: {
     padding: 6,
     borderRadius: 8,
@@ -409,8 +402,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   filterBtnActive: {
-    borderColor: '#FECDD3',
-    backgroundColor: '#FFF1F3',
+    borderColor: '#BFDBFE',
+    backgroundColor: '#EFF6FF',
   },
   filterDot: {
     position: 'absolute',
@@ -419,29 +412,64 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#C41E3A',
+    backgroundColor: '#2563EB',
   },
 
   /* Search bar */
   searchWrap: {
     marginHorizontal: 16,
     marginTop: 12,
-  },
-  searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#fff',
+    gap: 10,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 12,
-    height: 40,
-    paddingHorizontal: 12,
+    borderRadius: 14,
+    height: 44,
+    paddingHorizontal: 14,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
+      android: { elevation: 2 },
+      default: {},
+    }),
+  },
+  searchBoxActive: {
+    borderColor: '#2563EB',
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13.5,
+    fontWeight: '500',
     color: '#0F172A',
+    paddingVertical: 0,
+  },
+  searchClearBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchResultBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(37,99,235,0.2)',
+  },
+  searchResultText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
   },
 
   /* Reset pill */
@@ -454,13 +482,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
     borderWidth: 1,
-    backgroundColor: '#FFF1F3',
-    borderColor: '#FECDD3',
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
   },
   resetPillText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#C41E3A',
+    color: '#2563EB',
   },
 
   /* Body */
@@ -494,8 +522,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   stagePillActive: {
-    backgroundColor: '#C41E3A',
-    borderColor: '#C41E3A',
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
   },
   stagePillInactive: {
     backgroundColor: '#FFFFFF',
@@ -534,201 +562,224 @@ const styles = StyleSheet.create({
 
   /* Job list container */
   jobList: {
-    marginTop: 12,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    marginTop: 10,
   },
 
   /* Skeleton */
   skeleton: {
-    height: 80,
+    height: 100,
     backgroundColor: '#F1F5F9',
     marginHorizontal: 16,
-    marginVertical: 6,
-    borderRadius: 8,
+    marginBottom: 10,
+    borderRadius: 16,
   },
 
   /* Empty state */
   empty: {
     alignItems: 'center',
-    paddingVertical: 60,
+    paddingVertical: 50,
+    paddingHorizontal: 24,
+    marginHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    backgroundColor: '#FFFFFF',
   },
   emptyIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: '#FEE2E2',
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#0F172A',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   emptySubtitle: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: '#64748B',
     textAlign: 'center',
+    marginBottom: 16,
   },
-
-  /* ── Job row ─────────────────────────────────────────────
-     Structure: left-strip (status color) + row body.
-     Separated by hairline bottom borders.
-  ──────────────────────────────────────────────────────── */
-  row: {
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  rowLast: {
-    borderBottomWidth: 0,
-  },
-
-  /* 3 px left strip — color carries status without text */
-  rowStrip: {
-    width: 3,
-    alignSelf: 'stretch',
-    flexShrink: 0,
-  },
-
-  /* Everything right of the strip */
-  rowBody: {
-    flex: 1,
-    paddingTop: 13,
-    paddingRight: 14,
-    paddingBottom: 13,
-    paddingLeft: 12,
-  },
-
-  /* Row 1: vehicle name + chevron */
-  rowHeadRow: {
+  emptyCreateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  emptyCreateText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  /* ── Modern Job Card ────────────────────────────────────── */
+  card: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6 },
+      android: { elevation: 2 },
+      default: {},
+    }),
+  },
+  cardBar: {
+    width: 4,
+    alignSelf: 'stretch',
+  },
+  cardInner: {
+    flex: 1,
+    padding: 13,
+  },
+
+  /* Card Header */
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
     marginBottom: 6,
   },
-  vehicleName: {
+  vehicleTitle: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
-    letterSpacing: -0.3,
-    lineHeight: 21,
+    color: '#0F172A',
+    letterSpacing: -0.2,
   },
-
-  /* Row 2: plate badge + status pill */
-  rowSubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-    flexWrap: 'wrap',
-  },
-  plateBadge: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 5,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  plateText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#374151',
-    letterSpacing: 1.4,
-    fontVariant: ['tabular-nums'] as any,
-  },
-  statusPill: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 5,
+    borderRadius: 8,
   },
   statusDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
   },
-  statusText: {
+  statusLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.1,
+    fontWeight: '700',
   },
 
-  /* Row 3: services */
-  servicesRow: {
+  /* Badges Row */
+  badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
+    marginBottom: 8,
+  },
+  plateBadge: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  plateText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
+    letterSpacing: 1.2,
+  },
+  refBadge: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  refText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+
+  /* Service / Complaint Box */
+  serviceBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     marginBottom: 10,
   },
   serviceText: {
     flex: 1,
     fontSize: 12,
-    color: '#6B7280',
-    lineHeight: 16,
+    fontWeight: '500',
+    color: '#475569',
   },
 
-  /* Hairline divider inside row */
-  rowDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#E5E7EB',
-    marginBottom: 10,
-  },
-
-  /* Footer */
-  rowFooter: {
+  /* Card Footer */
+  cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
-  rowTechRow: {
+  customerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     flex: 1,
-    minWidth: 0,
   },
-  techAvatar: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+  avatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
   },
-  techInitials: {
-    fontSize: 9,
+  avatarText: {
+    fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 0.2,
   },
-  techName: {
-    fontSize: 12,
-    color: '#6B7280',
-    flex: 1,
+  customerName: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#334155',
   },
-  jobRef: {
-    fontSize: 10.5,
-    color: '#9CA3AF',
-    letterSpacing: 0.3,
-    fontVariant: ['tabular-nums'] as any,
-    flexShrink: 0,
-  },
-  estWrap: {
+
+  footerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    flexShrink: 0,
+    gap: 8,
   },
-  estTime: {
-    fontSize: 11,
-    color: '#9CA3AF',
+  amountText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+  chevronCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   /* FAB */
@@ -738,7 +789,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#C41E3A',
+    backgroundColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
   },

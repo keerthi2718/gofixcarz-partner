@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Platform, ScrollView, StatusBar, StyleSheet, Text,
   TouchableOpacity, View,
@@ -13,14 +13,15 @@ import GarageService from '@/src/services/garage.service';
 import { useLogoStore } from '@/src/store/logo.store';
 import { useAuth } from '@/src/context/AuthContext';
 import Avatar from '@/src/components/ui/Avatar';
+import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 
 /* ── Design tokens ── */
-const BG      = '#EEEEF6';
+const BG      = '#F8FAFC';
 const CARD    = '#FFFFFF';
-const PRIMARY = '#C41E3A';
-const TEXT    = '#1E293B';
+const PRIMARY = '#2563EB';
+const TEXT    = '#0F172A';
 const MUTED   = '#64748B';
-const BORDER  = 'rgba(226,232,240,0.7)';
+const BORDER  = '#E2E8F0';
 const DANGER  = '#EF4444';
 
 interface MenuItem {
@@ -49,7 +50,7 @@ function MenuGroup({ title, items }: { title: string; items: MenuItem[] }) {
             activeOpacity={0.75}
           >
             <View style={[groupStyles.iconWrap, { backgroundColor: item.iconBg }]}>
-              <Feather name={item.icon} size={17} color={item.iconFg} />
+              <Feather name={item.icon} size={16} color={item.iconFg} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={groupStyles.label}>{item.label}</Text>
@@ -60,7 +61,7 @@ function MenuGroup({ title, items }: { title: string; items: MenuItem[] }) {
                 <Text style={groupStyles.badgeText}>{item.badge > 99 ? '99+' : item.badge}</Text>
               </View>
             ) : null}
-            <Feather name="chevron-right" size={16} color="#CBD5E1" />
+            <Feather name="chevron-right" size={15} color="#CBD5E1" />
           </TouchableOpacity>
         ))}
       </View>
@@ -69,30 +70,30 @@ function MenuGroup({ title, items }: { title: string; items: MenuItem[] }) {
 }
 
 const groupStyles = StyleSheet.create({
-  wrap:       { gap: 10 },
+  wrap:       { gap: 6 },
   groupTitle: {
     fontSize: 11, fontWeight: '700', color: MUTED,
-    letterSpacing: 0.8, textTransform: 'uppercase',
+    letterSpacing: 0.6, textTransform: 'uppercase',
     paddingHorizontal: 4,
   },
   card: {
-    backgroundColor: CARD, borderRadius: 20,
+    backgroundColor: CARD, borderRadius: 16,
     borderWidth: 1, borderColor: BORDER, overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
-      android: { elevation: 2 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6 },
+      android: { elevation: 1 },
       default: {},
     }),
   },
   row: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 18, paddingVertical: 14, gap: 14,
+    paddingHorizontal: 16, paddingVertical: 12, gap: 12,
   },
   iconWrap: {
-    width: 40, height: 40, borderRadius: 13,
+    width: 36, height: 36, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',
   },
-  label:     { fontSize: 14, fontWeight: '600', color: TEXT, marginBottom: 2 },
+  label:     { fontSize: 13.5, fontWeight: '600', color: TEXT, marginBottom: 1 },
   sub:       { fontSize: 11, color: MUTED },
   badge: {
     backgroundColor: PRIMARY,
@@ -106,7 +107,6 @@ export default function MoreScreen() {
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
   const qc     = useQueryClient();
-  const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
   const { data: profile } = useQuery({ queryKey: QUERY_KEYS.PROFILE, queryFn: ProfileService.get });
   const { data: garage  } = useQuery({ queryKey: QUERY_KEYS.GARAGE,  queryFn: GarageService.get });
@@ -115,8 +115,6 @@ export default function MoreScreen() {
   const mobile = profile?.mobile ?? '';
 
   /* ── Re-fetch profile + garage whenever this screen comes into focus ── */
-  // This ensures the avatar is always up-to-date when navigating back from the
-  // Profile screen after a logo upload, without needing a full app restart.
   useFocusEffect(
     useCallback(() => {
       qc.invalidateQueries({ queryKey: QUERY_KEYS.GARAGE });
@@ -124,81 +122,101 @@ export default function MoreScreen() {
     }, [qc]),
   );
 
-  /* ── Logo ── */
-  // Zustand store holds the optimistic URI set immediately during an in-session
-  // upload (local file path → server URL).  Once the upload completes, pickLogo()
-  // also writes the server URL into the React Query GARAGE cache and invalidates it,
-  // so garage.logo_url becomes the authoritative source going forward.
-  // Priority: in-progress upload URI (Zustand) → server URL (React Query) → null
   const storedLogoUri = useLogoStore(s => s.logoUri);
   const logoUri = storedLogoUri ?? garage?.logo_url ?? null;
 
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   return (
-    <View style={[styles.root, { backgroundColor: BG }]}>
+    <View style={[styles.root, { backgroundColor: BG, paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
 
       {/* ── Page header ── */}
-      <View style={[styles.topBar, { paddingTop: topPad + 16 }]}>
+      <View style={styles.topBar}>
         <Text style={styles.pageTitle}>More</Text>
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 110 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Profile card ── */}
-        <TouchableOpacity
-          style={styles.profileCard}
-          onPress={() => router.push('/(tabs)/profile' as never)}
-          activeOpacity={0.88}
-        >
-          <Avatar name={name} uri={logoUri} size={54} />
+        {/* ── Profile card (Display Only) ── */}
+        <View style={styles.profileCard}>
+          <Avatar name={name} uri={logoUri} size={48} />
           <View style={{ flex: 1 }}>
             <Text style={styles.profileName}>{name}</Text>
             {mobile ? <Text style={styles.profileMobile}>{mobile}</Text> : null}
             {garage?.name ? <Text style={styles.garageName}>📍 {garage.name}</Text> : null}
           </View>
-          <View style={styles.profileChevron}>
-            <Feather name="chevron-right" size={16} color={PRIMARY} />
-          </View>
-        </TouchableOpacity>
+        </View>
 
-        {/* ── Account ── */}
-        <MenuGroup title="Account" items={[
+        {/* ── Workshop & Services ── */}
+        <MenuGroup title="Workshop & Services" items={[
+          {
+            label: 'Service Packages', sub: 'Manage pricing & package catalog',
+            icon: 'package', iconBg: '#EFF6FF', iconFg: '#3B82F6',
+            route: '/(tabs)/services',
+          },
+          {
+            label: 'Revenue & Reports', sub: 'Earnings, job stats & analytics',
+            icon: 'bar-chart-2', iconBg: '#ECFDF5', iconFg: '#10B981',
+            route: '/(tabs)/analytics',
+          },
+        ]} />
+
+        {/* ── Account & Settings ── */}
+        <MenuGroup title="Account & Settings" items={[
+          {
+            label: 'Garage Profile & Hours', sub: 'Address, manager info & working hours',
+            icon: 'settings', iconBg: '#F5F3FF', iconFg: '#7C3AED',
+            route: '/(tabs)/profile',
+          },
           {
             label: 'Notifications', sub: 'Booking & job alerts',
             icon: 'bell', iconBg: '#FFF7ED', iconFg: '#F97316',
             route: '/(tabs)/more/notifications',
           },
-          {
-            label: 'Revenue & Analytics', sub: 'Performance reports',
-            icon: 'bar-chart-2', iconBg: '#F0FDF4', iconFg: '#10B981',
-            route: '/(tabs)/more/analytics',
-          },
         ]} />
 
-        {/* ── Support ── */}
-        <MenuGroup title="Support" items={[
+        {/* ── Support & Legal ── */}
+        <MenuGroup title="Support & Legal" items={[
           {
-            label: 'Help & Support', sub: 'FAQs & contact us',
+            label: 'Help & Support', sub: 'FAQs & partner assistance',
             icon: 'help-circle', iconBg: '#FDF4FF', iconFg: '#8B5CF6',
+            route: '/(tabs)/more/help',
           },
           {
-            label: 'Privacy Policy', sub: 'Terms & conditions',
-            icon: 'shield', iconBg: '#F1F5F9', iconFg: MUTED,
+            label: 'Privacy Policy', sub: 'Terms of service & privacy',
+            icon: 'shield', iconBg: '#EFF6FF', iconFg: PRIMARY,
+            route: '/(tabs)/more/privacy',
           },
         ]} />
 
         {/* ── Sign out ── */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={logout} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.logoutBtn} onPress={() => setShowLogoutModal(true)} activeOpacity={0.8}>
           <View style={styles.logoutIconWrap}>
-            <Feather name="log-out" size={16} color={DANGER} />
+            <Feather name="log-out" size={15} color={DANGER} />
           </View>
           <Text style={styles.logoutText}>Sign Out</Text>
         </TouchableOpacity>
 
         <Text style={styles.version}>GoFixCarz Partner v1.0.0</Text>
       </ScrollView>
+
+      {/* ── Sign Out Warning Confirmation Modal ── */}
+      <ConfirmDialog
+        visible={showLogoutModal}
+        title="Sign Out"
+        message="Are you sure you want to sign out of your account?"
+        confirmLabel="Sign Out"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={() => {
+          setShowLogoutModal(false);
+          logout();
+        }}
+        onCancel={() => setShowLogoutModal(false)}
+      />
     </View>
   );
 }
@@ -207,46 +225,46 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
 
   topBar: {
-    paddingHorizontal: 20, paddingBottom: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
   },
-  pageTitle: { fontSize: 26, fontWeight: '800', color: TEXT, letterSpacing: -0.5 },
+  pageTitle: { fontSize: 20, fontWeight: '800', color: TEXT },
 
-  content: { paddingHorizontal: 20, gap: 16 },
+  content: { paddingHorizontal: 16, paddingTop: 14, gap: 14 },
 
   /* Profile card */
   profileCard: {
     backgroundColor: CARD,
-    borderRadius: 20, borderWidth: 1, borderColor: BORDER,
+    borderRadius: 16, borderWidth: 1, borderColor: BORDER,
     flexDirection: 'row', alignItems: 'center',
-    padding: 18, gap: 14,
+    padding: 14, gap: 12,
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 10 },
-      android: { elevation: 3 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6 },
+      android: { elevation: 1 },
       default: {},
     }),
   },
-  profileName:   { fontSize: 16, fontWeight: '700', color: TEXT, marginBottom: 3 },
-  profileMobile: { fontSize: 12, color: MUTED, marginBottom: 2 },
+  profileName:   { fontSize: 15, fontWeight: '700', color: TEXT, marginBottom: 1 },
+  profileMobile: { fontSize: 12, color: MUTED, marginBottom: 1 },
   garageName:    { fontSize: 11, color: MUTED },
-  profileChevron: {
-    width: 32, height: 32, borderRadius: 10,
-    backgroundColor: '#FEE2E2',
-    alignItems: 'center', justifyContent: 'center',
-  },
 
   /* Sign out */
   logoutBtn: {
     backgroundColor: '#FEF2F2',
-    borderRadius: 18, borderWidth: 1, borderColor: '#FECACA',
+    borderRadius: 14, borderWidth: 1, borderColor: '#FECACA',
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 18, paddingVertical: 16, gap: 14,
+    paddingHorizontal: 14, paddingVertical: 12, gap: 12,
+    marginTop: 2,
   },
   logoutIconWrap: {
-    width: 36, height: 36, borderRadius: 12,
+    width: 32, height: 32, borderRadius: 10,
     backgroundColor: '#FEE2E2',
     alignItems: 'center', justifyContent: 'center',
   },
   logoutText: { fontSize: 14, fontWeight: '700', color: DANGER },
 
-  version: { textAlign: 'center', fontSize: 11, color: MUTED, marginTop: 4 },
+  version: { textAlign: 'center', fontSize: 11, color: MUTED, marginVertical: 4 },
 });

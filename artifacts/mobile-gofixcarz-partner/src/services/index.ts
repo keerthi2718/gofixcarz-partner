@@ -9,3 +9,4 @@ export { default as NotificationService } from './notification.service';
 export { default as GarageService } from './garage.service';
 export { default as ProfileService } from './profile.service';
 export { default as StorageService } from './storage.service';
+export { default as ImageService } from './image.service';

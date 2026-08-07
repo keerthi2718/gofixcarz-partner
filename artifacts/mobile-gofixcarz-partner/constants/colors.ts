@@ -5,10 +5,10 @@
 
 const colors = {
   light: {
-    // Brand
-    primary: '#C41E3A',
-    primaryDark: '#921527',
-    primaryLight: '#FDECEA',
+    // Brand — Royal Navy & Cobalt Blue
+    primary: '#2563EB',
+    primaryDark: '#1E40AF',
+    primaryLight: '#EFF6FF',
     primaryForeground: '#FFFFFF',
 
     // Semantic
@@ -31,18 +31,18 @@ const colors = {
     textSecondary: '#64748B',
     textDisabled: '#94A3B8',
 
-    // Legacy aliases (keep for backward compat with existing screens)
+    // Legacy aliases
     foreground: '#1E293B',
     card: '#FFFFFF',
     cardForeground: '#1E293B',
     accent: '#3B82F6',
-    accentLight: '#FDECEA',
+    accentLight: '#EFF6FF',
     accentForeground: '#FFFFFF',
     secondary: '#F1F5F9',
     secondaryForeground: '#374151',
     muted: '#F1F5F9',
     mutedForeground: '#64748B',
-    tint: '#C41E3A',
+    tint: '#2563EB',
     destructive: '#EF4444',
     destructiveLight: '#FEE2E2',
 
@@ -83,9 +83,9 @@ const colors = {
   },
 
   dark: {
-    primary: '#E11D48',
-    primaryDark: '#C41E3A',
-    primaryLight: '#3D0B17',
+    primary: '#2563EB',
+    primaryDark: '#1E40AF',
+    primaryLight: '#EFF6FF',
     primaryForeground: '#FFFFFF',
     success: '#34D399',
     successLight: '#064E3B',
@@ -111,7 +111,7 @@ const colors = {
     secondaryForeground: '#CBD5E1',
     muted: '#1E293B',
     mutedForeground: '#94A3B8',
-    tint: '#E11D48',
+    tint: '#2563EB',
     destructive: '#F87171',
     destructiveLight: '#450A0A',
     border: '#334155',

@@ -14,22 +14,54 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { isAxiosError } from 'axios';
+import Svg, { Path, Circle } from 'react-native-svg';
+import * as Location from 'expo-location';
 import { useAuth } from '@/src/context/AuthContext';
-import { Check, AlertTriangle, X, Wifi } from 'lucide-react-native';
+import {
+  Check,
+  AlertTriangle,
+  X,
+  Wifi,
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  ChevronLeft,
+  ArrowRight,
+  ShieldCheck,
+  Wrench,
+  Hash,
+  Navigation,
+} from 'lucide-react-native';
 
 /* ─────────────── Tokens ─────────────── */
-const BG      = '#FFFFFF';
-const TEXT    = '#1A1A1A';
-const MUTED   = '#9CA3AF';
-const LINE    = '#D1D5DB';
-const PRIMARY = '#C41E3A';
-const DANGER  = '#DC2626';
-const SUCCESS = '#16A34A';
+const BG           = '#FFFFFF';
+const CARD         = '#FFFFFF';
+const TEXT         = '#0F172A';
+const MUTED        = '#64748B';
+const BORDER       = '#E2E8F0';
+const PRIMARY      = '#2563EB';
+const PRIMARY_DARK = '#1E40AF';
+const PRIMARY_BG   = '#EFF6FF';
+const DANGER       = '#DC2626';
 
-const GOOGLE_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY ?? '';
+const GOOGLE_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || 'AIzaSyBUCnvnJyRUoph57Ft2X3Qhkkbfz8Ldkls';
+
+const SHADOW_CARD = Platform.select({
+  ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10 },
+  android: { elevation: 3 },
+  default: {},
+});
+
+const SHADOW_BTN = Platform.select({
+  ios:     { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
+  android: { elevation: 6 },
+  default: {},
+});
 
 /* ─────────────── Debounce ───────────── */
 function useDebounce<T>(value: T, delay: number): T {
@@ -61,15 +93,15 @@ function InlineError({ msg }: { msg: string }) {
   return (
     <FadeMsg>
       <View style={ie.row}>
-        <AlertTriangle size={11} color={DANGER} strokeWidth={2.5} />
+        <AlertTriangle size={12} color={DANGER} strokeWidth={2.5} />
         <Text style={ie.txt}>{msg}</Text>
       </View>
     </FadeMsg>
   );
 }
 const ie = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  txt: { fontSize: 11.5, color: DANGER, flex: 1 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 },
+  txt: { fontSize: 11.5, color: DANGER, fontWeight: '500', flex: 1 },
 });
 
 /* ─────────────── Snackbar ───────────── */
@@ -105,7 +137,7 @@ const sb = StyleSheet.create({
   wrap: {
     position: 'absolute', bottom: 24, left: 16, right: 16,
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#1F2937', borderRadius: 12,
+    backgroundColor: '#0F172A', borderRadius: 12,
     paddingHorizontal: 16, paddingVertical: 14,
     zIndex: 999,
     ...Platform.select({
@@ -117,50 +149,135 @@ const sb = StyleSheet.create({
   txt: { flex: 1, fontSize: 13, color: '#fff', lineHeight: 18 },
 });
 
+/* ─────────────── India Flag SVG ─────── */
+function IndiaFlag() {
+  return (
+    <Svg width={20} height={16} viewBox="0 0 512 512">
+      <Path fill="#f98000" d="M0 85.3h512v113.8H0z" />
+      <Path fill="#fff" d="M0 199.1h512v113.8H0z" />
+      <Path fill="#008000" d="M0 312.9h512v113.8H0z" />
+      <Circle cx={256} cy={256} r={40} fill="#000080" />
+      <Circle cx={256} cy={256} r={32} fill="#fff" />
+      <Path fill="#000080" d="M256 216l2 40-2 40-2-40zm0 80l-2-40 2-40 2 40zm40-40l-40 2-40-2 40-2zm-80 0l40-2 40 2-40 2zm28.3-28.3l28.3 28.3-28.3 28.3-28.3-28.3zm-56.6 56.6l28.3-28.3 28.3 28.3-28.3 28.3zm56.6 0l-28.3-28.3-28.3 28.3 28.3 28.3zm-56.6-56.6l28.3 28.3 28.3-28.3-28.3-28.3z" />
+    </Svg>
+  );
+}
 
-/* ─────────────── UnderlineInput ─────── */
-function UnderlineInput({
+/* ─────────────── RoundedInput ───────── */
+function RoundedInput({
   label, required = false, value, onChange, onBlur,
-  keyboard, capitalize = 'sentences', prefix,
-  half = false, error, maxLength,
+  keyboard, capitalize = 'sentences', prefix, Icon,
+  half = false, error, maxLength, hint, placeholder, textContentType, autoComplete, importantForAutofill,
 }: {
   label: string; required?: boolean; value: string;
   onChange: (v: string) => void; onBlur?: () => void;
-  keyboard?: any; capitalize?: any; prefix?: React.ReactNode;
-  half?: boolean; error?: string; maxLength?: number;
+  keyboard?: any; capitalize?: any; prefix?: React.ReactNode; Icon?: any;
+  half?: boolean; error?: string; maxLength?: number; hint?: string; placeholder?: string;
+  textContentType?: any; autoComplete?: any; importantForAutofill?: any;
 }) {
   const [focused, setFocused] = useState(false);
-  const lineColor = error ? DANGER : focused ? PRIMARY : LINE;
-  const bgColor   = error ? '#FEF2F2' : 'transparent';
+  const borderColor = error ? DANGER : focused ? PRIMARY : BORDER;
+  const bgColor     = error ? '#FEF2F2' : focused ? '#FFFFFF' : '#F8FAFC';
+
+  const defaultPlaceholder = placeholder || `Enter ${label.replace(/\s*\([^)]*\)/gi, '').trim().toLowerCase()}`;
+
   return (
-    <View style={[ui.wrap, half && { flex: 1 }]}>
-      <View style={[ui.row, { borderBottomColor: lineColor, backgroundColor: bgColor, paddingHorizontal: error ? 6 : 0, borderRadius: error ? 4 : 0 }]}>
-        {prefix ? <View style={ui.prefixSlot}>{prefix}</View> : null}
+    <View style={[ri.wrap, half && { flex: 1 }]}>
+      <Text style={ri.label}>
+        {label} {required && <Text style={{ color: DANGER }}>*</Text>}
+      </Text>
+      <View style={[ri.inputBox, { borderColor, backgroundColor: bgColor }]}>
+        {Icon && (
+          <View style={ri.iconSlot}>
+            <Icon size={16} color={focused ? PRIMARY : MUTED} strokeWidth={2} />
+          </View>
+        )}
+        {prefix ? <View style={ri.prefixSlot}>{prefix}</View> : null}
         <TextInput
-          style={ui.input}
+          style={ri.field}
           value={value}
           onChangeText={onChange}
-          placeholder={required ? `${label}*` : label}
-          placeholderTextColor={MUTED}
+          placeholder={defaultPlaceholder}
+          placeholderTextColor="#94A3B8"
           keyboardType={keyboard}
           autoCapitalize={capitalize}
           maxLength={maxLength}
+          textContentType={textContentType}
+          autoComplete={autoComplete}
+          importantForAutofill={importantForAutofill}
           onFocus={() => setFocused(true)}
           onBlur={() => { setFocused(false); onBlur?.(); }}
         />
-        {error && <AlertTriangle size={14} color={DANGER} strokeWidth={2} style={{ marginBottom: 8, marginRight: 4 }} />}
+        {error && <AlertTriangle size={15} color={DANGER} strokeWidth={2} style={{ marginRight: 10 }} />}
       </View>
+      {hint && !error && <Text style={ri.hintText}>{hint}</Text>}
       {error ? <InlineError msg={error} /> : null}
     </View>
   );
 }
 
-const ui = StyleSheet.create({
-  wrap:       { paddingVertical: 4 },
-  row:        { flexDirection: 'row', alignItems: 'flex-end', borderBottomWidth: 1.5, paddingBottom: 8, paddingTop: 2 },
-  prefixSlot: { flexShrink: 0 },
-  input:      { flex: 1, fontSize: 15, color: TEXT, padding: 0 },
+const ri = StyleSheet.create({
+  wrap:     { marginBottom: 12 },
+  label:    { fontSize: 12, fontWeight: '700', color: '#334155', marginBottom: 6, letterSpacing: 0.2 },
+  inputBox: {
+    flexDirection: 'row', alignItems: 'center',
+    height: 48, borderRadius: 12, borderWidth: 1,
+    paddingHorizontal: 12, overflow: 'hidden',
+  },
+  iconSlot:  { marginRight: 8 },
+  prefixSlot:{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingRight: 8, borderRightWidth: 1, borderRightColor: BORDER, marginRight: 10 },
+  field:     { flex: 1, fontSize: 14, fontWeight: '500', color: TEXT, paddingVertical: 0 },
+  hintText:  { fontSize: 11, color: MUTED, marginTop: 4, fontStyle: 'italic' },
 });
+
+const COMMON_INDIAN_LOCATIONS = [
+  { main: 'Warangal', sub: 'Telangana 506002', city: 'Warangal', state: 'Telangana', pincode: '506002', country: 'India' },
+  { main: 'Hanamkonda', sub: 'Warangal, Telangana 506001', city: 'Warangal', state: 'Telangana', pincode: '506001', country: 'India' },
+  { main: 'Kazipet', sub: 'Warangal, Telangana 506003', city: 'Warangal', state: 'Telangana', pincode: '506003', country: 'India' },
+  { main: 'Karimnagar', sub: 'Telangana 505001', city: 'Karimnagar', state: 'Telangana', pincode: '505001', country: 'India' },
+  { main: 'Nizamabad', sub: 'Telangana 503001', city: 'Nizamabad', state: 'Telangana', pincode: '503001', country: 'India' },
+  { main: 'Khammam', sub: 'Telangana 507001', city: 'Khammam', state: 'Telangana', pincode: '507001', country: 'India' },
+  { main: 'Gachibowli', sub: 'Hyderabad, Telangana 500032', city: 'Hyderabad', state: 'Telangana', pincode: '500032', country: 'India' },
+  { main: 'HITECH City', sub: 'Hyderabad, Telangana 500081', city: 'Hyderabad', state: 'Telangana', pincode: '500081', country: 'India' },
+  { main: 'Kukatpally', sub: 'Hyderabad, Telangana 500072', city: 'Hyderabad', state: 'Telangana', pincode: '500072', country: 'India' },
+  { main: 'Secunderabad', sub: 'Telangana 500003', city: 'Hyderabad', state: 'Telangana', pincode: '500003', country: 'India' },
+  { main: 'Vijayawada', sub: 'Andhra Pradesh 520001', city: 'Vijayawada', state: 'Andhra Pradesh', pincode: '520001', country: 'India' },
+  { main: 'Visakhapatnam (Vizag)', sub: 'Andhra Pradesh 530001', city: 'Visakhapatnam', state: 'Andhra Pradesh', pincode: '530001', country: 'India' },
+  { main: 'Guntur', sub: 'Andhra Pradesh 522002', city: 'Guntur', state: 'Andhra Pradesh', pincode: '522002', country: 'India' },
+  { main: 'Tirupati', sub: 'Andhra Pradesh 517501', city: 'Tirupati', state: 'Andhra Pradesh', pincode: '517501', country: 'India' },
+  { main: 'Koramangala', sub: 'Bengaluru, Karnataka 560034', city: 'Bengaluru', state: 'Karnataka', pincode: '560034', country: 'India' },
+  { main: 'Indiranagar', sub: 'Bengaluru, Karnataka 560038', city: 'Bengaluru', state: 'Karnataka', pincode: '560038', country: 'India' },
+  { main: 'HSR Layout', sub: 'Bengaluru, Karnataka 560102', city: 'Bengaluru', state: 'Karnataka', pincode: '560102', country: 'India' },
+  { main: 'Whitefield', sub: 'Bengaluru, Karnataka 560066', city: 'Bengaluru', state: 'Karnataka', pincode: '560066', country: 'India' },
+  { main: 'Peenya Industrial Area', sub: 'Bengaluru, Karnataka 560058', city: 'Bengaluru', state: 'Karnataka', pincode: '560058', country: 'India' },
+  { main: 'Mysuru (Mysore)', sub: 'Karnataka 570001', city: 'Mysuru', state: 'Karnataka', pincode: '570001', country: 'India' },
+  { main: 'Hubballi', sub: 'Karnataka 580020', city: 'Hubballi', state: 'Karnataka', pincode: '580020', country: 'India' },
+  { main: 'Mangaluru', sub: 'Karnataka 575001', city: 'Mangaluru', state: 'Karnataka', pincode: '575001', country: 'India' },
+  { main: 'Andheri West', sub: 'Mumbai, Maharashtra 400053', city: 'Mumbai', state: 'Maharashtra', pincode: '400053', country: 'India' },
+  { main: 'Andheri East', sub: 'Mumbai, Maharashtra 400069', city: 'Mumbai', state: 'Maharashtra', pincode: '400069', country: 'India' },
+  { main: 'Bandra West', sub: 'Mumbai, Maharashtra 400050', city: 'Mumbai', state: 'Maharashtra', pincode: '400050', country: 'India' },
+  { main: 'Thane West', sub: 'Mumbai, Maharashtra 400601', city: 'Thane', state: 'Maharashtra', pincode: '400601', country: 'India' },
+  { main: 'Viman Nagar', sub: 'Pune, Maharashtra 411014', city: 'Pune', state: 'Maharashtra', pincode: '411014', country: 'India' },
+  { main: 'Nagpur', sub: 'Maharashtra 440001', city: 'Nagpur', state: 'Maharashtra', pincode: '440001', country: 'India' },
+  { main: 'Nashik', sub: 'Maharashtra 422001', city: 'Nashik', state: 'Maharashtra', pincode: '422001', country: 'India' },
+  { main: 'Connaught Place', sub: 'New Delhi, Delhi 110001', city: 'New Delhi', state: 'Delhi', pincode: '110001', country: 'India' },
+  { main: 'DLF Cyber City', sub: 'Gurugram, Haryana 122002', city: 'Gurugram', state: 'Haryana', pincode: '122002', country: 'India' },
+  { main: 'Noida Sector 62', sub: 'Noida, Uttar Pradesh 201301', city: 'Noida', state: 'Uttar Pradesh', pincode: '201301', country: 'India' },
+  { main: 'T. Nagar', sub: 'Chennai, Tamil Nadu 600017', city: 'Chennai', state: 'Tamil Nadu', pincode: '600017', country: 'India' },
+  { main: 'Coimbatore', sub: 'Tamil Nadu 641001', city: 'Coimbatore', state: 'Tamil Nadu', pincode: '641001', country: 'India' },
+  { main: 'Madurai', sub: 'Tamil Nadu 625001', city: 'Madurai', state: 'Tamil Nadu', pincode: '625001', country: 'India' },
+  { main: 'Kochi', sub: 'Kerala 682001', city: 'Kochi', state: 'Kerala', pincode: '682001', country: 'India' },
+  { main: 'Kozhikode', sub: 'Kerala 673001', city: 'Kozhikode', state: 'Kerala', pincode: '673001', country: 'India' },
+  { main: 'Thiruvananthapuram', sub: 'Kerala 695001', city: 'Thiruvananthapuram', state: 'Kerala', pincode: '695001', country: 'India' },
+  { main: 'SG Highway', sub: 'Ahmedabad, Gujarat 380054', city: 'Ahmedabad', state: 'Gujarat', pincode: '380054', country: 'India' },
+  { main: 'Surat', sub: 'Gujarat 395002', city: 'Surat', state: 'Gujarat', pincode: '395002', country: 'India' },
+  { main: 'Vadodara', sub: 'Gujarat 390001', city: 'Vadodara', state: 'Gujarat', pincode: '390001', country: 'India' },
+  { main: 'Park Street', sub: 'Kolkata, West Bengal 700016', city: 'Kolkata', state: 'West Bengal', pincode: '700016', country: 'India' },
+  { main: 'Jaipur', sub: 'Rajasthan 302001', city: 'Jaipur', state: 'Rajasthan', pincode: '302001', country: 'India' },
+  { main: 'Lucknow', sub: 'Uttar Pradesh 226001', city: 'Lucknow', state: 'Uttar Pradesh', pincode: '226001', country: 'India' },
+  { main: 'Indore', sub: 'Madhya Pradesh 452001', city: 'Indore', state: 'Madhya Pradesh', pincode: '452001', country: 'India' },
+  { main: 'Patna', sub: 'Bihar 800001', city: 'Patna', state: 'Bihar', pincode: '800001', country: 'India' },
+];
 
 /* ─────────────── AddressInput ──────── */
 function AddressInput({ value, onChange, onSelect }: {
@@ -169,53 +286,251 @@ function AddressInput({ value, onChange, onSelect }: {
   onSelect: (parts: { address: string; city: string; state: string; pincode: string; country: string }) => void;
 }) {
   const [focused, setFocused] = useState(false);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
   const [show, setShow] = useState(false);
-  const debounced = useDebounce(value, 400);
+  const isSelected = useRef(false);
+  const debounced = useDebounce(value, 300);
+
   useEffect(() => {
-    if (!GOOGLE_KEY || debounced.length < 3) { setSuggestions([]); setShow(false); return; }
+    if (!focused || isSelected.current || debounced.length < 2) {
+      setSuggestions([]);
+      setShow(false);
+      setLoading(false);
+      return;
+    }
+
+    const q = debounced.toLowerCase();
+    const fallbackMatched = COMMON_INDIAN_LOCATIONS.filter(
+      loc => loc.main.toLowerCase().includes(q) || loc.sub.toLowerCase().includes(q) || loc.city.toLowerCase().includes(q)
+    ).map((loc, idx) => ({
+      place_id: `common_${idx}`,
+      description: `${loc.main}, ${loc.sub}`,
+      main_text: loc.main,
+      secondary_text: loc.sub,
+      city: loc.city,
+      state: loc.state,
+      pincode: loc.pincode,
+      country: loc.country,
+      isGoogle: false,
+    }));
+
     let cancelled = false;
     setLoading(true);
-    fetch(`https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(debounced)}&types=address&components=country:in&key=${GOOGLE_KEY}`)
-      .then(r => r.json())
-      .then(d => { if (!cancelled) { setSuggestions(d.predictions ?? []); setShow((d.predictions ?? []).length > 0); } })
-      .catch(() => { if (!cancelled) setSuggestions([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+
+    if (GOOGLE_KEY) {
+      const targetUrl = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(debounced)}&components=country:in&key=${GOOGLE_KEY}`;
+      const fetchUrl = Platform.OS === 'web' ? `https://corsproxy.io/?${encodeURIComponent(targetUrl)}` : targetUrl;
+
+      fetch(fetchUrl)
+        .then(r => r.json())
+        .then(d => {
+          if (!cancelled) {
+            const googlePreds = (d.predictions ?? []).map((p: any) => ({
+              place_id: p.place_id,
+              description: p.description,
+              main_text: p.structured_formatting?.main_text || p.description,
+              secondary_text: p.structured_formatting?.secondary_text || '',
+              isGoogle: true,
+            }));
+            if (googlePreds.length > 0) {
+              setSuggestions(googlePreds);
+              setShow(true);
+              return;
+            }
+          }
+          fetchOsm();
+        })
+        .catch(() => { if (!cancelled) fetchOsm(); });
+    } else {
+      fetchOsm();
+    }
+
+    function fetchOsm() {
+      fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(debounced)}&countrycodes=in&format=json&addressdetails=1&limit=6`)
+        .then(r => r.json())
+        .then(data => {
+          if (!cancelled && data && Array.isArray(data) && data.length > 0) {
+            const osmPreds = data.map((item: any, idx: number) => {
+              const addr = item.address || {};
+              const main = item.name || addr.suburb || addr.city || addr.town || item.display_name.split(',')[0];
+              const sub = item.display_name;
+              const city = addr.city || addr.town || addr.suburb || addr.county || addr.district || '';
+              const state = addr.state || '';
+              const pincode = addr.postcode || '';
+              return {
+                place_id: `osm_${idx}_${Date.now()}`,
+                description: sub,
+                main_text: main,
+                secondary_text: sub,
+                city,
+                state,
+                pincode,
+                country: addr.country || 'India',
+                isGoogle: false,
+              };
+            });
+            setSuggestions(osmPreds);
+            setShow(true);
+          } else if (!cancelled) {
+            setSuggestions(fallbackMatched);
+            setShow(fallbackMatched.length > 0);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setSuggestions(fallbackMatched);
+            setShow(fallbackMatched.length > 0);
+          }
+        })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }
+
     return () => { cancelled = true; };
-  }, [debounced]);
-  async function pick(s: Suggestion) {
-    setShow(false); onChange(s.description);
+  }, [debounced, focused]);
+
+  async function handleUseGps() {
+    try {
+      setGpsLoading(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const { latitude, longitude } = loc.coords;
+
+      if (GOOGLE_KEY) {
+        const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_KEY}`);
+        const data = await res.json();
+        if (data.results && data.results.length > 0) {
+          const first = data.results[0];
+          const comps: { types: string[]; long_name: string }[] = first.address_components ?? [];
+          const get = (...types: string[]) => {
+            for (const t of types) {
+              const found = comps.find(c => c.types.includes(t));
+              if (found?.long_name) return found.long_name;
+            }
+            return '';
+          };
+          const city = get('locality', 'sublocality_level_1', 'administrative_area_level_2');
+          const state = get('administrative_area_level_1');
+          const pincode = get('postal_code');
+          const country = get('country');
+          isSelected.current = true;
+          setShow(false);
+          onChange(first.formatted_address);
+          onSelect({ address: first.formatted_address, city, state, pincode, country });
+          return;
+        }
+      }
+
+      const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (geo && geo.length > 0) {
+        const place = geo[0];
+        const addr = [place.name, place.street, place.subregion, place.city].filter(Boolean).join(', ');
+        isSelected.current = true;
+        setShow(false);
+        onChange(addr);
+        onSelect({
+          address: addr,
+          city: place.city || place.subregion || '',
+          state: place.region || '',
+          pincode: place.postalCode || '',
+          country: place.country || 'India',
+        });
+      }
+    } catch (e) {
+      console.error('Location error:', e);
+    } finally {
+      setGpsLoading(false);
+    }
+  }
+
+  async function pick(s: any) {
+    isSelected.current = true;
+    setShow(false);
+    onChange(s.description);
+
+    if (!s.isGoogle) {
+      onSelect({
+        address: s.description,
+        city: s.city,
+        state: s.state,
+        pincode: s.pincode,
+        country: s.country,
+      });
+      return;
+    }
+
     if (!GOOGLE_KEY) return;
     try {
       const res  = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${s.place_id}&fields=address_components,formatted_address&key=${GOOGLE_KEY}`);
       const data = await res.json();
       const comps: { types: string[]; long_name: string }[] = data.result?.address_components ?? [];
-      const get = (t: string) => comps.find(c => c.types.includes(t))?.long_name ?? '';
-      onSelect({ address: data.result?.formatted_address ?? s.description, city: get('locality') || get('administrative_area_level_2'), state: get('administrative_area_level_1'), pincode: get('postal_code'), country: get('country') });
+      const get = (...types: string[]) => {
+        for (const t of types) {
+          const found = comps.find(c => c.types.includes(t));
+          if (found?.long_name) return found.long_name;
+        }
+        return '';
+      };
+      const city = get('locality', 'sublocality_level_1', 'administrative_area_level_2');
+      const state = get('administrative_area_level_1');
+      const pincode = get('postal_code');
+      const country = get('country');
+      onSelect({ address: data.result?.formatted_address ?? s.description, city, state, pincode, country });
     } catch {}
   }
+
   return (
-    <View style={[ai.wrap, { flex: 1 }]}>
-      <View style={[ui.row, { borderBottomColor: focused ? PRIMARY : LINE }]}>
+    <View style={ai.wrap}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <Text style={ri.label}>Workshop Address</Text>
+        <TouchableOpacity
+          onPress={handleUseGps}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+          activeOpacity={0.7}
+          disabled={gpsLoading}
+        >
+          {gpsLoading ? (
+            <ActivityIndicator size="small" color={PRIMARY} />
+          ) : (
+            <>
+              <Navigation size={12} color={PRIMARY} strokeWidth={2.5} />
+              <Text style={{ fontSize: 11, fontWeight: '700', color: PRIMARY }}>Use Current GPS</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <View style={[ri.inputBox, { borderColor: focused ? PRIMARY : BORDER, backgroundColor: focused ? '#FFFFFF' : '#F8FAFC' }]}>
+        <View style={ri.iconSlot}>
+          <MapPin size={16} color={focused ? PRIMARY : MUTED} strokeWidth={2} />
+        </View>
         <TextInput
-          style={ui.input}
+          style={ri.field}
           value={value}
-          onChangeText={v => { onChange(v); setShow(v.length >= 3); }}
-          placeholder="Address"
+          onChangeText={v => {
+            isSelected.current = false;
+            onChange(v);
+            setShow(v.length >= 2);
+          }}
+          placeholder="Search area, landmark or street..."
           placeholderTextColor={MUTED}
           autoCapitalize="words"
-          onFocus={() => setFocused(true)}
+          onFocus={() => { setFocused(true); if (!isSelected.current && suggestions.length > 0) setShow(true); }}
           onBlur={() => { setFocused(false); setTimeout(() => setShow(false), 350); }}
         />
-        {loading && <ActivityIndicator size="small" color={PRIMARY} style={{ marginBottom: 8 }} />}
+        {loading && <ActivityIndicator size="small" color={PRIMARY} />}
       </View>
+
       {show && suggestions.length > 0 && (
         <View style={ai.list}>
           {suggestions.map((s, i) => (
-            <TouchableOpacity key={s.place_id} style={[ai.item, i < suggestions.length - 1 && ai.itemBorder]} onPress={() => pick(s)} activeOpacity={0.7}>
-              <Text style={ai.main} numberOfLines={1}>{s.structured_formatting.main_text}</Text>
-              <Text style={ai.sub} numberOfLines={1}>{s.structured_formatting.secondary_text}</Text>
+            <TouchableOpacity key={s.place_id || i} style={[ai.item, i < suggestions.length - 1 && ai.itemBorder]} onPress={() => pick(s)} activeOpacity={0.7}>
+              <Text style={ai.main} numberOfLines={1}>{s.main_text}</Text>
+              <Text style={ai.sub} numberOfLines={1}>{s.secondary_text}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -223,130 +538,127 @@ function AddressInput({ value, onChange, onSelect }: {
     </View>
   );
 }
+
 const ai = StyleSheet.create({
-  wrap: { paddingVertical: 4 },
-  list: { position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 99, backgroundColor: BG, borderRadius: 8, borderWidth: 1, borderColor: LINE, ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.10, shadowRadius: 12 }, android: { elevation: 6 }, default: {} }) },
-  item: { paddingHorizontal: 12, paddingVertical: 9 },
-  itemBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: LINE },
+  wrap: { marginBottom: 12, position: 'relative', zIndex: 30 },
+  list: {
+    position: 'absolute', top: 72, left: 0, right: 0, zIndex: 99,
+    backgroundColor: CARD, borderRadius: 12, borderWidth: 1, borderColor: BORDER,
+    ...Platform.select({
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12 },
+      android: { elevation: 8 },
+      default: {},
+    }),
+  },
+  item: { paddingHorizontal: 14, paddingVertical: 11 },
+  itemBorder: { borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   main: { fontSize: 13, fontWeight: '600', color: TEXT },
   sub:  { fontSize: 11, color: MUTED, marginTop: 2 },
 });
 
-/* ─────────────── FlagPrefix ─────────── */
-function FlagPrefix() {
+/* ─────────────── SectionCard ───────── */
+function SectionCard({ title, Icon, children, showLine = true }: { title: string; Icon: any; children: React.ReactNode; showLine?: boolean }) {
   return (
-    <View style={fp.wrap}>
-      <Text style={fp.flag}>🇮🇳</Text>
-      <Text style={fp.caret}>▾</Text>
+    <View style={[sc.section, showLine && sc.sectionBorder]}>
+      <View style={sc.headRow}>
+        <View style={sc.iconBadge}>
+          <Icon size={14} color={PRIMARY} strokeWidth={2.2} />
+        </View>
+        <Text style={sc.title}>{title}</Text>
+      </View>
+      <View>{children}</View>
     </View>
   );
 }
-const fp = StyleSheet.create({
-  wrap:  { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 8, marginRight: 6 },
-  flag:  { fontSize: 18, lineHeight: 22 },
-  caret: { fontSize: 9, color: MUTED, lineHeight: 14 },
+
+const sc = StyleSheet.create({
+  section: {
+    paddingBottom: 20,
+    marginBottom: 20,
+  },
+  sectionBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  headRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  iconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: PRIMARY_BG,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: PRIMARY,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
 });
 
-/* ─────────────── CheckBox ───────────── */
-function CheckBox({ label, checked, onPress, linkLabel, onLinkPress }: {
-  label: string; checked: boolean; onPress: () => void;
-  linkLabel?: string; onLinkPress?: () => void;
-}) {
+/* ─────────────── WheelerCard ────────── */
+function WheelerCard({ label, subtitle, checked, onPress }: { label: string; subtitle: string; checked: boolean; onPress: () => void }) {
   return (
-    <TouchableOpacity style={cb.row} onPress={onPress} activeOpacity={0.7}>
-      <View style={[cb.box, checked && cb.boxOn]}>
-        {checked && <Check size={11} color="#fff" strokeWidth={3.5} />}
+    <TouchableOpacity
+      style={[wc.card, checked && wc.cardActive]}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <View style={[wc.checkCircle, checked && wc.checkCircleActive]}>
+        {checked && <Check size={11} color="#FFFFFF" strokeWidth={3.5} />}
       </View>
-      <Text style={cb.label}>
-        {label}
-        {linkLabel ? <Text style={cb.link} onPress={onLinkPress}> {linkLabel}</Text> : null}
-      </Text>
+      <Text style={[wc.label, checked && wc.labelActive]}>{label}</Text>
+      <Text style={wc.sub}>{subtitle}</Text>
     </TouchableOpacity>
   );
 }
-const cb = StyleSheet.create({
-  row:   { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
-  box:   { width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: LINE, alignItems: 'center', justifyContent: 'center', marginTop: 1, flexShrink: 0 },
-  boxOn: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  label: { flex: 1, fontSize: 14, color: TEXT, lineHeight: 22 },
-  link:  { color: PRIMARY, fontWeight: '700' },
+
+const wc = StyleSheet.create({
+  card: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'flex-start',
+  },
+  cardActive: {
+    backgroundColor: PRIMARY_BG,
+    borderColor: PRIMARY,
+  },
+  checkCircle: {
+    width: 18, height: 18, borderRadius: 9,
+    borderWidth: 1.5, borderColor: MUTED,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 8,
+  },
+  checkCircleActive: {
+    backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
+  },
+  label: { fontSize: 14, fontWeight: '700', color: TEXT },
+  labelActive: { color: PRIMARY },
+  sub: { fontSize: 11, color: MUTED, marginTop: 2 },
 });
 
-/* ─────────────── WheelerBox ─────────── */
-function WheelerBox({ label, checked, onPress }: { label: string; checked: boolean; onPress: () => void }) {
-  return (
-    <TouchableOpacity style={wb.row} onPress={onPress} activeOpacity={0.7}>
-      <View style={[wb.box, checked && wb.boxOn]}>
-        {checked && <Check size={11} color="#fff" strokeWidth={3.5} />}
-      </View>
-      <Text style={[wb.label, checked && wb.labelOn]}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-const wb = StyleSheet.create({
-  row:    { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  box:    { width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: LINE, alignItems: 'center', justifyContent: 'center' },
-  boxOn:  { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  label:  { fontSize: 14, color: TEXT, fontWeight: '500' },
-  labelOn:{ color: PRIMARY, fontWeight: '600' },
-});
-
-/* ─────────────── SectionLabel ──────── */
-function SectionLabel({ title }: { title: string }) {
-  return <Text style={sl.text}>{title}</Text>;
-}
-const sl = StyleSheet.create({
-  text: { fontSize: 12, fontWeight: '700', color: PRIMARY, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 12, marginTop: 24 },
-});
-
-/* ─────────────── WorkshopNameInput ─── */
-function WorkshopNameInput({ value, onChange, onBlur, error }: {
-  value: string; onChange: (v: string) => void; onBlur: () => void; error?: string;
-}) {
-  const [focused, setFocused] = useState(false);
-  const MAX = 80;
-  const lineColor = error ? DANGER : focused ? PRIMARY : LINE;
-  return (
-    <View style={wn.wrap}>
-      <View style={[wn.row, { borderBottomColor: lineColor }]}>
-        <TextInput
-          style={ui.input}
-          value={value}
-          onChangeText={onChange}
-          placeholder="WorkShop Name*"
-          placeholderTextColor={MUTED}
-          maxLength={MAX}
-          autoCapitalize="words"
-          onFocus={() => setFocused(true)}
-          onBlur={() => { setFocused(false); onBlur(); }}
-        />
-        {focused && (
-          <Text style={[wn.counter, value.length > MAX - 10 && { color: DANGER }]}>
-            {value.length}/{MAX}
-          </Text>
-        )}
-        {error && <AlertTriangle size={14} color={DANGER} strokeWidth={2} style={{ marginBottom: 8, marginRight: 4 }} />}
-      </View>
-      {error ? <InlineError msg={error} /> : null}
-    </View>
-  );
-}
-const wn = StyleSheet.create({
-  wrap:    { paddingVertical: 4 },
-  row:     { flexDirection: 'row', alignItems: 'flex-end', borderBottomWidth: 1.5, paddingBottom: 8, paddingTop: 2 },
-  counter: { fontSize: 10.5, color: MUTED, marginBottom: 8, marginRight: 4 },
-});
-
-/* ════════════════════ Main ══════════════════ */
+/* ════════════════════ Main Screen ══════════════════ */
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
   const { signUp, isLoading, clearError } = useAuth();
   const scrollRef = useRef<ScrollView>(null);
 
-  const [snackbar,     setSnackbar]     = useState<string | null>(null);
-  const [phoneExists,  setPhoneExists]  = useState(false);
+  const [snackbar,    setSnackbar]    = useState<string | null>(null);
+  const [phoneExists, setPhoneExists] = useState(false);
 
-  /* ── Clear any stale auth error the moment this screen mounts ── */
   useEffect(() => {
     clearError();
     setPhoneExists(false);
@@ -386,15 +698,15 @@ export default function RegisterScreen() {
   /* ── Validation errors ── */
   const errors = {
     firstName: touched.firstName
-      ? !form.firstName ? 'This field is required.' : ''
+      ? !form.firstName ? 'First name is required.' : ''
       : '',
     workshopName: touched.workshopName
-      ? !form.workshopName          ? 'This field is required.'
+      ? !form.workshopName          ? 'Workshop name is required.'
       : form.workshopName.length < 3 ? 'Workshop name is too short (min. 3 characters).'
       : ''
       : '',
     phone: touched.phone
-      ? !form.phone              ? 'Mobile number is required.'
+      ? !form.phone              ? 'Primary mobile number is required.'
       : form.phone.length < 10   ? 'Please enter a valid 10-digit mobile number.'
       : ''
       : '',
@@ -415,7 +727,6 @@ export default function RegisterScreen() {
     (!form.zipcode || form.zipcode.length === 6)
   );
 
-
   const handleSubmit = useCallback(async () => {
     setTouched(t => ({ ...t, firstName: true, workshopName: true, phone: true, zipcode: !!form.zipcode }));
     if (!isValid) return;
@@ -435,29 +746,34 @@ export default function RegisterScreen() {
         wheelers:       form.wheelers.length > 0 ? form.wheelers : null,
         terms_accepted: true,
       });
-      // AuthContext.signUp() navigates to /(auth)/otp automatically on success
     } catch (err: unknown) {
       if (isAxiosError(err)) {
         const status = err.response?.status;
-        if (status === 409) {
-          // Phone already registered — show inline error under the phone field
+        const msg: string =
+          err.response?.data?.message ??
+          err.response?.data?.error ??
+          err.response?.data?.detail ?? '';
+
+        if (status === 409 || status === 400 || (msg && (
+          msg.toLowerCase().includes('already') ||
+          msg.toLowerCase().includes('registered') ||
+          msg.toLowerCase().includes('exist') ||
+          msg.toLowerCase().includes('duplicate')
+        ))) {
           setPhoneExists(true);
+          return;
         } else if (!err.response || err.code === 'ECONNABORTED') {
           setSnackbar('Something went wrong. Please check your connection and retry.');
-        } else if (status === 422) {
-          // Parse field-level validation errors from the API
-          const fieldErrors: Array<{ field: string; message: string }> =
-            err.response?.data?.errors ?? [];
-          setSnackbar(err.response?.data?.message ?? 'Please check your details and try again.');
         } else {
-          const msg: string =
-            err.response?.data?.message ??
-            err.response?.data?.error ??
-            'Registration failed. Please try again.';
-          setSnackbar(msg);
+          setSnackbar(msg || 'Registration failed. Please try again.');
         }
       } else {
-        setSnackbar('Registration failed. Please try again.');
+        const errMsg = err instanceof Error ? err.message : 'Registration failed. Please try again.';
+        if (errMsg.toLowerCase().includes('already') || errMsg.toLowerCase().includes('registered') || errMsg.toLowerCase().includes('exist')) {
+          setPhoneExists(true);
+        } else {
+          setSnackbar(errMsg);
+        }
       }
     }
   }, [form, isValid, signUp]);
@@ -465,177 +781,270 @@ export default function RegisterScreen() {
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
   return (
-    <View style={{ flex: 1 }}>
-      <KeyboardAvoidingView
-        style={s.root}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
-        <StatusBar barStyle="dark-content" backgroundColor={BG} />
+    <View style={{ flex: 1, backgroundColor: BG }}>
+      <StatusBar barStyle="light-content" backgroundColor={PRIMARY_DARK} />
 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={[s.scroll, { paddingTop: topPad + 20, paddingBottom: insets.bottom + 40 }]}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 40 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Logo */}
-          <Image source={require('../../assets/images/logo_clean.png')} style={s.logo} resizeMode="contain" />
-          <Text style={s.pageTitle}>Create Your Account</Text>
-
-          {/* ── Personal Details ── */}
-          <SectionLabel title="Personal Details" />
-          <View style={s.twoCol}>
-            <View style={{ flex: 1 }}>
-              <UnderlineInput
-                label="First name" required
-                value={form.firstName}
-                onChange={v => set('firstName', v)}
-                onBlur={() => touch('firstName')}
-                capitalize="words"
-                error={errors.firstName}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <UnderlineInput label="Last Name" value={form.lastName} onChange={v => set('lastName', v)} capitalize="words" />
-            </View>
-          </View>
-
-          {/* ── Workshop ── */}
-          <SectionLabel title="Workshop Details" />
-          <WorkshopNameInput
-            value={form.workshopName}
-            onChange={v => set('workshopName', v)}
-            onBlur={() => touch('workshopName')}
-            error={errors.workshopName}
-          />
-          <View style={s.gap} />
-
-          <UnderlineInput
-            label="Email *"
-            value={form.email}
-            onChange={v => set('email', v)}
-            onBlur={() => { touch('email'); }}
-            keyboard="email-address" capitalize="none"
-            error={errors.email}
-          />
-          <Text style={s.emailHint}>OTP will be sent to your mobile number only</Text>
-          <View style={s.gap} />
-
-          <View style={{ zIndex: 20 }}>
-            <AddressInput
-              value={form.address}
-              onChange={v => set('address', v)}
-              onSelect={({ address, city, state, pincode, country }) => {
-                setForm(f => ({ ...f, address, city: city || f.city, state: state || f.state, zipcode: pincode || f.zipcode, country: country || f.country }));
-              }}
-            />
-          </View>
-          <View style={s.gap} />
-
-          <View style={s.twoCol}>
-            <UnderlineInput label="City" value={form.city} onChange={v => set('city', v)} capitalize="words" half />
-            <UnderlineInput label="State" value={form.state} onChange={v => set('state', v)} capitalize="words" half />
-          </View>
-          <View style={s.gap} />
-
-          <View style={s.twoCol}>
-            <UnderlineInput
-              label="PIN Code" value={form.zipcode}
-              onChange={v => set('zipcode', v.replace(/\D/g,'').slice(0,6))}
-              onBlur={() => { if (form.zipcode) touch('zipcode'); }}
-              keyboard="number-pad" half
-              error={errors.zipcode}
-            />
-            <UnderlineInput label="Country" value={form.country} onChange={v => set('country', v)} capitalize="words" half />
-          </View>
-
-          {/* ── Contact ── */}
-          <SectionLabel title="Contact" />
-
-          {/* Phone 1 */}
-          <View style={{ paddingVertical: 4, marginBottom: 4 }}>
-            <View style={[ui.row, { borderBottomColor: (errors.phone || phoneExists) ? DANGER : LINE }]}>
-              <FlagPrefix />
-              <TextInput
-                style={ui.input}
-                value={form.phone}
-                onChangeText={v => set('phone', v.replace(/\D/g,'').slice(0,10))}
-                onBlur={() => touch('phone')}
-                placeholder="Primary Phone Number *"
-                placeholderTextColor={MUTED}
-                keyboardType="number-pad"
-              />
-              {(errors.phone || phoneExists) ? <AlertTriangle size={13} color={DANGER} strokeWidth={2} style={{ marginBottom: 8 }} /> : null}
-            </View>
-            {errors.phone ? <InlineError msg={errors.phone} /> : null}
-            {phoneExists && !errors.phone && (
-              <View style={s.phoneExistsBanner}>
-                <AlertTriangle size={13} color={DANGER} strokeWidth={2} />
-                <Text style={s.phoneExistsTxt}>
-                  This mobile number is already registered.{' '}
-                </Text>
-                <TouchableOpacity onPress={() => router.replace('/(auth)/login' as never)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                  <Text style={s.phoneExistsLink}>Sign in instead →</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-
-          <View style={s.gap} />
-
-          {/* Phone 2 */}
-          <View style={{ paddingVertical: 4 }}>
-            <View style={[ui.row, { borderBottomColor: LINE }]}>
-              <FlagPrefix />
-              <TextInput
-                style={ui.input}
-                value={form.phone2}
-                onChangeText={v => set('phone2', v.replace(/\D/g,'').slice(0,10))}
-                placeholder="Alternate Phone Number (optional)"
-                placeholderTextColor={MUTED}
-                keyboardType="number-pad"
-              />
-            </View>
-          </View>
-
-          {/* ── Wheeler Types ── */}
-          <SectionLabel title="Vehicle Types (optional)" />
-          <View style={s.wheelersRow}>
-            {['2W', '3W', '4W', '6W'].map(w => (
-              <WheelerBox key={w} label={w} checked={form.wheelers.includes(w)}
-                onPress={() => { toggleWheeler(w); touch('wheelers'); }} />
-            ))}
-          </View>
-
-          {/* ── Terms ── */}
-          <View style={s.termsRow}>
-            <CheckBox
-              label="I accept "
-              linkLabel="Terms and conditions"
-              checked={form.acceptTerms}
-              onPress={() => set('acceptTerms', !form.acceptTerms)}
-              onLinkPress={() => Linking.openURL('https://gofixcarz.com/terms')}
-            />
-          </View>
-
-          {/* ── Submit ── */}
-          <View style={s.footerRow}>
+          {/* ── Executive Hero Header ── */}
+          <LinearGradient
+            colors={[PRIMARY_DARK, PRIMARY]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[s.heroHeader, { paddingTop: topPad + 12 }]}
+          >
+            {/* Back Button */}
             <TouchableOpacity
-              style={[s.sendBtn, (!isValid || isLoading) && { opacity: 0.6 }]}
+              style={s.backBtn}
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <ChevronLeft size={24} color="#FFFFFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+
+            <Image
+              source={require('../../assets/images/logo_clean.png')}
+              style={s.logoImg}
+              resizeMode="contain"
+            />
+
+            <View style={s.badgePill}>
+              <ShieldCheck size={12} color="#FFFFFF" strokeWidth={2.5} />
+              <Text style={s.badgePillText}>PARTNER ONBOARDING</Text>
+            </View>
+
+            <Text style={s.heroTitle}>Create Partner Account</Text>
+            <Text style={s.heroSubtitle}>Register your workshop &amp; join GoFixCarz partner network</Text>
+          </LinearGradient>
+
+          {/* ── Form Body Cards ── */}
+          <View style={s.formContainer}>
+
+            {/* Section 1: Personal Information */}
+            <SectionCard title="Personal Information" Icon={User}>
+              <View style={s.twoCol}>
+                <RoundedInput
+                  label="First Name" required
+                  value={form.firstName}
+                  onChange={v => set('firstName', v)}
+                  onBlur={() => touch('firstName')}
+                  capitalize="words"
+                  Icon={User}
+                  half
+                  error={errors.firstName}
+                />
+                <RoundedInput
+                  label="Last Name"
+                  value={form.lastName}
+                  onChange={v => set('lastName', v)}
+                  capitalize="words"
+                  Icon={User}
+                  half
+                />
+              </View>
+            </SectionCard>
+
+            {/* Section 2: Workshop & Location */}
+            <SectionCard title="Workshop & Location" Icon={Wrench}>
+              <RoundedInput
+                label="Workshop Name" required
+                value={form.workshopName}
+                onChange={v => set('workshopName', v)}
+                onBlur={() => touch('workshopName')}
+                capitalize="words"
+                Icon={Wrench}
+                error={errors.workshopName}
+              />
+
+              <RoundedInput
+                label="Email Address"
+                value={form.email}
+                onChange={v => set('email', v)}
+                onBlur={() => touch('email')}
+                keyboard="email-address" capitalize="none"
+                Icon={Mail}
+                hint="OTP will be sent to your primary mobile number"
+                error={errors.email}
+              />
+
+              <AddressInput
+                value={form.address}
+                onChange={v => set('address', v)}
+                onSelect={({ address, city, state, pincode, country }) => {
+                  setForm(f => ({
+                    ...f,
+                    address,
+                    city: city || f.city,
+                    state: state || f.state,
+                    zipcode: pincode || f.zipcode,
+                    country: country || f.country,
+                  }));
+                }}
+              />
+
+              <View style={s.twoCol}>
+                <RoundedInput label="City" value={form.city} onChange={v => set('city', v)} capitalize="words" half />
+                <RoundedInput label="State" value={form.state} onChange={v => set('state', v)} capitalize="words" half />
+              </View>
+
+              <View style={s.twoCol}>
+                <RoundedInput
+                  label="PIN Code"
+                  value={form.zipcode}
+                  onChange={v => set('zipcode', v.replace(/\D/g, '').slice(0, 6))}
+                  onBlur={() => { if (form.zipcode) touch('zipcode'); }}
+                  keyboard="number-pad"
+                  maxLength={6}
+                  half
+                  error={errors.zipcode}
+                />
+                <RoundedInput label="Country" value={form.country} onChange={v => set('country', v)} capitalize="words" half />
+              </View>
+            </SectionCard>
+
+            {/* Section 3: Contact Information */}
+            <SectionCard title="Contact Details" Icon={Phone}>
+              <RoundedInput
+                label="Primary Mobile Number" required
+                value={form.phone}
+                onChange={v => set('phone', v.replace(/\D/g, '').slice(0, 10))}
+                onBlur={() => touch('phone')}
+                keyboard="number-pad"
+                maxLength={10}
+                placeholder="10-digit mobile number"
+                prefix={
+                  <View style={s.flagBox}>
+                    <IndiaFlag />
+                    <Text style={s.countryCode}>+91</Text>
+                  </View>
+                }
+                textContentType="telephoneNumber"
+                autoComplete="tel"
+                error={errors.phone}
+              />
+
+              {phoneExists && (
+                <View style={s.phoneExistsBanner}>
+                  <AlertTriangle size={14} color={DANGER} strokeWidth={2} />
+                  <Text style={s.phoneExistsTxt}>
+                    This mobile number is already registered.{' '}
+                  </Text>
+                  <TouchableOpacity onPress={() => router.replace('/(auth)/login' as never)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                    <Text style={s.phoneExistsLink}>Sign in instead →</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              <RoundedInput
+                label="Alternate Mobile Number (Optional)"
+                value={form.phone2}
+                onChange={v => set('phone2', v.replace(/\D/g, '').slice(0, 10))}
+                keyboard="number-pad"
+                maxLength={10}
+                placeholder="10-digit mobile number"
+                prefix={
+                  <View style={s.flagBox}>
+                    <IndiaFlag />
+                    <Text style={s.countryCode}>+91</Text>
+                  </View>
+                }
+                textContentType="telephoneNumber"
+                autoComplete="tel"
+              />
+            </SectionCard>
+
+            {/* Section 4: Vehicle Types Supported */}
+            <SectionCard title="Vehicle Types Serviced" Icon={Hash} showLine={false}>
+              <View style={s.wheelerGrid}>
+                {[
+                  { id: '2W', label: '2-Wheeler', sub: 'Bikes & Scooters' },
+                  { id: '3W', label: '3-Wheeler', sub: 'Autos & Commercial' },
+                  { id: '4W', label: '4-Wheeler', sub: 'Cars & SUVs' },
+                  { id: '6W', label: '6-Wheeler+', sub: 'Heavy Commercial' },
+                ].map(item => (
+                  <WheelerCard
+                    key={item.id}
+                    label={item.label}
+                    subtitle={item.sub}
+                    checked={form.wheelers.includes(item.id)}
+                    onPress={() => { toggleWheeler(item.id); touch('wheelers'); }}
+                  />
+                ))}
+              </View>
+            </SectionCard>
+
+            {/* Terms Acceptance */}
+            <TouchableOpacity
+              style={s.termsCard}
+              onPress={() => set('acceptTerms', !form.acceptTerms)}
+              activeOpacity={0.8}
+            >
+              <View style={[s.termsCheckbox, form.acceptTerms && s.termsCheckboxChecked]}>
+                {form.acceptTerms && <Check size={12} color="#FFFFFF" strokeWidth={3.5} />}
+              </View>
+              <Text style={s.termsText}>
+                {'I accept the '}
+                <Text style={s.termsLink} onPress={() => Linking.openURL('https://gofixcarz.com/terms')}>
+                  Terms and Conditions
+                </Text>
+                {' & Privacy Policy'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Submit Action */}
+            <TouchableOpacity
+              style={[
+                s.submitBtnWrap,
+                isValid && !isLoading && SHADOW_BTN,
+              ]}
               onPress={handleSubmit}
               disabled={!isValid || isLoading}
-              activeOpacity={0.85}
+              activeOpacity={0.8}
             >
-              {isLoading
-                ? <ActivityIndicator color="#fff" size="small" />
-                : <Text style={s.sendTxt}>Send OTP</Text>
-              }
+              {isValid && !isLoading ? (
+                <LinearGradient
+                  colors={[PRIMARY_DARK, PRIMARY]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={s.submitBtn}
+                >
+                  <Text style={s.submitTxt}>Send OTP</Text>
+                  <ArrowRight size={18} color="#FFFFFF" strokeWidth={2.5} />
+                </LinearGradient>
+              ) : (
+                <View style={[s.submitBtn, s.submitBtnDisabled]}>
+                  {isLoading ? (
+                    <ActivityIndicator color={PRIMARY} size="small" />
+                  ) : (
+                    <>
+                      <Text style={s.submitTxtDisabled}>Send OTP</Text>
+                      <ArrowRight size={18} color="#94A3B8" strokeWidth={2.5} />
+                    </>
+                  )}
+                </View>
+              )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={s.loginLink} onPress={() => router.push('/(auth)/login')} activeOpacity={0.7}>
-              <Text style={s.loginLinkTxt}>Already Have an account</Text>
+            {/* Sign In Redirection */}
+            <TouchableOpacity
+              style={s.loginRedirect}
+              onPress={() => router.push('/(auth)/login')}
+              activeOpacity={0.7}
+            >
+              <Text style={s.loginRedirectTxt}>
+                Already have a partner account? <Text style={s.loginRedirectLink}>Sign In</Text>
+              </Text>
             </TouchableOpacity>
+
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -647,26 +1056,104 @@ export default function RegisterScreen() {
 }
 
 const s = StyleSheet.create({
-  root:   { flex: 1, backgroundColor: BG },
-  scroll: { flexGrow: 1, paddingHorizontal: 24 },
+  /* Header */
+  heroHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    alignItems: 'center',
+  },
+  backBtn: {
+    position: 'absolute',
+    left: 16,
+    top: Platform.OS === 'web' ? 76 : 54,
+    padding: 6,
+    zIndex: 10,
+  },
+  logoImg: { width: 180, height: 72, marginBottom: 8 },
+  badgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(255,255,255,0.3)',
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    marginBottom: 10,
+  },
+  badgePillText: { fontSize: 10, fontWeight: '700', color: '#FFFFFF', letterSpacing: 1 },
+  heroTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.4, textAlign: 'center' },
+  heroSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.85)', textAlign: 'center', marginTop: 4, paddingHorizontal: 20 },
 
-  logo:      { width: 160, height: 60, alignSelf: 'center', marginBottom: 10 },
-  pageTitle: { fontSize: 22, fontWeight: '800', color: TEXT, letterSpacing: -0.4, textAlign: 'center', marginBottom: 4 },
+  /* Form Container */
+  formContainer: {
+    paddingHorizontal: 16,
+    marginTop: 18,
+  },
 
-  twoCol:      { flexDirection: 'row', gap: 20 },
-  gap:         { height: 10 },
-  wheelersRow: { flexDirection: 'row', gap: 32, paddingVertical: 6 },
-  termsRow:    { marginTop: 20, marginBottom: 20 },
+  twoCol: { flexDirection: 'row', gap: 12 },
 
-  footerRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 8 },
-  sendBtn:   { backgroundColor: PRIMARY, borderRadius: 8, paddingVertical: 14, paddingHorizontal: 28, alignItems: 'center', justifyContent: 'center', minWidth: 140 },
-  sendTxt:   { color: '#fff', fontSize: 15, fontWeight: '700' },
+  flagBox: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  countryCode: { fontSize: 13, fontWeight: '700', color: TEXT },
 
-  emailHint:    { fontSize: 11, color: '#6B7280', marginTop: 6, fontStyle: 'italic' },
-  loginLink:    { paddingVertical: 4 },
-  loginLinkTxt: { fontSize: 14, color: PRIMARY, fontWeight: '600', textDecorationLine: 'underline' },
+  phoneExistsBanner: {
+    flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6,
+    backgroundColor: '#FEF2F2', borderColor: '#FECDD3', borderWidth: 1,
+    borderRadius: 10, padding: 10, marginBottom: 12,
+  },
+  phoneExistsTxt:  { fontSize: 12, color: DANGER, fontWeight: '500' },
+  phoneExistsLink: { fontSize: 12, color: PRIMARY, fontWeight: '700', textDecorationLine: 'underline' },
 
-  phoneExistsBanner: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4, marginTop: 6 },
-  phoneExistsTxt:    { fontSize: 12, color: DANGER, fontWeight: '500' },
-  phoneExistsLink:   { fontSize: 12, color: PRIMARY, fontWeight: '700', textDecorationLine: 'underline' },
+  wheelerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+
+  /* Terms Card */
+  termsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: CARD,
+    borderColor: BORDER,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 20,
+  },
+  termsCheckbox: {
+    width: 20, height: 20, borderRadius: 5,
+    borderWidth: 1.5, borderColor: MUTED,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  termsCheckboxChecked: {
+    backgroundColor: PRIMARY,
+    borderColor: PRIMARY,
+  },
+  termsText: { flex: 1, fontSize: 13, color: '#334155', lineHeight: 18 },
+  termsLink: { color: PRIMARY, fontWeight: '700' },
+
+  /* Submit Button */
+  submitBtnWrap: { borderRadius: 14, marginBottom: 16 },
+  submitBtn: {
+    height: 52,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    overflow: 'hidden',
+  },
+  submitBtnDisabled: {
+    backgroundColor: '#E2E8F0',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  submitTxt: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.2 },
+  submitTxtDisabled: { fontSize: 16, fontWeight: '700', color: '#94A3B8', letterSpacing: -0.2 },
+
+  /* Login Redirect */
+  loginRedirect: { alignItems: 'center', paddingVertical: 8 },
+  loginRedirectTxt: { fontSize: 14, color: MUTED },
+  loginRedirectLink: { color: PRIMARY, fontWeight: '700' },
 });

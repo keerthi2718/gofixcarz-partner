@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import StorageService from '@/src/services/storage.service';
+import { useLogoStore } from '@/src/store/logo.store';
 import type { AuthActions, AuthState, AuthStore, AuthUser } from '@/src/types';
 
 const initialState: AuthState = {
@@ -33,7 +34,9 @@ export const useAuthStore = create<AuthStore>()(set => ({
       STORAGE_KEYS.ACCESS_TOKEN,
       STORAGE_KEYS.REFRESH_TOKEN,
       STORAGE_KEYS.USER,
+      STORAGE_KEYS.GARAGE_LOGO,
     ]).catch(() => {});
+    useLogoStore.getState().setLogoUri(null);
     set({ ...initialState, isLoading: false });
   },
 

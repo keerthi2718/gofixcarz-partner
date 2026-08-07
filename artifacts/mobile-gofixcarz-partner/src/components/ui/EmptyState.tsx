@@ -4,7 +4,7 @@ import { Feather } from '@/src/components/ui/FeatherIcon';
 import { useColors } from '@/hooks/useColors';
 
 interface EmptyStateProps {
-  icon?: keyof typeof Feather.glyphMap;
+  icon?: React.ComponentProps<typeof Feather>['name'];
   title: string;
   description?: string;
   actionLabel?: string;

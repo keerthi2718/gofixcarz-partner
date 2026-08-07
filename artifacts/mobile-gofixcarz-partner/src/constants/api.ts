@@ -31,6 +31,10 @@ export const ENDPOINTS = {
 
   PROFILE: '/profile',
 
+  IMAGES: {
+    UPLOAD_URL: '/images/upload-url',
+  },
+
   BOOKINGS: {
     LIST: '/bookings',
     DETAIL: (id: string) => `/bookings/${id}`,

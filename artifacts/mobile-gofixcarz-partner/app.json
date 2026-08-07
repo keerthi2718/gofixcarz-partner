@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "GoFixAuto Partner",
+    "name": "GoFixCarz Partner",
     "slug": "mobile-gofixcarz-partner",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.jpg",
+    "icon": "./assets/images/icon.png",
     "scheme": "mobile-gofixcarz-partner",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -16,15 +16,23 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.gofixcarz.partner",
+      "config": {
+        "googleMapsApiKey": "AIzaSyBUCnvnJyRUoph57Ft2X3Qhkkbfz8Ldkls"
+      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.gofixcarz.partner"
+      "package": "com.gofixcarz.partner",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyBUCnvnJyRUoph57Ft2X3Qhkkbfz8Ldkls"
+        }
+      }
     },
     "web": {
-      "favicon": "./assets/images/logo.jpg"
+      "favicon": "./assets/images/icon.png"
     },
     "plugins": [
       [
@@ -45,8 +53,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/logo.jpg",
-          "color": "#C41E3A",
+          "icon": "./assets/images/icon.png",
+          "color": "#2563EB",
           "defaultChannel": "default",
           "sounds": []
         }
@@ -57,6 +65,7 @@
       "reactCompiler": true
     },
     "extra": {
+      "EXPO_PUBLIC_GOOGLE_PLACES_API_KEY": "AIzaSyBUCnvnJyRUoph57Ft2X3Qhkkbfz8Ldkls",
       "eas": {
         "projectId": "33af7382-e378-4e0b-ae76-44c030a71588"
       }

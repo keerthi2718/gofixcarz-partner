@@ -10,9 +10,9 @@ export const COLORS = {
   BG:         '#F8FAFC',
   CARD:       '#FFFFFF',
 
-  // Brand
-  PRIMARY:    '#C41E3A',
-  PRIMARY_BG: '#FEF2F2',  // very light red tint for chips/avatars
+  // Brand — Royal Navy & Cobalt Blue
+  PRIMARY:    '#2563EB',
+  PRIMARY_BG: '#EFF6FF',  // soft blue tint for chips/avatars
 
   // Text
   TEXT:       '#0F172A',

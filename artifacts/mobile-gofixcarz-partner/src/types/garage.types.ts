@@ -39,4 +39,5 @@ export interface GarageUpdate {
   working_hours?: WorkingHours | null;
   latitude?: number | string | null;
   longitude?: number | string | null;
+  logo_url?: string | null;
 }

@@ -197,7 +197,7 @@ export default function BookingsScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
 
       {/* ── Header ── */}
-      <View style={[styles.header, { paddingTop: 40 + insets.top }]}>
+      <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? 20 : 12) + insets.top }]}>
         <View>
           <Text style={styles.headerTitle}>Bookings</Text>
           <Text style={styles.headerDate}>{formatTodayHeader()}</Text>
@@ -210,7 +210,7 @@ export default function BookingsScreen() {
               style={styles.headerClearBtn}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <X size={12} color="#C41E3A" strokeWidth={3} />
+              <X size={12} color="#2563EB" strokeWidth={3} />
               <Text style={styles.headerClearText}>Clear</Text>
             </TouchableOpacity>
           )}
@@ -220,7 +220,7 @@ export default function BookingsScreen() {
             style={styles.searchToggleBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Search size={20} color={searchOpen || !!search ? '#C41E3A' : '#0F172A'} strokeWidth={2} />
+            <Search size={20} color={searchOpen || !!search ? '#2563EB' : '#0F172A'} strokeWidth={2} />
           </TouchableOpacity>
         </View>
       </View>
@@ -228,27 +228,37 @@ export default function BookingsScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor="#C41E3A" />}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor="#2563EB" />}
       >
         {/* ── Search bar ── */}
         {searchOpen && (
           <View style={styles.searchWrap}>
-            <View style={styles.searchBox}>
-              <Search size={16} color="#94A3B8" strokeWidth={2} />
+            <View style={[styles.searchBox, !!search && styles.searchBoxActive]}>
+              <Search size={16} color={search ? '#2563EB' : '#94A3B8'} strokeWidth={2.2} />
               <TextInput
                 style={styles.searchInput}
                 value={search}
                 onChangeText={setSearch}
-                placeholder="Search bookings, vehicles..."
+                placeholder="Search bookings, customer, or phone..."
                 placeholderTextColor="#94A3B8"
                 autoFocus
               />
               {!!search && (
-                <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <X size={15} color="#94A3B8" strokeWidth={2.5} />
+                <TouchableOpacity
+                  onPress={() => setSearch('')}
+                  style={styles.searchClearBtn}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <X size={13} color="#64748B" strokeWidth={2.5} />
                 </TouchableOpacity>
               )}
             </View>
+            {!!search && (
+              <View style={styles.searchResultBadge}>
+                <Text style={styles.searchResultText}>{filtered.length} found</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -313,7 +323,7 @@ export default function BookingsScreen() {
         {filtered.length === 0 && (
           <View style={styles.empty}>
             <View style={styles.emptyIcon}>
-              <CalendarClock size={28} color="#C41E3A" strokeWidth={2} />
+              <CalendarClock size={28} color="#2563EB" strokeWidth={2} />
             </View>
             <Text style={styles.emptyTitle}>No bookings found</Text>
             <Text style={styles.emptySubtitle}>
@@ -353,9 +363,10 @@ const styles = StyleSheet.create({
     ...SHADOW_HEADER,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
     color: '#0F172A',
+    letterSpacing: -0.5,
   },
   headerDate: {
     fontSize: 12,
@@ -369,14 +380,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: '#FFF1F3',
+    backgroundColor: '#EFF6FF',
     borderWidth: 1,
-    borderColor: '#FECDD3',
+    borderColor: '#BFDBFE',
   },
   headerClearText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#C41E3A',
+    color: '#2563EB',
   },
   searchToggleBtn: {
     padding: 8,
@@ -392,22 +403,57 @@ const styles = StyleSheet.create({
   searchWrap: {
     marginHorizontal: 16,
     marginTop: 16,
-  },
-  searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#F8FAFC',
+    gap: 10,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 12,
-    height: 40,
-    paddingHorizontal: 12,
+    borderRadius: 14,
+    height: 44,
+    paddingHorizontal: 14,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
+      android: { elevation: 2 },
+      default: {},
+    }),
+  },
+  searchBoxActive: {
+    borderColor: '#2563EB',
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13.5,
+    fontWeight: '500',
     color: '#0F172A',
+    paddingVertical: 0,
+  },
+  searchClearBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchResultBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(37,99,235,0.2)',
+  },
+  searchResultText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
   },
 
   /* Filter chips */
@@ -431,8 +477,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   chipActive: {
-    backgroundColor: '#C41E3A',
-    borderColor: '#C41E3A',
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
   },
   chipText: {
     fontSize: 14,
@@ -452,14 +498,14 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 6,
-    backgroundColor: '#FFF1F3',
+    backgroundColor: '#EFF6FF',
     borderWidth: 1,
-    borderColor: '#FECDD3',
+    borderColor: '#BFDBFE',
   },
   clearChipText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#C41E3A',
+    color: '#2563EB',
   },
 
   /* Section */
@@ -511,7 +557,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 999,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -519,7 +565,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#C41E3A',
+    color: '#2563EB',
   },
 
   /* Row name */
@@ -584,7 +630,7 @@ const styles = StyleSheet.create({
   viewLink: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#C41E3A',
+    color: '#2563EB',
   },
 
   /* Empty state */
@@ -596,7 +642,9 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 20,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,

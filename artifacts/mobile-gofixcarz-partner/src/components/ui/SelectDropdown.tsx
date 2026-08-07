@@ -18,7 +18,7 @@ const ERROR_COLOR    = '#EF4444';
 const DISABLED_BG    = '#F8FAFC';
 const PRIMARY_ICON   = '#2563EB';
 const ICON_BG        = '#EFF6FF';
-const CRIMSON        = '#C41E3A';
+const PRIMARY_BRAND  = '#2563EB';
 
 /* ── Field label (matches InputField's FieldLabel) ──────────────── */
 function FieldLabel({ label }: { label: string }) {
@@ -49,7 +49,7 @@ export interface SelectDropdownProps {
   /** Red border + error message below the field. */
   error?: string;
   /** Optional Feather icon inside the left badge (same as InputField). */
-  leadingIcon?: keyof typeof Feather.glyphMap;
+  leadingIcon?: React.ComponentProps<typeof Feather>['name'];
   /** Show a search bar inside the sheet. Defaults to true when options > 8. */
   searchable?: boolean;
 }
@@ -115,14 +115,11 @@ export default function SelectDropdown({
             borderWidth,
             backgroundColor: bgColor,
           },
-          Platform.OS === 'ios'
-            ? { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4 }
-            : { elevation: 2 },
         ]}
       >
         {leadingIcon ? (
-          <View style={st.iconBadge}>
-            <Feather name={leadingIcon} size={20} color={disabled ? PLACEHOLDER : PRIMARY_ICON} />
+          <View style={st.iconSlot}>
+            <Feather name={leadingIcon} size={16} color={open ? PRIMARY_BRAND : '#9CA3AF'} />
           </View>
         ) : null}
 
@@ -139,8 +136,8 @@ export default function SelectDropdown({
 
         <Feather
           name="chevron-down"
-          size={18}
-          color={disabled ? '#CBD5E1' : PLACEHOLDER}
+          size={16}
+          color={disabled ? '#CBD5E1' : '#94A3B8'}
           style={st.chevron}
         />
       </TouchableOpacity>
@@ -245,35 +242,38 @@ export default function SelectDropdown({
 
 const st = StyleSheet.create({
   /* Field wrapper */
-  wrapper: { marginBottom: 16 },
+  wrapper: { marginBottom: 10 },
 
   label: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: LABEL_COLOR,
-    marginBottom: 8,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+    textTransform: 'uppercase',
   },
 
   /* Trigger — matches InputField row */
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    height: 58,
+    borderRadius: 12,
+    height: 46,
     overflow: 'hidden',
   },
-  iconBadge: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: ICON_BG,
-    alignItems: 'center', justifyContent: 'center',
-    marginLeft: 12, marginRight: 4,
+  iconSlot: {
+    width: 42,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   triggerText: {
     flex: 1,
-    fontSize: 15,
-    paddingHorizontal: 18,
+    fontSize: 14,
+    color: TEXT_COLOR,
+    paddingRight: 12,
   },
-  chevron: { marginRight: 16 },
+  chevron: { marginRight: 14 },
 
   /* Error */
   errorRow:  { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
@@ -338,12 +338,12 @@ const st = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 14,
     borderBottomWidth: 1, borderBottomColor: '#F8FAFC',
   },
-  optionSelected: { backgroundColor: '#FEF2F2' },
+  optionSelected: { backgroundColor: '#EFF6FF' },
   optionText:         { flex: 1, fontSize: 15, color: TEXT_COLOR, fontWeight: '500' },
-  optionTextSelected: { color: CRIMSON, fontWeight: '700' },
+  optionTextSelected: { color: PRIMARY_BRAND, fontWeight: '700' },
   checkBadge: {
     width: 24, height: 24, borderRadius: 12,
-    backgroundColor: CRIMSON,
+    backgroundColor: PRIMARY_BRAND,
     alignItems: 'center', justifyContent: 'center',
   },
 
