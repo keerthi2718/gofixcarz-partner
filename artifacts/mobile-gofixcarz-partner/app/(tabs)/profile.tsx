@@ -17,6 +17,7 @@ import StorageService from '@/src/services/storage.service';
 import { useLogoStore } from '@/src/store/logo.store';
 import ProfileService from '@/src/services/profile.service';
 import GarageService from '@/src/services/garage.service';
+import { cleanMobileNumber } from '@/src/utils/validators';
 import type { WorkingHours } from '@/src/types';
 import * as Location from 'expo-location';
 import {
@@ -64,11 +65,11 @@ const sh = StyleSheet.create({
 /* ─────────────── UnderlineInput ─────── */
 function UnderlineInput({
   label, value, onChange, keyboard, capitalize = 'sentences',
-  readOnly = false, prefix, onBlur, error,
+  readOnly = false, prefix, onBlur, error, maxLength,
 }: {
   label: string; value: string; onChange: (v: string) => void;
   keyboard?: any; capitalize?: any; readOnly?: boolean; prefix?: string; onBlur?: () => void;
-  error?: string;
+  error?: string; maxLength?: number;
 }) {
   const [focused, setFocused] = useState(false);
   const lineColor = error ? DANGER : focused && !readOnly ? PRIMARY : LINE;
@@ -81,6 +82,7 @@ function UnderlineInput({
           value={value} onChangeText={onChange}
           placeholder={label} placeholderTextColor={MUTED}
           keyboardType={keyboard} autoCapitalize={capitalize}
+          maxLength={maxLength}
           editable={!readOnly}
           onFocus={() => setFocused(true)}
           onBlur={() => { setFocused(false); onBlur?.(); }}
@@ -725,7 +727,7 @@ export default function ProfileScreen() {
 
   /* ─────────────────────────────────────────── */
   return (
-    <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? undefined : undefined}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
 
       {/* Header */}
@@ -749,9 +751,10 @@ export default function ProfileScreen() {
         <View style={s.loadingWrap}><ActivityIndicator size="large" color={PRIMARY} /></View>
       ) : (
         <ScrollView
-          contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 100 }]}
+          contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 80 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         >
 
           {/* ── Garage Logo ── */}
@@ -781,8 +784,8 @@ export default function ProfileScreen() {
           <UnderlineInput label="Owner / Manager" value={owner} onChange={setOwner} capitalize="words" />
           <View style={s.gap} />
           <UnderlineInput label="Phone Number*" value={garagePhone}
-            onChange={v => { setGaragePhone(v.replace(/\D/g,'').slice(0,10)); clearError('garagePhone'); }}
-            keyboard="phone-pad" prefix="🇮🇳 +91" error={errors.garagePhone} />
+            onChange={v => { setGaragePhone(cleanMobileNumber(v)); clearError('garagePhone'); }}
+            keyboard="phone-pad" prefix="🇮🇳 +91" error={errors.garagePhone} maxLength={15} />
 
           {/* ── Location ── */}
           <SectionHeader title="Location" />

@@ -1,13 +1,14 @@
-import React from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, LayoutChangeEvent, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Tabs, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, CalendarClock, Wrench, BarChart2, MoreHorizontal } from 'lucide-react-native';
 
 /* ── Tokens ── */
-const PRIMARY  = '#2563EB';
-const INACTIVE = '#94A3B8';
-const BORDER   = '#E2E8F0';
+const PRIMARY   = '#2563EB';
+const INACTIVE  = '#64748B';
+const BORDER    = '#E2E8F0';
+const ACTIVE_BG = '#EFF6FF';
 
 const TABS = [
   { name: 'index',     label: 'Home',      Icon: Home          },
@@ -30,19 +31,57 @@ function TabBar({ state, descriptors, navigation }: any) {
   const insets   = useSafeAreaInsets();
   const pathname = usePathname();
 
+  // Filter visible tabs (excluding href === null)
+  const visibleRoutes = state.routes.filter((route: any) => {
+    const { options } = descriptors[route.key];
+    return options.href !== null && TABS.some(t => t.name === route.name);
+  });
+
+  const activeIndex = Math.max(0, visibleRoutes.findIndex((r: any) => r.key === state.routes[state.index]?.key));
+  const tabCount = visibleRoutes.length || 5;
+
+  const [barWidth, setBarWidth] = useState(0);
+  const translateX = useRef(new Animated.Value(0)).current;
+
+  const tabWidth = barWidth > 0 ? barWidth / tabCount : 0;
+
+  useEffect(() => {
+    if (tabWidth > 0) {
+      Animated.spring(translateX, {
+        toValue: activeIndex * tabWidth,
+        useNativeDriver: true,
+        stiffness: 260,
+        damping: 24,
+        mass: 0.8,
+      }).start();
+    }
+  }, [activeIndex, tabWidth]);
+
   if (HIDDEN_PATH_PREFIXES.some(p => pathname.includes(p))) return null;
 
   return (
-    <View style={[styles.bar, { paddingBottom: insets.bottom || 8 }]}>
-      {state.routes.map((route: any, idx: number) => {
-        const { options } = descriptors[route.key];
-        if (options.href === null) return null;
+    <View
+      style={[styles.bar, { paddingBottom: insets.bottom || 8 }]}
+      onLayout={(e: LayoutChangeEvent) => setBarWidth(e.nativeEvent.layout.width)}
+    >
+      {/* ── Animated Sliding Active Pill Indicator ── */}
+      {tabWidth > 0 && (
+        <Animated.View
+          style={[
+            styles.activePill,
+            {
+              width: tabWidth - 12,
+              transform: [{ translateX }],
+            },
+          ]}
+        />
+      )}
 
-        const tabDef = TABS.find(t => t.name === route.name);
-        if (!tabDef) return null;
-
-        const focused = state.index === idx;
-        const color   = focused ? PRIMARY : INACTIVE;
+      {visibleRoutes.map((route: any) => {
+        const routeIdx = state.routes.findIndex((r: any) => r.key === route.key);
+        const focused = state.index === routeIdx;
+        const tabDef = TABS.find(t => t.name === route.name)!;
+        const color = focused ? PRIMARY : INACTIVE;
         const { Icon } = tabDef;
 
         return (
@@ -57,12 +96,14 @@ function TabBar({ state, descriptors, navigation }: any) {
               });
               if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
             }}
-            activeOpacity={0.7}
+            activeOpacity={0.75}
             accessibilityRole="tab"
             accessibilityLabel={tabDef.label}
           >
             <Icon size={20} color={color} strokeWidth={focused ? 2.5 : 2} />
-            <Text style={[styles.label, { color }]}>{tabDef.label}</Text>
+            <Text style={[styles.label, { color, fontWeight: focused ? '700' : '500' }]}>
+              {tabDef.label}
+            </Text>
           </TouchableOpacity>
         );
       })}
@@ -94,20 +135,33 @@ const styles = StyleSheet.create({
     borderTopColor: BORDER,
     flexDirection: 'row',
     paddingTop: 8,
+    position: 'relative',
     ...Platform.select({
       ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: -1 }, shadowOpacity: 0.04, shadowRadius: 4 },
       android: { elevation: 8 },
       default: {},
     }),
   },
+  activePill: {
+    position: 'absolute',
+    top: 5,
+    left: 6,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: ACTIVE_BG,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
   tab: {
     flex: 1,
     alignItems: 'center',
-    gap: 2,
+    justifyContent: 'center',
+    gap: 3,
+    paddingVertical: 2,
+    zIndex: 1,
   },
   label: {
     fontSize: 10,
-    fontWeight: '500',
     letterSpacing: 0.1,
   },
 });

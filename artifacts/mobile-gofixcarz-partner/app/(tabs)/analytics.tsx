@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  ActivityIndicator, Platform, RefreshControl, ScrollView,
+  ActivityIndicator, Animated, LayoutChangeEvent, Platform, RefreshControl, ScrollView,
   StatusBar, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,35 +36,49 @@ const PERIODS: { label: string; value: UIPeriod }[] = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  OPEN:              '#3B82F6',
-  IN_PROGRESS:       '#8B5CF6',
-  WAITING_FOR_PARTS: '#F59E0B',
-  QUALITY_CHECK:     '#6366F1',
-  READY:             '#10B981',
-  COMPLETED:         '#059669',
-  DELIVERED:         '#059669',
-  CANCELLED:         '#EF4444',
+  OPEN:          '#3B82F6',
+  IN_PROGRESS:   '#8B5CF6',
+  QUALITY_CHECK: '#6366F1',
+  READY:         '#10B981',
+  COMPLETED:     '#059669',
+  DELIVERED:     '#059669',
+  CANCELLED:     '#EF4444',
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  OPEN:              'Open',
-  IN_PROGRESS:       'In Progress',
-  WAITING_FOR_PARTS: 'Waiting Parts',
-  QUALITY_CHECK:     'Quality Check',
-  READY:             'Ready for Pickup',
-  COMPLETED:         'Completed',
-  DELIVERED:         'Delivered',
-  CANCELLED:         'Cancelled',
+  OPEN:          'Open',
+  IN_PROGRESS:   'In Progress',
+  QUALITY_CHECK: 'Quality Check',
+  READY:         'Ready for Pickup',
+  COMPLETED:     'Completed',
+  DELIVERED:     'Delivered',
+  CANCELLED:     'Cancelled',
 };
 
 /* ── Helpers ── */
 function getJobDate(job: JobResponse): Date {
-  if (!job.created_at) return new Date();
-  const d = new Date(job.created_at);
+  // Revenue recognition date: for completed/delivered/ready jobs, use completed_at or updated_at first.
+  // This ensures a job created yesterday but completed today is accounted in TODAY'S revenue, not yesterday's.
+  const isDone = job.status === 'COMPLETED' || (job.status as string) === 'DELIVERED' || job.status === 'READY';
+  const dateStr = isDone
+    ? (job.completed_at || job.updated_at || job.created_at)
+    : (job.created_at || job.updated_at);
+
+  if (!dateStr) return new Date();
+  const d = new Date(dateStr);
   return isNaN(d.getTime()) ? new Date() : d;
 }
 
 function jobRevenue(job: JobResponse): number {
+  // OPEN, IN_PROGRESS, QUALITY_CHECK, and CANCELLED jobs are not realized revenue
+  if (
+    job.status === 'OPEN' ||
+    job.status === 'CANCELLED' ||
+    job.status === 'IN_PROGRESS' ||
+    job.status === 'QUALITY_CHECK'
+  ) {
+    return 0;
+  }
   const amt = (job as any).billing?.grand_total ?? job.final_amount ?? job.estimated_amount ?? (job as any).price ?? 0;
   return typeof amt === 'number' ? (isNaN(amt) ? 0 : amt) : parseFloat(amt) || 0;
 }
@@ -125,6 +139,63 @@ function SkeletonBlock({ height = 16, width = '100%', radius = 8, style }: {
   height?: number; width?: number | string; radius?: number; style?: object;
 }) {
   return <View style={[{ height, width: width as any, borderRadius: radius, backgroundColor: '#E2E8F0' }, style]} />;
+}
+
+function PeriodSelector({ period, setPeriod }: { period: UIPeriod; setPeriod: (p: UIPeriod) => void }) {
+  const [wrapWidth, setWrapWidth] = useState(0);
+  const translateX = useRef(new Animated.Value(0)).current;
+
+  const activeIndex = Math.max(0, PERIODS.findIndex(p => p.value === period));
+  const innerWidth = wrapWidth > 0 ? wrapWidth - 8 : 0;
+  const btnWidth = innerWidth > 0 ? innerWidth / PERIODS.length : 0;
+
+  useEffect(() => {
+    if (btnWidth > 0) {
+      Animated.spring(translateX, {
+        toValue: activeIndex * btnWidth,
+        useNativeDriver: true,
+        stiffness: 260,
+        damping: 24,
+        mass: 0.8,
+      }).start();
+    }
+  }, [activeIndex, btnWidth]);
+
+  return (
+    <View
+      style={styles.periodWrap}
+      onLayout={(e: LayoutChangeEvent) => setWrapWidth(e.nativeEvent.layout.width)}
+    >
+      {/* ── Animated Sliding Active Pill Background ── */}
+      {btnWidth > 0 && (
+        <Animated.View
+          style={[
+            styles.periodActivePill,
+            {
+              width: btnWidth,
+              transform: [{ translateX }],
+            },
+          ]}
+        />
+      )}
+
+      {PERIODS.map(p => {
+        const isActive = period === p.value;
+        return (
+          <TouchableOpacity
+            key={p.value}
+            style={styles.periodBtn}
+            onPress={() => setPeriod(p.value)}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.periodText, isActive && styles.periodTextActive]}>
+              {p.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
 }
 
 function SectionCard({ icon, title, iconBg = '#EFF6FF', iconFg = PRIMARY, children }: {
@@ -194,16 +265,18 @@ export default function AnalyticsScreen() {
   const totalRevenue   = jobs.reduce((s, j) => s + jobRevenue(j), 0);
   const totalJobs      = jobs.length;
   const completedJobs  = jobs.filter(j => j.status === 'COMPLETED' || (j.status as string) === 'DELIVERED').length;
-  const inProgressJobs = jobs.filter(j => j.status === 'IN_PROGRESS' || j.status === 'WAITING_FOR_PARTS' || j.status === 'QUALITY_CHECK').length;
+  const inProgressJobs = jobs.filter(j => j.status === 'IN_PROGRESS' || j.status === 'QUALITY_CHECK').length;
   const openJobs       = jobs.filter(j => j.status === 'OPEN').length;
   const readyJobs      = jobs.filter(j => j.status === 'READY').length;
-  const avgJobValue    = totalJobs > 0 ? totalRevenue / totalJobs : 0;
+  const realizedJobsCount = completedJobs + readyJobs;
+  const avgJobValue       = realizedJobsCount > 0 ? totalRevenue / realizedJobsCount : (totalJobs > 0 ? totalRevenue / totalJobs : 0);
   const completionRate = totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0;
 
-  /* Revenue Breakdown (Services vs Labour vs GST) */
-  const servicesRev = jobs.reduce((s, j) => s + ((j as any).billing?.services_total ?? 0), 0);
-  const labourRev   = jobs.reduce((s, j) => s + ((j as any).billing?.labour_total ?? 0), 0);
-  const gstRev      = jobs.reduce((s, j) => s + ((j as any).billing?.gst_amount ?? 0), 0);
+  /* Revenue Breakdown (Services vs Labour vs GST) - only for revenue-generating jobs */
+  const revenueJobs = jobs.filter(j => jobRevenue(j) > 0);
+  const servicesRev = revenueJobs.reduce((s, j) => s + ((j as any).billing?.services_total ?? 0), 0);
+  const labourRev   = revenueJobs.reduce((s, j) => s + ((j as any).billing?.labour_total ?? 0), 0);
+  const gstRev      = revenueJobs.reduce((s, j) => s + ((j as any).billing?.gst_amount ?? 0), 0);
   const isBillingAvailable = servicesRev > 0 || labourRev > 0 || gstRev > 0;
 
   /* Status Breakdown */
@@ -235,21 +308,8 @@ export default function AnalyticsScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={PRIMARY} />}
       >
-        {/* Period selector */}
-        <View style={styles.periodWrap}>
-          {PERIODS.map(p => (
-            <TouchableOpacity
-              key={p.value}
-              style={[styles.periodBtn, period === p.value && styles.periodBtnActive]}
-              onPress={() => setPeriod(p.value)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.periodText, period === p.value && styles.periodTextActive]}>
-                {p.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {/* Period selector with sliding pill animation */}
+        <PeriodSelector period={period} setPeriod={setPeriod} />
 
         {/* Primary KPI Row */}
         <View style={styles.kpiRow}>
@@ -434,7 +494,7 @@ export default function AnalyticsScreen() {
           <SectionCard icon="file-text" title="Recent Jobs Stats" iconBg="#EFF6FF" iconFg={INFO}>
             <View style={styles.recentList}>
               {recentJobs.map(j => {
-                const amount = jobRevenue(j);
+                const amount = (j as any).billing?.grand_total ?? j.final_amount ?? j.estimated_amount ?? (j as any).price ?? 0;
                 const statusColor = STATUS_COLORS[j.status] ?? PRIMARY;
                 const statusLabel = STATUS_LABELS[j.status] ?? j.status;
                 const carInfo = [j.brand, j.vehicle_model].filter(Boolean).join(' ') || j.registration_number || 'Vehicle';
@@ -485,12 +545,25 @@ const styles = StyleSheet.create({
   periodWrap: {
     flexDirection: 'row', backgroundColor: CARD,
     borderRadius: 16, borderWidth: 1, borderColor: BORDER,
-    padding: 4, gap: 4, marginBottom: 14,
+    padding: 4, marginBottom: 14,
+    position: 'relative',
   },
-  periodBtn:        { flex: 1, paddingVertical: 9, borderRadius: 12, alignItems: 'center' },
-  periodBtnActive:  { backgroundColor: PRIMARY },
-  periodText:       { fontSize: 12, fontWeight: '700', color: MUTED },
-  periodTextActive: { color: '#fff' },
+  periodActivePill: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: PRIMARY,
+    ...Platform.select({
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
+      android: { elevation: 3 },
+      default: {},
+    }),
+  },
+  periodBtn:        { flex: 1, height: 36, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  periodText:       { fontSize: 12, fontWeight: '600', color: MUTED },
+  periodTextActive: { fontWeight: '700', color: '#FFFFFF' },
 
   kpiRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   kpiCard: {

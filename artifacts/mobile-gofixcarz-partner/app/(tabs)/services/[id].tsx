@@ -94,7 +94,7 @@ export default function EditServiceScreen() {
   return (
     <KeyboardAvoidingView
       style={[styles.root, { backgroundColor: BG, paddingTop: insets.top }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? undefined : 'height'}
     >
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
 
@@ -126,9 +126,10 @@ export default function EditServiceScreen() {
 
       {isLoading ? <LoadingState /> : error ? <ErrorState /> : (
         <ScrollView
-          contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 100 }]}
+          contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 80 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         >
           {/* ── Service Details Card ── */}
           <View style={styles.card}>

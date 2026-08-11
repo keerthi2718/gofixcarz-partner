@@ -15,7 +15,6 @@ function getStatusConfig(status: AnyStatus, colors: ReturnType<typeof useColors>
     // Job statuses
     OPEN: { label: 'Open', color: colors.statusOpen, bg: colors.statusOpenBg },
     IN_PROGRESS: { label: 'In Progress', color: colors.statusInProgress, bg: colors.statusInProgressBg },
-    WAITING_FOR_PARTS: { label: 'Waiting Parts', color: colors.statusWaiting, bg: colors.statusWaitingBg },
     QUALITY_CHECK: { label: 'Quality Check', color: colors.statusQualityCheck, bg: colors.statusQualityCheckBg },
     READY: { label: 'Ready', color: colors.statusReady, bg: colors.statusReadyBg },
     COMPLETED: { label: 'Completed', color: colors.statusCompleted, bg: colors.statusCompletedBg },

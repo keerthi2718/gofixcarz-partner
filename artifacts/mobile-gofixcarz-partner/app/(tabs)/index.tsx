@@ -101,11 +101,20 @@ export default function DashboardScreen() {
   const allBookings = bookingsData?.items ?? [];
 
   const kpis = useMemo(() => {
-    // 1. Revenue Today — match Analytics jobRevenue calculation
+    // 1. Revenue Today — match Analytics jobRevenue calculation (excluding OPEN/CANCELLED/IN_PROGRESS)
     let revenueToday = dashData?.revenue_today ?? 0;
     if (!revenueToday) {
       revenueToday = allJobs.reduce((sum, job) => {
-        const jobDate = job.completed_at ?? job.created_at ?? job.updated_at;
+        if (
+          job.status === 'OPEN' ||
+          job.status === 'CANCELLED' ||
+          job.status === 'IN_PROGRESS' ||
+          job.status === 'QUALITY_CHECK'
+        ) {
+          return sum;
+        }
+        const isDone = job.status === 'COMPLETED' || (job.status as string) === 'DELIVERED' || job.status === 'READY';
+        const jobDate = isDone ? (job.completed_at || job.updated_at || job.created_at) : (job.created_at || job.updated_at);
         if (!isToday(jobDate)) return sum;
         const amt = job.billing?.grand_total ?? job.final_amount ?? job.estimated_amount ?? (job as any).price ?? 0;
         const numAmt = typeof amt === 'number' ? (isNaN(amt) ? 0 : amt) : parseFloat(amt) || 0;
@@ -113,13 +122,13 @@ export default function DashboardScreen() {
       }, 0);
     }
 
-    // 2. Active Jobs — OPEN, IN_PROGRESS, WAITING_FOR_PARTS, QUALITY_CHECK, READY
-    const activeStatuses = new Set(['OPEN', 'IN_PROGRESS', 'WAITING_FOR_PARTS', 'QUALITY_CHECK', 'READY']);
+    // 2. Active Jobs — OPEN, IN_PROGRESS, QUALITY_CHECK, READY
+    const activeStatuses = new Set(['OPEN', 'IN_PROGRESS', 'QUALITY_CHECK', 'READY']);
     const calculatedActive = allJobs.filter(j => activeStatuses.has(j.status)).length;
     const activeJobs = (dashData?.open_jobs && dashData.open_jobs > 0) ? dashData.open_jobs : calculatedActive;
 
-    // 3. In Progress Jobs — IN_PROGRESS, WAITING_FOR_PARTS, QUALITY_CHECK
-    const calculatedInProgress = allJobs.filter(j => j.status === 'IN_PROGRESS' || j.status === 'WAITING_FOR_PARTS' || j.status === 'QUALITY_CHECK').length;
+    // 3. In Progress Jobs — IN_PROGRESS, QUALITY_CHECK
+    const calculatedInProgress = allJobs.filter(j => j.status === 'IN_PROGRESS' || j.status === 'QUALITY_CHECK').length;
     const inProgressJobs = (dashData?.in_progress_jobs && dashData.in_progress_jobs > 0) ? dashData.in_progress_jobs : calculatedInProgress;
 
     // 4. Pending Bookings — PENDING status
@@ -130,7 +139,7 @@ export default function DashboardScreen() {
     const completedJobs = allJobs.filter(j => j.status === 'COMPLETED' || (j.status as string) === 'DELIVERED').length;
     const completedTodayJobs = allJobs.filter(j => {
       if (j.status !== 'COMPLETED' && (j.status as string) !== 'DELIVERED') return false;
-      const d = j.completed_at ?? j.updated_at ?? j.created_at;
+      const d = j.completed_at || j.updated_at || j.created_at;
       return isToday(d);
     }).length;
 
@@ -253,9 +262,9 @@ export default function DashboardScreen() {
           </ScrollView>
         </View>
 
-        {/* ── Today's Jobs header ── */}
+        {/* ── Today's Bookings header ── */}
         <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Today's Jobs</Text>
+          <Text style={styles.sectionTitle}>Today's Bookings</Text>
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => router.push('/(tabs)/bookings')}

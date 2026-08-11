@@ -128,11 +128,11 @@ export default function MoreScreen() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   return (
-    <View style={[styles.root, { backgroundColor: BG, paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={BG} />
+    <View style={[styles.root, { backgroundColor: BG }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── Page header ── */}
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { paddingTop: (Platform.OS === 'web' ? 14 : 10) + insets.top }]}>
         <Text style={styles.pageTitle}>More</Text>
       </View>
 

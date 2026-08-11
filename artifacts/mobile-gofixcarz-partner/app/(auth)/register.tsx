@@ -21,6 +21,7 @@ import { isAxiosError } from 'axios';
 import Svg, { Path, Circle } from 'react-native-svg';
 import * as Location from 'expo-location';
 import { useAuth } from '@/src/context/AuthContext';
+import { cleanMobileNumber } from '@/src/utils/validators';
 import {
   Check,
   AlertTriangle,
@@ -786,13 +787,14 @@ export default function RegisterScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? undefined : 'height'}
       >
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 40 }}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 24 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         >
           {/* ── Executive Hero Header ── */}
           <LinearGradient
@@ -916,10 +918,10 @@ export default function RegisterScreen() {
               <RoundedInput
                 label="Primary Mobile Number" required
                 value={form.phone}
-                onChange={v => set('phone', v.replace(/\D/g, '').slice(0, 10))}
+                onChange={v => set('phone', cleanMobileNumber(v))}
                 onBlur={() => touch('phone')}
                 keyboard="number-pad"
-                maxLength={10}
+                maxLength={15}
                 placeholder="10-digit mobile number"
                 prefix={
                   <View style={s.flagBox}>
@@ -947,9 +949,9 @@ export default function RegisterScreen() {
               <RoundedInput
                 label="Alternate Mobile Number (Optional)"
                 value={form.phone2}
-                onChange={v => set('phone2', v.replace(/\D/g, '').slice(0, 10))}
+                onChange={v => set('phone2', cleanMobileNumber(v))}
                 keyboard="number-pad"
-                maxLength={10}
+                maxLength={15}
                 placeholder="10-digit mobile number"
                 prefix={
                   <View style={s.flagBox}>

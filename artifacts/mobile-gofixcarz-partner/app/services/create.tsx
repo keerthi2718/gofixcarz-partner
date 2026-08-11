@@ -13,8 +13,9 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/src/constants/api';
 import {
   ChevronLeft,
   Check,
@@ -44,6 +45,17 @@ export default function CreateServiceScreen() {
   const insets = useSafeAreaInsets();
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
   const qc = useQueryClient();
+  const { from } = useLocalSearchParams<{ from?: string }>();
+
+  function handleGoBack() {
+    if (from === 'job_create') {
+      router.push('/(tabs)/jobs/create' as never);
+    } else if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.push('/(tabs)/services' as never);
+    }
+  }
 
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
@@ -79,7 +91,13 @@ export default function CreateServiceScreen() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['service-packages'] });
-      Alert.alert('Success', 'New service package created successfully!');
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.SERVICE_PACKAGES() });
+      Alert.alert('Success', 'New service package created successfully!', [
+        {
+          text: 'OK',
+          onPress: handleGoBack,
+        },
+      ]);
       setName('');
       setPrice('');
       setDuration('');
@@ -123,7 +141,7 @@ export default function CreateServiceScreen() {
       <View style={[s.header, { paddingTop: topPad + 12 }]}>
         <TouchableOpacity
           style={s.backBtn}
-          onPress={() => router.push('/(tabs)' as never)}
+          onPress={handleGoBack}
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
@@ -138,12 +156,13 @@ export default function CreateServiceScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? undefined : 'height'}
       >
         <ScrollView
-          contentContainerStyle={[s.scrollBody, { paddingBottom: insets.bottom + 100 }]}
+          contentContainerStyle={[s.scrollBody, { paddingBottom: insets.bottom + 80 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         >
           {/* ── Form Section Header ── */}
           <View style={s.sectionHeader}>

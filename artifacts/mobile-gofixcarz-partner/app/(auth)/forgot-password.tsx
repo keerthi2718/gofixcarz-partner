@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 import { Feather } from '@/src/components/ui/FeatherIcon';
 import InputField from '@/src/components/ui/InputField';
 import PrimaryButton from '@/src/components/ui/PrimaryButton';
+import { cleanMobileNumber } from '@/src/utils/validators';
 import { radius, shadow, spacing, typography } from '@/constants/theme';
 
 const PRIMARY = '#C62839';
@@ -24,16 +25,17 @@ export default function ForgotPasswordScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: BG }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? undefined : 'height'}
     >
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 },
+          { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       >
         {/* Back button */}
         <TouchableOpacity
@@ -65,10 +67,10 @@ export default function ForgotPasswordScreen() {
               leadingIcon="smartphone"
               prefix="+91"
               value={mobile}
-              onChangeText={setMobile}
+              onChangeText={v => setMobile(cleanMobileNumber(v))}
               placeholder="10-digit number"
               keyboardType="phone-pad"
-              maxLength={10}
+              maxLength={15}
               autoFocus
             />
 

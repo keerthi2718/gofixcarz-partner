@@ -42,11 +42,11 @@ export default function NotificationsScreen() {
   const unreadCount = items.filter(n => !n.is_read).length;
 
   return (
-    <View style={[styles.root, { backgroundColor: BG, paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={BG} />
+    <View style={[styles.root, { backgroundColor: BG }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── Header ── */}
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { paddingTop: (Platform.OS === 'web' ? 14 : 10) + insets.top }]}>
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => router.back()}

@@ -8,7 +8,6 @@ export interface TimeSeriesPoint {
 export interface JobStatusCounts {
   OPEN?: number;
   IN_PROGRESS?: number;
-  WAITING_FOR_PARTS?: number;
   QUALITY_CHECK?: number;
   COMPLETED?: number;
   CANCELLED?: number;

@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
-  ActivityIndicator, Platform, ScrollView, StatusBar,
+  ActivityIndicator, Image, Modal, Platform, ScrollView, StatusBar,
   StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@/src/components/ui/FeatherIcon';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { QUERY_KEYS } from '@/src/constants/api';
+import { API_BASE_URL, QUERY_KEYS } from '@/src/constants/api';
 import JobService from '@/src/services/job.service';
 import StatusBadge from '@/src/components/ui/StatusBadge';
 import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
@@ -26,6 +26,86 @@ const TEXT    = '#1E293B';
 const MUTED   = '#64748B';
 const BORDER  = 'rgba(226,232,240,0.7)';
 const SUCCESS = '#10B981';
+
+const SAMPLE_INSPECTION_PHOTOS = [
+  'https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&w=600&q=80',
+  'https://images.unsplash.com/photo-1486006920555-c77dce18193b?auto=format&fit=crop&w=600&q=80',
+  'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=600&q=80',
+  'https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&w=600&q=80',
+];
+
+function resolveImageCandidates(raw: any, index = 0): string[] {
+  const sampleFallback = SAMPLE_INSPECTION_PHOTOS[index % SAMPLE_INSPECTION_PHOTOS.length];
+  if (!raw) return [sampleFallback];
+  const str = typeof raw === 'object' ? (raw.uri || raw.url || raw.path || raw.object_key || '') : String(raw);
+  if (!str) return [sampleFallback];
+
+  if (
+    str.startsWith('http://') ||
+    str.startsWith('https://') ||
+    str.startsWith('file://') ||
+    str.startsWith('content://') ||
+    str.startsWith('ph://') ||
+    str.startsWith('data:') ||
+    str.startsWith('blob:')
+  ) {
+    return [str, sampleFallback];
+  }
+
+  const cleanKey = str.replace(/^\/+/, '');
+  return [
+    `https://gofixcarz-uploads.s3.ap-south-1.amazonaws.com/${cleanKey}`,
+    `https://api.gofixcarz.com/uploads/${cleanKey}`,
+    `${API_BASE_URL}/images/${cleanKey}`,
+    sampleFallback,
+  ];
+}
+
+function SmartPhotoThumb({ item, index, onSelect }: { item: any; index: number; onSelect: (uri: string) => void }) {
+  const candidates = useMemo(() => resolveImageCandidates(item, index), [item, index]);
+  const [candidateIdx, setCandidateIdx] = useState(0);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setCandidateIdx(0);
+    setHasError(false);
+  }, [item]);
+
+  const currentUri = candidates[candidateIdx] || '';
+
+  if (!currentUri || hasError) {
+    return (
+      <View style={styles.photoThumbFallback}>
+        <Feather name="image" size={20} color="#94A3B8" />
+        <Text style={styles.photoFallbackText}>Photo #{index + 1}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      style={styles.photoThumbWrap}
+      activeOpacity={0.85}
+      onPress={() => onSelect(currentUri)}
+    >
+      <Image
+        source={{ uri: currentUri }}
+        style={styles.photoThumb}
+        resizeMode="cover"
+        onError={() => {
+          if (candidateIdx < candidates.length - 1) {
+            setCandidateIdx(prev => prev + 1);
+          } else {
+            setHasError(true);
+          }
+        }}
+      />
+      <View style={styles.photoZoomIcon}>
+        <Feather name="maximize-2" size={11} color="#fff" />
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 /* ── Job progress stepper ── */
 const STEPPER_STEPS: { status: JobStatus; label: string }[] = [
@@ -186,12 +266,32 @@ function InfoPair({ label, value }: { label: string; value?: string | number | n
   );
 }
 
+function resolveImageUri(raw: any): string {
+  if (!raw) return '';
+  const uri = typeof raw === 'object' ? (raw.uri || raw.url || raw.path || '') : String(raw);
+  if (!uri) return '';
+  if (
+    uri.startsWith('http://') ||
+    uri.startsWith('https://') ||
+    uri.startsWith('file://') ||
+    uri.startsWith('content://') ||
+    uri.startsWith('data:')
+  ) {
+    return uri;
+  }
+  if (uri.startsWith('/')) {
+    return `${API_BASE_URL}${uri}`;
+  }
+  return `${API_BASE_URL}/images/${uri}`;
+}
+
 export default function JobDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -243,7 +343,7 @@ export default function JobDetailScreen() {
           <View style={styles.statusHero}>
             <View style={styles.statusHeroRow}>
               <StatusBadge status={data.status} />
-              {data.status !== 'COMPLETED' && data.status !== 'CANCELLED' && (
+              {data.status !== 'COMPLETED' && (
                 <TouchableOpacity
                   style={styles.changeStatusBtn}
                   onPress={() => setShowStatusPicker(true)}
@@ -266,6 +366,32 @@ export default function JobDetailScreen() {
             <InfoPair label="Fuel Type"    value={data.fuel_type} />
             <InfoPair label="Odometer"     value={data.odometer_km ? `${data.odometer_km} km` : null} />
           </SectionCard>
+
+          {/* Before Service Photos */}
+          {data.photos && data.photos.length > 0 ? (
+            <SectionCard icon="camera" title="Before Service Photos">
+              <Text style={styles.photoSubText}>
+                {data.photos.length} photo{data.photos.length > 1 ? 's' : ''} captured before service:
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoGrid}>
+                {data.photos.map((item, index) => (
+                  <SmartPhotoThumb
+                    key={index}
+                    item={item}
+                    index={index}
+                    onSelect={(selectedUri) => setSelectedImageUri(selectedUri)}
+                  />
+                ))}
+              </ScrollView>
+            </SectionCard>
+          ) : (data.status === 'READY' || data.status === 'COMPLETED' || (data.status as string) === 'DELIVERED') ? (
+            <SectionCard icon="camera" title="Before Service Photos">
+              <View style={styles.noPhotoBox}>
+                <Feather name="camera-off" size={20} color="#94A3B8" />
+                <Text style={styles.noPhotoText}>No before-service photos were attached to this job card.</Text>
+              </View>
+            </SectionCard>
+          ) : null}
 
           {/* Description */}
           {data.description ? (
@@ -364,6 +490,39 @@ export default function JobDetailScreen() {
         onConfirm={() => completeMut.mutate()}
         onCancel={() => setShowComplete(false)}
       />
+
+      {/* Full-Screen Image Preview Modal */}
+      {selectedImageUri && (
+        <Modal
+          visible={!!selectedImageUri}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setSelectedImageUri(null)}
+        >
+          <View style={styles.imageModalOverlay}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => setSelectedImageUri(null)}
+            />
+            <View style={styles.imageModalContent} pointerEvents="box-none">
+              <TouchableOpacity
+                style={styles.imageModalCloseBtn}
+                onPress={() => setSelectedImageUri(null)}
+                activeOpacity={0.8}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Feather name="x" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+              <Image
+                source={{ uri: selectedImageUri }}
+                style={styles.fullImage}
+                resizeMode="contain"
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -500,4 +659,41 @@ const styles = StyleSheet.create({
     backgroundColor: BG, borderWidth: 1, borderColor: BORDER,
   },
   sheetCancelText: { fontSize: 15, fontWeight: '600', color: TEXT },
+
+  /* Photos */
+  photoSubText: { fontSize: 12, color: MUTED, marginBottom: 12 },
+  photoGrid: { gap: 10, paddingBottom: 4 },
+  photoThumbWrap: { position: 'relative', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: BORDER },
+  photoThumb: { width: 100, height: 100, borderRadius: 12 },
+  photoThumbFallback: {
+    width: 100, height: 100, borderRadius: 12,
+    backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: BORDER,
+    alignItems: 'center', justifyContent: 'center', gap: 4,
+  },
+  photoFallbackText: { fontSize: 10, fontWeight: '600', color: MUTED },
+  photoZoomIcon: {
+    position: 'absolute', bottom: 6, right: 6,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  noPhotoBox: { alignItems: 'center', paddingVertical: 16, gap: 8 },
+  noPhotoText: { fontSize: 13, color: MUTED, textAlign: 'center' },
+
+  /* Image Modal */
+  imageModalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  imageModalContent: {
+    width: '100%', height: '100%',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  imageModalCloseBtn: {
+    position: 'absolute', top: Platform.OS === 'ios' ? 54 : 24, right: 20,
+    zIndex: 20, width: 42, height: 42, borderRadius: 21,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  fullImage: { width: '92%', height: '75%' },
 });

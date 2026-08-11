@@ -66,7 +66,6 @@
     "@react-native-community/datetimepicker": "^8.4.4",
     "axios": "^1.18.1",
     "expo-clipboard": "~8.0.8",
-    "expo-contacts": "^15.0.11",
     "expo-device": "^8.0.10",
     "expo-file-system": "^19.0.23",
     "expo-notifications": "^0.32.17",

@@ -1,7 +1,6 @@
 export type JobStatus =
   | 'OPEN'
   | 'IN_PROGRESS'
-  | 'WAITING_FOR_PARTS'
   | 'QUALITY_CHECK'
   | 'READY'
   | 'COMPLETED'

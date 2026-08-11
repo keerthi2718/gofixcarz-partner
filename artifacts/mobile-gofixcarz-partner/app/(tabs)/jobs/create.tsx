@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform,
   ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View,
@@ -6,7 +6,7 @@ import {
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import ServicePackageService from '@/src/services/service-package.service';
@@ -22,9 +22,11 @@ import {
 } from 'lucide-react-native';
 import JobService from '@/src/services/job.service';
 import GarageService from '@/src/services/garage.service';
+import ImageService from '@/src/services/image.service';
 import SelectDropdown from '@/src/components/ui/SelectDropdown';
 import { VEHICLE_BRANDS, getModelsForBrand } from '@/src/data/vehicleData';
 import { formatCurrency } from '@/src/utils/helpers';
+import { cleanMobileNumber } from '@/src/utils/validators';
 
 /* ─────────────────────────── Tokens ─────────────────────────── */
 const BG = '#FFFFFF';
@@ -200,12 +202,18 @@ export default function CreateJobScreen() {
   const garagePhone = garage?.phone || '';
 
   /* Service packages — used for quick-add chips on the Services step */
-  const { data: pkgsData } = useQuery({
+  const { data: pkgsData, refetch: refetchPkgs } = useQuery({
     queryKey: QUERY_KEYS.SERVICE_PACKAGES({}),
-    queryFn: () => ServicePackageService.list({ page_size: 20 }),
-    staleTime: 1000 * 60 * 5,
+    queryFn: () => ServicePackageService.list({ page_size: 100 }),
+    staleTime: 0,
   });
   const servicePackages = pkgsData?.items ?? [];
+
+  useFocusEffect(
+    useCallback(() => {
+      refetchPkgs();
+    }, [refetchPkgs])
+  );
 
   /* Step 0 */
   const [customerName, setCustomerName] = useState('');
@@ -226,6 +234,46 @@ export default function CreateJobScreen() {
   /* Step 2 */
   const [serviceSearch, setServiceSearch] = useState('');
   const [services, setServices] = useState<ServiceItem[]>([]);
+  const [showAddServiceModal, setShowAddServiceModal] = useState(false);
+  const [newSvcName, setNewSvcName] = useState('');
+  const [newSvcPrice, setNewSvcPrice] = useState('');
+  const [newSvcDesc, setNewSvcDesc] = useState('');
+  const [newSvcError, setNewSvcError] = useState<string | null>(null);
+
+  const { mutate: createQuickService, isPending: isCreatingQuickSvc } = useMutation({
+    mutationFn: async () => {
+      if (!newSvcName.trim()) throw new Error('Service name is required.');
+      const p = parseFloat(newSvcPrice);
+      if (isNaN(p) || p <= 0) throw new Error('Please enter a valid price.');
+
+      return ServicePackageService.create({
+        name: newSvcName.trim(),
+        price: p,
+        description: newSvcDesc.trim() || undefined,
+        is_active: true,
+      });
+    },
+    onSuccess: (newPkg) => {
+      qc.invalidateQueries({ queryKey: ['service-packages'] });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.SERVICE_PACKAGES() });
+      refetchPkgs();
+
+      setServices(prev => [
+        ...prev,
+        { name: newPkg.name, price: newPkg.price ?? 0, qty: 1 },
+      ]);
+      clearFieldError('services');
+
+      setNewSvcName('');
+      setNewSvcPrice('');
+      setNewSvcDesc('');
+      setNewSvcError(null);
+      setShowAddServiceModal(false);
+    },
+    onError: (err: any) => {
+      setNewSvcError(err?.message || 'Failed to create service package.');
+    },
+  });
 
   /* Step 3 */
   const [selectedTechName, setSelectedTechName] = useState('');
@@ -240,114 +288,223 @@ export default function CreateJobScreen() {
   /* Step 4/5 */
   const [createdJobId, setCreatedJobId] = useState<string | null>(null);
 
+  const yesterdayStart = new Date();
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+  yesterdayStart.setHours(0, 0, 0, 0);
+
+  function isTodayDate(d?: Date | null): boolean {
+    if (!d) return false;
+    const now = new Date();
+    return d.getDate() === now.getDate() &&
+           d.getMonth() === now.getMonth() &&
+           d.getFullYear() === now.getFullYear();
+  }
+
+  function isTomorrowDate(d?: Date | null): boolean {
+    if (!d) return false;
+    const tom = new Date();
+    tom.setDate(tom.getDate() + 1);
+    return d.getDate() === tom.getDate() &&
+           d.getMonth() === tom.getMonth() &&
+           d.getFullYear() === tom.getFullYear();
+  }
+
+  function selectQuickDate(type: 'today' | 'tomorrow') {
+    const d = new Date();
+    if (type === 'tomorrow') {
+      d.setDate(d.getDate() + 1);
+    }
+    setDeliveryDate(d);
+    clearFieldError('deliveryDate');
+  }
+
   const servicesTotal = services.reduce((sum, s) => sum + s.price * s.qty, 0);
   const labourTotal = parseFloat(labourCharge) || 0;
-  const subtotal = servicesTotal + labourTotal;
-  const gst = subtotal * 0.18;
-  const grandTotal = subtotal + gst;
+  const grandTotal = servicesTotal + labourTotal;
 
   /* ── Invoice HTML ── */
   function buildInvoiceHtml() {
     const now = new Date();
-    const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+    const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
     const dueStr = deliveryDate
-      ? deliveryDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
-      : '—';
+      ? deliveryDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      : 'On Completion';
+    const deliveryTimeStr = deliveryTime
+      ? deliveryTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+      : '';
     const vehicleLabel = [brand, model, fuelType].filter(Boolean).join(' · ') || '—';
+    const logoUrl = garage?.logo_url || null;
+
     const serviceRows = services.map((s, i) => `
-      <tr style="background:${i % 2 === 0 ? '#FAFAFA' : '#fff'}">
-        <td style="padding:10px 12px; border-bottom:1px solid #F1F5F9;"><div style="font-weight:600;color:#1E293B;font-size:13px;">${s.name}</div></td>
-        <td style="padding:10px 12px; border-bottom:1px solid #F1F5F9; text-align:center;color:#64748B;font-size:13px;">${s.qty}</td>
-        <td style="padding:10px 12px; border-bottom:1px solid #F1F5F9; text-align:right;color:#64748B;font-size:13px;">${formatCurrency(s.price)}</td>
-        <td style="padding:10px 12px; border-bottom:1px solid #F1F5F9; text-align:right;font-weight:600;color:#1E293B;font-size:13px;">${formatCurrency(s.price * s.qty)}</td>
+      <tr style="background:${i % 2 === 0 ? '#FFFFFF' : '#F8FAFC'};">
+        <td style="padding:12px 14px; border-bottom:1px solid #E2E8F0; color:#64748B; font-weight:600; text-align:center;">${i + 1}</td>
+        <td style="padding:12px 14px; border-bottom:1px solid #E2E8F0;">
+          <div style="font-weight:700; color:#0F172A; font-size:13px;">${s.name}</div>
+        </td>
+        <td style="padding:12px 14px; border-bottom:1px solid #E2E8F0; text-align:center; color:#334155; font-weight:600;">${s.qty}</td>
+        <td style="padding:12px 14px; border-bottom:1px solid #E2E8F0; text-align:right; color:#475569; font-weight:500;">${formatCurrency(s.price)}</td>
+        <td style="padding:12px 14px; border-bottom:1px solid #E2E8F0; text-align:right; font-weight:700; color:#0F172A;">${formatCurrency(s.price * s.qty)}</td>
       </tr>`).join('');
 
-    return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
-<style>
-  *{margin:0;padding:0;box-sizing:border-box;}
-  body{font-family:-apple-system,Helvetica Neue,Arial,sans-serif;color:#1E293B;background:#F8FAFC;font-size:13px;}
-  .page{max-width:680px;margin:0 auto;background:#fff;box-shadow:0 0 0 1px #E2E8F0;}
-  .header{background:linear-gradient(135deg,#1E40AF 0%,#2563EB 55%,#3B82F6 100%);padding:36px 36px 28px;color:#fff;}
-  .header-row{display:flex;justify-content:space-between;align-items:flex-start;}
-  .brand-name{font-size:26px;font-weight:800;letter-spacing:-0.5px;}
-  .brand-tag{font-size:11px;opacity:0.65;margin-top:5px;}
-  .inv-block{text-align:right;}
-  .inv-word{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;opacity:0.65;margin-bottom:4px;}
-  .inv-number{font-size:22px;font-weight:800;}
-  .inv-date{font-size:11px;opacity:0.7;margin-top:4px;}
-  .status-row{margin-top:22px;display:flex;align-items:center;gap:10px;}
-  .status-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:#fff;}
-  .dot{width:6px;height:6px;border-radius:50%;background:#4ADE80;}
-  .due-text{font-size:11px;opacity:0.7;}
-  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid #E2E8F0;}
-  .info-cell{padding:20px 28px;}
-  .info-cell+.info-cell{border-left:1px solid #E2E8F0;}
-  .cell-label{font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
-  .cell-name{font-size:15px;font-weight:700;color:#1E293B;margin-bottom:3px;}
-  .cell-sub{font-size:12px;color:#64748B;line-height:1.5;}
-  .section-head{padding:16px 28px 12px;border-bottom:2px solid #F1F5F9;display:flex;justify-content:space-between;align-items:center;}
-  .section-title{font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;}
-  .items-table{width:100%;border-collapse:collapse;}
-  .items-table thead tr{background:#F8FAFC;}
-  .items-table thead th{padding:10px 12px;font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:0.8px;border-bottom:2px solid #E2E8F0;}
-  .items-table thead th:first-child{text-align:left;padding-left:28px;}
-  .items-table thead th:last-child{padding-right:28px;}
-  .items-table tbody tr:last-child td{border-bottom:none;}
-  .items-table tbody td:first-child{padding-left:28px;}
-  .items-table tbody td:last-child{padding-right:28px;}
-  .labour-row{display:flex;justify-content:space-between;align-items:center;padding:12px 28px;background:#FFFBEB;border-top:1px solid #FEF3C7;border-bottom:1px solid #FEF3C7;}
-  .labour-label{font-size:13px;color:#92400E;font-weight:500;}
-  .labour-amount{font-size:13px;font-weight:600;color:#92400E;}
-  .totals-wrap{padding:20px 28px 24px;border-top:2px solid #F1F5F9;}
-  .total-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#64748B;}
-  .total-row span:last-child{font-weight:500;color:#475569;}
-  .total-divider{border:none;border-top:1px dashed #CBD5E1;margin:12px 0;}
-  .grand-row{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:linear-gradient(135deg,#1E40AF,#2563EB);border-radius:10px;margin-top:4px;}
-  .grand-label{color:#fff;font-size:13px;font-weight:600;opacity:0.85;}
-  .grand-amount{color:#fff;font-size:20px;font-weight:800;letter-spacing:-0.5px;}
-  .notes-block{margin:0 28px 24px;padding:14px 16px;background:#F8FAFC;border-left:3px solid #2563EB;border-radius:0 6px 6px 0;}
-  .notes-label{font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
-  .notes-text{font-size:12px;color:#475569;line-height:1.6;}
-  .footer{background:#F8FAFC;border-top:1px solid #E2E8F0;padding:20px 28px;display:flex;justify-content:space-between;align-items:center;}
-  .footer-brand{font-size:13px;font-weight:700;color:#2563EB;}
-  .footer-right{font-size:11px;color:#94A3B8;text-align:right;}
-  .thank-you{font-size:11px;color:#64748B;margin-top:2px;}
-</style></head><body><div class="page">
-  <div class="header">
-    <div class="header-row">
-      <div><div class="brand-name">${garageName}</div>${garageAddress ? `<div class="brand-tag">${garageAddress}</div>` : ''}${garagePhone ? `<div class="brand-tag">${garagePhone}</div>` : ''}</div>
-      <div class="inv-block"><div class="inv-word">Tax Invoice</div><div class="inv-number">${invoiceNum}</div><div class="inv-date">Issued ${dateStr}</div></div>
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color:#0F172A; background:#F1F5F9; font-size:13px; -webkit-print-color-adjust: exact; }
+    .page { max-width:720px; margin:0 auto; background:#FFFFFF; box-shadow:0 10px 25px -5px rgba(0,0,0,0.1); border-radius:12px; overflow:hidden; }
+    
+    /* Header */
+    .header { background: linear-gradient(135deg, #0F172A 0%, #1E3A8A 55%, #1E40AF 100%); padding:36px; color:#FFFFFF; position:relative; }
+    .header-top { display:flex; justify-content:space-between; align-items:flex-start; }
+    .logo-brand { display:flex; align-items:center; gap:14px; }
+    .garage-logo { width:52px; height:52px; border-radius:10px; object-fit:cover; border:2px solid rgba(255,255,255,0.2); }
+    .brand-name { font-size:24px; font-weight:800; letter-spacing:-0.5px; color:#FFFFFF; }
+    .brand-sub { font-size:11px; opacity:0.8; margin-top:3px; color:#93C5FD; }
+    
+    .inv-badge-block { text-align:right; }
+    .tax-tag { display:inline-block; padding:4px 12px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25); border-radius:20px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:#60A5FA; margin-bottom:6px; }
+    .inv-number { font-size:22px; font-weight:800; color:#FFFFFF; letter-spacing:-0.5px; }
+    .inv-date { font-size:11px; color:#93C5FD; margin-top:4px; }
+    
+    /* Info Cards Grid */
+    .info-grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; padding:24px 36px; background:#F8FAFC; border-bottom:1px solid #E2E8F0; }
+    .info-card { background:#FFFFFF; padding:14px 18px; border-radius:10px; border:1px solid #E2E8F0; }
+    .card-title { font-size:10px; font-weight:800; color:#64748B; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+    .card-main { font-size:15px; font-weight:700; color:#0F172A; margin-bottom:3px; }
+    .card-sub { font-size:12px; color:#475569; line-height:1.4; }
+    .reg-badge { display:inline-block; padding:2px 8px; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:6px; font-weight:700; color:#1D4ED8; font-size:13px; }
+    
+    /* Content Table */
+    .table-container { padding:24px 36px 12px; }
+    .table-title { font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; }
+    .items-table { width:100%; border-collapse:collapse; border-radius:8px; overflow:hidden; border:1px solid #E2E8F0; }
+    .items-table thead tr { background:#1E293B; color:#FFFFFF; }
+    .items-table thead th { padding:12px 14px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; }
+    
+    .labour-row { background:#FFFBEB; border:1px solid #FDE68A; padding:14px 18px; border-radius:10px; margin:16px 36px; display:flex; justify-content:space-between; align-items:center; }
+    .labour-title { font-weight:700; color:#92400E; font-size:13px; }
+    .labour-sub { font-size:11px; color:#B45309; margin-top:2px; }
+    .labour-val { font-size:14px; font-weight:800; color:#92400E; }
+    
+    /* Summary Block */
+    .summary-wrap { display:flex; justify-content:space-between; align-items:flex-end; padding:16px 36px 28px; }
+    .notes-box { flex:1; max-width:320px; padding:14px; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:10px; }
+    .notes-h { font-size:10px; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:6px; }
+    .notes-b { font-size:11px; color:#334155; line-height:1.5; }
+    
+    .totals-box { width:260px; text-align:right; }
+    .tot-row { display:flex; justify-content:space-between; padding:5px 0; font-size:12px; color:#475569; }
+    .tot-val { font-weight:600; color:#0F172A; }
+    
+    .grand-box { margin-top:12px; background:linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%); padding:14px 18px; border-radius:10px; color:#FFFFFF; display:flex; justify-content:space-between; align-items:center; }
+    .grand-lbl { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#DBEAFE; }
+    .grand-val { font-size:22px; font-weight:800; color:#FFFFFF; }
+    
+    /* Footer */
+    .footer { background:#F8FAFC; border-top:1px solid #E2E8F0; padding:20px 36px; display:flex; justify-content:space-between; align-items:center; }
+    .footer-left { font-size:11px; color:#64748B; }
+    .footer-right { font-size:11px; color:#94A3B8; text-align:right; }
+    .seal-badge { display:inline-block; font-size:10px; font-weight:700; color:#059669; background:#ECFDF5; border:1px solid #A7F3D0; padding:3px 8px; border-radius:6px; margin-top:4px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div class="header-top">
+        <div class="logo-brand">
+          ${logoUrl ? `<img src="${logoUrl}" class="garage-logo" alt="Logo"/>` : ''}
+          <div>
+            <div class="brand-name">${garageName}</div>
+            ${garageAddress ? `<div class="brand-sub">📍 ${garageAddress}</div>` : ''}
+            ${garagePhone ? `<div class="brand-sub">📞 ${garagePhone}</div>` : ''}
+          </div>
+        </div>
+        <div class="inv-badge-block">
+          <div class="tax-tag">Official Tax Invoice</div>
+          <div class="inv-number">${invoiceNum}</div>
+          <div class="inv-date">Issued: ${dateStr} · ${timeStr}</div>
+        </div>
+      </div>
     </div>
-    <div class="status-row">
-      <div class="status-pill"><div class="dot"></div>Due on Delivery</div>
-      ${deliveryDate ? `<div class="due-text">Expected: ${dueStr}</div>` : ''}
+
+    <div class="info-grid">
+      <div class="info-card">
+        <div class="card-title">👤 Customer Details</div>
+        <div class="card-main">${customerName || 'Customer'}</div>
+        <div class="card-sub">📱 ${customerPhone || '—'}</div>
+      </div>
+      <div class="info-card">
+        <div class="card-title">🚗 Vehicle Specification</div>
+        <div class="card-main"><span class="reg-badge">${regNumber || '—'}</span></div>
+        <div class="card-sub" style="margin-top:4px;">${vehicleLabel}</div>
+        ${odometer ? `<div class="card-sub">Odometer: <b>${odometer} km</b></div>` : ''}
+      </div>
+    </div>
+
+    <div class="table-container">
+      <div class="table-title">Services &amp; Parts Provided</div>
+      ${services.length > 0 ? `
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th style="width:40px; text-align:center;">#</th>
+            <th style="text-align:left;">Service Description</th>
+            <th style="text-align:center; width:60px;">Qty</th>
+            <th style="text-align:right; width:110px;">Price</th>
+            <th style="text-align:right; width:120px;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${serviceRows}
+        </tbody>
+      </table>
+      ` : `<div style="padding:16px; background:#F8FAFC; border:1px dashed #CBD5E1; border-radius:8px; color:#64748B; text-align:center;">No individual service packages added.</div>`}
+    </div>
+
+    ${labourTotal > 0 ? `
+    <div class="labour-row">
+      <div>
+        <div class="labour-title">⚙️ Workshop Labour &amp; Inspection</div>
+        ${estHours ? `<div class="labour-sub">${estHours} hrs estimated work time</div>` : ''}
+      </div>
+      <div class="labour-val">${formatCurrency(labourTotal)}</div>
+    </div>
+    ` : ''}
+
+    <div class="summary-wrap">
+      <div class="notes-box">
+        <div class="notes-h">Workshop Notes &amp; Warranty</div>
+        <div class="notes-b">${additionalNotes || complaint || 'Thank you for choosing us for your car service! All parts replaced carry manufacturer warranty.'}</div>
+      </div>
+
+      <div class="totals-box">
+        <div class="tot-row"><span>Services Total:</span><span class="tot-val">${formatCurrency(servicesTotal)}</span></div>
+        ${labourTotal > 0 ? `<div class="tot-row"><span>Labour Charge:</span><span class="tot-val">${formatCurrency(labourTotal)}</span></div>` : ''}
+        
+        <div class="grand-box">
+          <span class="grand-lbl">Grand Total</span>
+          <span class="grand-val">${formatCurrency(grandTotal)}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="footer-left">
+        <div><b>${garageName}</b></div>
+        <div class="seal-badge">✓ Computer Generated Official Invoice</div>
+      </div>
+      <div class="footer-right">
+        <div>Expected Pickup: <b>${dueStr} ${deliveryTimeStr}</b></div>
+        <div style="margin-top:2px; opacity:0.8;">Payment Due on Vehicle Delivery</div>
+      </div>
     </div>
   </div>
-  <div class="info-grid">
-    <div class="info-cell"><div class="cell-label">Bill To</div><div class="cell-name">${customerName || '—'}</div><div class="cell-sub">${customerPhone || ''}</div></div>
-    <div class="info-cell"><div class="cell-label">Vehicle</div><div class="cell-name">${regNumber || '—'}</div><div class="cell-sub">${vehicleLabel}</div></div>
-  </div>
-  ${services.length > 0 ? `
-  <div class="section-head"><div class="section-title">Services &amp; Parts</div><div style="font-size:11px;color:#94A3B8;">${services.length} item${services.length !== 1 ? 's' : ''}</div></div>
-  <table class="items-table">
-    <thead><tr><th style="text-align:left;">Description</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Unit Price</th><th style="text-align:right;">Amount</th></tr></thead>
-    <tbody>${serviceRows}</tbody>
-  </table>` : ''}
-  ${labourTotal > 0 ? `<div class="labour-row"><span class="labour-label">&#9881; Labour Charge${estHours ? ` — ${estHours} hrs estimated` : ''}</span><span class="labour-amount">${formatCurrency(labourTotal)}</span></div>` : ''}
-  <div class="totals-wrap">
-    <div class="total-row"><span>Services Subtotal</span><span>${formatCurrency(servicesTotal)}</span></div>
-    ${labourTotal > 0 ? `<div class="total-row"><span>Labour</span><span>${formatCurrency(labourTotal)}</span></div>` : ''}
-    <div class="total-row"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>
-    <div class="total-row"><span>GST @ 18%</span><span>${formatCurrency(gst)}</span></div>
-    <hr class="total-divider"/>
-    <div class="grand-row"><span class="grand-label">Grand Total (INR)</span><span class="grand-amount">${formatCurrency(grandTotal)}</span></div>
-  </div>
-  ${additionalNotes ? `<div class="notes-block"><div class="notes-label">Workshop Notes</div><div class="notes-text">${additionalNotes}</div></div>` : ''}
-  <div class="footer">
-    <div><div class="footer-brand">${garageName}</div><div class="thank-you">Thank you for your business!</div></div>
-    <div class="footer-right"><div>Computer-generated invoice.</div><div style="margin-top:2px;">No signature required.</div></div>
-  </div>
-</div></body></html>`;
+</body>
+</html>`;
   }
 
   /* ── PDF actions ── */
@@ -385,9 +542,10 @@ export default function CreateJobScreen() {
       if (!regNumber.trim()) errs.regNumber = 'Registration number is required.';
       if (!brand.trim()) errs.brand = 'Vehicle brand is required.';
       if (!model.trim()) errs.model = 'Vehicle model is required.';
-      if (customerPhone) {
-        const d = customerPhone.replace(/\D/g, '');
-        if (d.length !== 10) errs.customerPhone = 'Mobile number must be exactly 10 digits.';
+      if (!customerPhone.trim()) {
+        errs.customerPhone = 'Customer mobile number is required.';
+      } else if (customerPhone.replace(/\D/g, '').length !== 10) {
+        errs.customerPhone = 'Please enter a valid 10-digit mobile number.';
       }
       if (!odometer.trim()) errs.odometer = 'Odometer reading (km) is required.';
       else if (parseFloat(odometer) < 0) errs.odometer = 'Odometer reading must be a positive number.';
@@ -396,7 +554,7 @@ export default function CreateJobScreen() {
     if (step === 2) { if (services.length === 0) errs.services = 'Please add at least one service.'; }
     if (step === 3) {
       if (!selectedTechName.trim()) errs.technician = 'Please assign a technician.';
-      if (!labourCharge.trim() || parseFloat(labourCharge) <= 0) errs.labourCharge = 'Please enter labour charge.';
+      if (!estHours.trim() || parseFloat(estHours) <= 0) errs.estHours = 'Please enter expected hours.';
       if (!deliveryDate) errs.deliveryDate = 'Please select an expected delivery date.';
       if (!deliveryTime) errs.deliveryTime = 'Please select an expected pickup time.';
     }
@@ -410,7 +568,22 @@ export default function CreateJobScreen() {
   /* ── Mutation ── */
   const { mutate: createJob, isPending } = useMutation({
     mutationFn: async () => {
-      // Step 1: create the job with customer + vehicle basics
+      // Step 0: Upload before-service photos to S3 via pre-signed URL flow (with local URI fallback)
+      let photoKeys: string[] = [];
+      if (beforePhotos.length > 0) {
+        photoKeys = await Promise.all(
+          beforePhotos.map(async p => {
+            try {
+              return await ImageService.uploadToS3(p.uri, 'before_service');
+            } catch (uploadErr) {
+              console.warn('[JobCreate] S3 photo upload failed, using local uri:', uploadErr);
+              return p.uri;
+            }
+          })
+        );
+      }
+
+      // Step 1: create the job with customer + vehicle basics & S3 photo keys
       const job = await JobService.create({
         customer_name: customerName || null,
         customer_mobile: customerPhone || null,
@@ -421,6 +594,7 @@ export default function CreateJobScreen() {
         odometer_km: parseFloat(odometer) || null,
         description: additionalNotes || null,
         estimated_amount: grandTotal || null,
+        photos: photoKeys.length > 0 ? photoKeys : null,
       });
 
       // Step 2: enrich the job with services, labour, and inspection data
@@ -431,6 +605,7 @@ export default function CreateJobScreen() {
 
       if (job?.id && (hasServices || hasLabour || hasInspect)) {
         await JobService.update(job.id, {
+          ...(photoKeys.length > 0 && { photos: photoKeys }),
           ...(hasInspect && { inspection: { findings: [complaint, inspectionNotes].filter(Boolean).join('\n') } }),
           ...(hasServices && { services: services.map(s => ({ name: s.name, price: s.price, qty: s.qty })) }),
           ...(hasLabour && { labour: { charge: parseFloat(labourCharge), description: estHours ? `${estHours} hrs` : null } }),
@@ -518,12 +693,6 @@ export default function CreateJobScreen() {
   const nextLabel = step === 3 ? 'Create Job Card' : step === 5 ? 'Done' : 'Continue';
 
   /* ── Service helpers ── */
-  function addService() {
-    if (!serviceSearch.trim()) return;
-    setServices(s => [...s, { name: serviceSearch.trim(), price: 0, qty: 1 }]);
-    setServiceSearch('');
-    clearFieldError('services');
-  }
   function updateServicePrice(i: number, price: string) {
     setServices(s => s.map((item, idx) => idx === i ? { ...item, price: parseFloat(price) || 0 } : item));
   }
@@ -538,19 +707,38 @@ export default function CreateJobScreen() {
   async function pickFromCamera() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission Required', 'Camera access is needed to take photos.'); return; }
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.7, allowsEditing: false });
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: 'images',
+      quality: 0.7,
+      base64: true,
+      allowsEditing: false,
+    });
     if (!result.canceled && result.assets.length > 0) {
       const asset = result.assets[0];
-      setBeforePhotos(prev => [...prev, { uri: asset.uri, name: `photo_${Date.now()}.jpg` }]);
+      const uri = asset.base64
+        ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`
+        : asset.uri;
+      setBeforePhotos(prev => [...prev, { uri, name: `photo_${Date.now()}.jpg` }]);
     }
   }
 
   async function pickFromGallery() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission Required', 'Photo library access is needed.'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 0.7, allowsMultipleSelection: true, selectionLimit: 10 });
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      quality: 0.7,
+      base64: true,
+      allowsMultipleSelection: true,
+      selectionLimit: 10,
+    });
     if (!result.canceled) {
-      const newPhotos = result.assets.map(a => ({ uri: a.uri, name: a.fileName ?? `photo_${Date.now()}.jpg` }));
+      const newPhotos = result.assets.map(a => {
+        const uri = a.base64
+          ? `data:${a.mimeType ?? 'image/jpeg'};base64,${a.base64}`
+          : a.uri;
+        return { uri, name: a.fileName ?? `photo_${Date.now()}.jpg` };
+      });
       setBeforePhotos(prev => [...prev, ...newPhotos]);
     }
   }
@@ -649,15 +837,14 @@ export default function CreateJobScreen() {
       {/* ── Content ── */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 20}
+        behavior={Platform.OS === 'ios' ? undefined : 'height'}
       >
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 220 }]}
+          contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 100 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          automaticallyAdjustKeyboardInsets={true}
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         >
 
           {/* ═══════ STEP 0 — Customer & Vehicle ═══════ */}
@@ -674,14 +861,14 @@ export default function CreateJobScreen() {
                   error={errors.customerName}
                 />
                 <InlineInput
-                  label="Phone Number"
+                  label="Phone Number *"
                   value={customerPhone}
-                  onChangeText={v => { setCustomerPhone(v.replace(/\D/g, '').slice(0, 10)); clearFieldError('customerPhone'); }}
+                  onChangeText={v => { setCustomerPhone(cleanMobileNumber(v)); clearFieldError('customerPhone'); }}
                   placeholder="10-digit mobile"
                   keyboardType="phone-pad"
                   Icon={Phone}
                   prefix="+91"
-                  maxLength={10}
+                  maxLength={15}
                   textContentType="telephoneNumber"
                   autoComplete="tel"
                   error={errors.customerPhone}
@@ -886,27 +1073,31 @@ export default function CreateJobScreen() {
 
               <SectionCard title="Add Services" iconBg="#EFF6FF" Icon={Wrench} iconColor={PRIMARY}>
                 <View style={s.searchRow}>
-                  <View style={s.searchBox}>
+                  <View style={[s.searchBox, { flex: 1 }]}>
                     <Search size={15} color="#9CA3AF" strokeWidth={2} />
                     <TextInput
                       style={s.searchInput}
                       value={serviceSearch}
                       onChangeText={setServiceSearch}
-                      placeholder="Search or type a service…"
+                      placeholder="Search services…"
                       placeholderTextColor="#9CA3AF"
-                      onSubmitEditing={addService}
-                      returnKeyType="done"
+                      returnKeyType="search"
                     />
+                    {!!serviceSearch && (
+                      <TouchableOpacity
+                        onPress={() => setServiceSearch('')}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <X size={14} color="#9CA3AF" strokeWidth={2.5} />
+                      </TouchableOpacity>
+                    )}
                   </View>
-                  <TouchableOpacity style={s.addBtn} onPress={addService} activeOpacity={0.85}>
-                    <Plus size={20} color="#fff" strokeWidth={2.5} />
-                  </TouchableOpacity>
                 </View>
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, marginBottom: 6 }}>
-                  <Text style={s.chipLabel}>YOUR SERVICES</Text>
+                  <Text style={s.chipLabel}>AVAILABLE SERVICES</Text>
                   <TouchableOpacity
-                    onPress={() => router.push('/services/create')}
+                    onPress={() => router.push('/services/create?from=job_create' as never)}
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                     activeOpacity={0.7}
                   >
@@ -915,60 +1106,81 @@ export default function CreateJobScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {servicePackages.length > 0 ? (
-                  <View style={s.pkgGrid}>
-                    {servicePackages.map(pkg => {
-                      const isAdded = services.some(svc => svc.name.toLowerCase() === pkg.name.toLowerCase());
-                      return (
-                        <TouchableOpacity
-                          key={pkg.id}
-                          style={[s.pkgGridCard, isAdded && s.pkgGridCardAdded]}
-                          onPress={() => {
-                            if (!isAdded) {
-                              setServices(prev => [...prev, { name: pkg.name, price: pkg.price ?? 0, qty: 1 }]);
-                              clearFieldError('services');
-                            }
-                          }}
-                          activeOpacity={0.8}
-                        >
-                          <View style={s.pkgGridTop}>
-                            <Text style={[s.pkgGridName, isAdded && { color: SUCCESS }]} numberOfLines={2}>
-                              {pkg.name}
-                            </Text>
-                          </View>
+                {(() => {
+                  const filteredPackages = servicePackages.filter(pkg =>
+                    pkg.name.toLowerCase().includes(serviceSearch.trim().toLowerCase())
+                  );
 
-                          <View style={s.pkgGridBottom}>
-                            <Text style={[s.pkgGridPrice, isAdded && { color: SUCCESS }]}>
-                              {formatCurrency(pkg.price)}
-                            </Text>
-                            <View style={[s.pkgGridBadge, isAdded && s.pkgGridBadgeAdded]}>
-                              {isAdded ? (
-                                <>
-                                  <Check size={10} color={SUCCESS} strokeWidth={3} />
-                                  <Text style={s.pkgGridBadgeTextAdded}>Added</Text>
-                                </>
-                              ) : (
-                                <>
-                                  <Plus size={10} color={PRIMARY} strokeWidth={3} />
-                                  <Text style={s.pkgGridBadgeText}>Add</Text>
-                                </>
-                              )}
-                            </View>
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={[s.suggestChip, { borderStyle: 'dashed', marginTop: 4 }]}
-                    onPress={() => router.push('/services/create')}
-                    activeOpacity={0.8}
-                  >
-                    <Plus size={11} color={PRIMARY} strokeWidth={2.5} />
-                    <Text style={s.suggestChipText}>+ Add Custom Service Package</Text>
-                  </TouchableOpacity>
-                )}
+                  if (filteredPackages.length > 0) {
+                    return (
+                      <View style={s.pkgGrid}>
+                        {filteredPackages.map(pkg => {
+                          const isAdded = services.some(svc => svc.name.toLowerCase() === pkg.name.toLowerCase());
+                          return (
+                            <TouchableOpacity
+                              key={pkg.id}
+                              style={[s.pkgGridCard, isAdded && s.pkgGridCardAdded]}
+                              onPress={() => {
+                                if (!isAdded) {
+                                  setServices(prev => [...prev, { name: pkg.name, price: pkg.price ?? 0, qty: 1 }]);
+                                  clearFieldError('services');
+                                }
+                              }}
+                              activeOpacity={0.8}
+                            >
+                              <View style={s.pkgGridTop}>
+                                <Text style={[s.pkgGridName, isAdded && { color: SUCCESS }]} numberOfLines={2}>
+                                  {pkg.name}
+                                </Text>
+                              </View>
+
+                              <View style={s.pkgGridBottom}>
+                                <Text style={[s.pkgGridPrice, isAdded && { color: SUCCESS }]}>
+                                  {formatCurrency(pkg.price)}
+                                </Text>
+                                <View style={[s.pkgGridBadge, isAdded && s.pkgGridBadgeAdded]}>
+                                  {isAdded ? (
+                                    <>
+                                      <Check size={10} color={SUCCESS} strokeWidth={3} />
+                                      <Text style={s.pkgGridBadgeTextAdded}>Added</Text>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Plus size={10} color={PRIMARY} strokeWidth={3} />
+                                      <Text style={s.pkgGridBadgeText}>Add</Text>
+                                    </>
+                                  )}
+                                </View>
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    );
+                  }
+
+                  if (serviceSearch.trim().length > 0) {
+                    return (
+                      <View style={{ alignItems: 'center', paddingVertical: 24, gap: 8 }}>
+                        <Search size={22} color="#9CA3AF" strokeWidth={1.5} />
+                        <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center' }}>
+                          No matching service found for "{serviceSearch}"
+                        </Text>
+                      </View>
+                    );
+                  }
+
+                  return (
+                    <TouchableOpacity
+                      style={[s.suggestChip, { borderStyle: 'dashed', marginTop: 4 }]}
+                      onPress={() => setShowAddServiceModal(true)}
+                      activeOpacity={0.8}
+                    >
+                      <Plus size={11} color={PRIMARY} strokeWidth={2.5} />
+                      <Text style={s.suggestChipText}>+ Add Custom Service Package</Text>
+                    </TouchableOpacity>
+                  );
+                })()}
               </SectionCard>
 
               {services.length > 0 && (
@@ -1049,17 +1261,18 @@ export default function CreateJobScreen() {
                 <View style={s.labourGrid}>
 
                   {/* Estimated Hours — stepper */}
-                  <View style={s.labourTile}>
+                  <View style={[s.labourTile, !!errors.estHours && { borderColor: DANGER, borderWidth: 1.5 }]}>
                     <View style={s.labourTileTop}>
-                      <View style={[s.labourTileIcon, { backgroundColor: '#FEF3C7' }]}>
-                        <Clock size={14} color={WARN} strokeWidth={2} />
-                      </View>
-                      <Text style={s.labourTileLabel}>EST. HOURS</Text>
+                      <Text style={s.labourTileLabel}>EST. HOURS <Text style={{ color: DANGER }}>*</Text></Text>
                     </View>
                     <View style={s.stepperRow}>
                       <TouchableOpacity
                         style={s.stepperBtn}
-                        onPress={() => setEstHours(String(Math.max(0, parseFloat(estHours || '0') - 0.5)))}
+                        onPress={() => {
+                          const newVal = Math.max(0, parseFloat(estHours || '0') - 0.5);
+                          setEstHours(String(newVal));
+                          if (newVal > 0) clearFieldError('estHours');
+                        }}
                         activeOpacity={0.75}
                       >
                         <Minus size={15} color={TEXT} strokeWidth={2.5} />
@@ -1070,23 +1283,30 @@ export default function CreateJobScreen() {
                       </View>
                       <TouchableOpacity
                         style={s.stepperBtn}
-                        onPress={() => setEstHours(String(parseFloat(estHours || '0') + 0.5))}
+                        onPress={() => {
+                          const newVal = parseFloat(estHours || '0') + 0.5;
+                          setEstHours(String(newVal));
+                          if (newVal > 0) clearFieldError('estHours');
+                        }}
                         activeOpacity={0.75}
                       >
                         <Plus size={15} color={TEXT} strokeWidth={2.5} />
                       </TouchableOpacity>
                     </View>
+                    {!!errors.estHours && (
+                      <View style={s.areaErrRow}>
+                        <AlertCircle size={11} color={DANGER} strokeWidth={2} />
+                        <Text style={s.areaErrText}>{errors.estHours}</Text>
+                      </View>
+                    )}
                   </View>
 
-                  {/* Labour Charge — currency input */}
-                  <View style={[s.labourTile, !!errors.labourCharge && { borderColor: DANGER, borderWidth: 1.5 }]}>
+                  {/* Labour Charge — currency input (optional) */}
+                  <View style={s.labourTile}>
                     <View style={s.labourTileTop}>
-                      <View style={[s.labourTileIcon, { backgroundColor: '#EFF6FF' }]}>
-                        <Hash size={14} color={PRIMARY} strokeWidth={2} />
-                      </View>
-                      <Text style={s.labourTileLabel}>CHARGE (₹) <Text style={{ color: DANGER }}>*</Text></Text>
+                      <Text style={s.labourTileLabel}>CHARGE (₹)</Text>
                     </View>
-                    <View style={[s.labourAmtRow, !!errors.labourCharge && { borderColor: DANGER }]}>
+                    <View style={s.labourAmtRow}>
                       <Text style={s.labourRupee}>₹</Text>
                       <TextInput
                         style={s.labourAmtInput}
@@ -1097,18 +1317,6 @@ export default function CreateJobScreen() {
                         keyboardType="number-pad"
                       />
                     </View>
-                    {!!errors.labourCharge ? (
-                      <View style={s.areaErrRow}>
-                        <AlertCircle size={11} color={DANGER} strokeWidth={2} />
-                        <Text style={s.areaErrText}>{errors.labourCharge}</Text>
-                      </View>
-                    ) : (
-                      labourCharge !== '' && parseFloat(labourCharge) > 0 && (
-                        <Text style={s.labourAmtHint}>
-                          + GST = {formatCurrency(parseFloat(labourCharge) * 1.18)}
-                        </Text>
-                      )
-                    )}
                   </View>
 
                 </View>
@@ -1117,10 +1325,65 @@ export default function CreateJobScreen() {
               {/* ── Expected Delivery ── */}
               <SectionCard title="Expected Delivery" iconBg="#FFF7ED" Icon={Calendar} iconColor="#F97316">
 
+                {/* Quick Date Selection Chips */}
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      paddingVertical: 9,
+                      paddingHorizontal: 10,
+                      borderRadius: 10,
+                      borderWidth: 1.5,
+                      borderColor: isTodayDate(deliveryDate) ? PRIMARY : BORDER,
+                      backgroundColor: isTodayDate(deliveryDate) ? '#EFF6FF' : '#F8FAFC',
+                    }}
+                    onPress={() => selectQuickDate('today')}
+                    activeOpacity={0.8}
+                  >
+                    <Calendar size={14} color={isTodayDate(deliveryDate) ? PRIMARY : '#64748B'} strokeWidth={2} />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: isTodayDate(deliveryDate) ? PRIMARY : '#334155' }}>
+                      Today ({new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })})
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      paddingVertical: 9,
+                      paddingHorizontal: 10,
+                      borderRadius: 10,
+                      borderWidth: 1.5,
+                      borderColor: isTomorrowDate(deliveryDate) ? PRIMARY : BORDER,
+                      backgroundColor: isTomorrowDate(deliveryDate) ? '#EFF6FF' : '#F8FAFC',
+                    }}
+                    onPress={() => selectQuickDate('tomorrow')}
+                    activeOpacity={0.8}
+                  >
+                    <Calendar size={14} color={isTomorrowDate(deliveryDate) ? PRIMARY : '#64748B'} strokeWidth={2} />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: isTomorrowDate(deliveryDate) ? PRIMARY : '#334155' }}>
+                      Tomorrow ({new Date(Date.now() + 86400000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })})
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
                 {/* Date row */}
                 <TouchableOpacity
                   style={[s.deliveryRow, deliveryDate && s.deliveryRowSet, !!errors.deliveryDate && s.deliveryRowError]}
-                  onPress={() => { setShowDatePicker(true); clearFieldError('deliveryDate'); }}
+                  onPress={() => {
+                    if (!deliveryDate) {
+                      setDeliveryDate(new Date());
+                    }
+                    setShowDatePicker(true);
+                    clearFieldError('deliveryDate');
+                  }}
                   activeOpacity={0.8}
                 >
                   <View style={[s.deliveryIconWrap, { backgroundColor: deliveryDate ? '#FFF7ED' : '#F3F4F6' }]}>
@@ -1157,7 +1420,15 @@ export default function CreateJobScreen() {
                 {/* Time row */}
                 <TouchableOpacity
                   style={[s.deliveryRow, deliveryTime && s.deliveryRowSet, !!errors.deliveryTime && s.deliveryRowError, { marginBottom: 0 }]}
-                  onPress={() => { setShowTimePicker(true); clearFieldError('deliveryTime'); }}
+                  onPress={() => {
+                    if (!deliveryTime) {
+                      const t = new Date();
+                      t.setHours(18, 0, 0, 0);
+                      setDeliveryTime(t);
+                    }
+                    setShowTimePicker(true);
+                    clearFieldError('deliveryTime');
+                  }}
                   activeOpacity={0.8}
                 >
                   <View style={[s.deliveryIconWrap, { backgroundColor: deliveryTime ? '#EDE9FE' : '#F3F4F6' }]}>
@@ -1208,12 +1479,34 @@ export default function CreateJobScreen() {
 
                 {/* Android native pickers */}
                 {Platform.OS === 'android' && showDatePicker && (
-                  <DateTimePicker value={deliveryDate ?? new Date()} mode="date" minimumDate={new Date()} display="calendar"
-                    onChange={(_: DateTimePickerEvent, date?: Date) => { setShowDatePicker(false); if (date) { setDeliveryDate(date); clearFieldError('deliveryDate'); } }} />
+                  <DateTimePicker
+                    value={deliveryDate ?? new Date()}
+                    mode="date"
+                    minimumDate={yesterdayStart}
+                    display="calendar"
+                    onChange={(_: DateTimePickerEvent, date?: Date) => {
+                      setShowDatePicker(false);
+                      if (date) {
+                        setDeliveryDate(date);
+                        clearFieldError('deliveryDate');
+                      }
+                    }}
+                  />
                 )}
                 {Platform.OS === 'android' && showTimePicker && (
-                  <DateTimePicker value={deliveryTime ?? new Date()} mode="time" is24Hour={false} display="clock"
-                    onChange={(_: DateTimePickerEvent, date?: Date) => { setShowTimePicker(false); if (date) { setDeliveryTime(date); clearFieldError('deliveryTime'); } }} />
+                  <DateTimePicker
+                    value={deliveryTime ?? new Date()}
+                    mode="time"
+                    is24Hour={false}
+                    display="clock"
+                    onChange={(_: DateTimePickerEvent, date?: Date) => {
+                      setShowTimePicker(false);
+                      if (date) {
+                        setDeliveryTime(date);
+                        clearFieldError('deliveryTime');
+                      }
+                    }}
+                  />
                 )}
 
                 {/* iOS bottom-sheet picker */}
@@ -1225,19 +1518,58 @@ export default function CreateJobScreen() {
                           <Text style={s.pickerCancel}>Cancel</Text>
                         </TouchableOpacity>
                         <Text style={s.pickerSheetTitle}>{showDatePicker ? 'Delivery Date' : 'Pickup Time'}</Text>
-                        <TouchableOpacity onPress={() => { setShowDatePicker(false); setShowTimePicker(false); }}>
+                        <TouchableOpacity
+                          onPress={() => {
+                            if (showDatePicker && !deliveryDate) {
+                              setDeliveryDate(new Date());
+                              clearFieldError('deliveryDate');
+                            }
+                            if (showTimePicker && !deliveryTime) {
+                              const t = new Date();
+                              t.setHours(18, 0, 0, 0);
+                              setDeliveryTime(t);
+                              clearFieldError('deliveryTime');
+                            }
+                            setShowDatePicker(false);
+                            setShowTimePicker(false);
+                          }}
+                        >
                           <Text style={s.pickerDone}>Done</Text>
                         </TouchableOpacity>
                       </View>
                       {showDatePicker && (
-                        <DateTimePicker value={deliveryDate ?? new Date()} mode="date" minimumDate={new Date()} display="inline"
-                          themeVariant="light" accentColor={PRIMARY} style={{ alignSelf: 'center' }}
-                          onChange={(_: DateTimePickerEvent, date?: Date) => { if (date) { setDeliveryDate(date); clearFieldError('deliveryDate'); } }} />
+                        <DateTimePicker
+                          value={deliveryDate ?? new Date()}
+                          mode="date"
+                          minimumDate={yesterdayStart}
+                          display="inline"
+                          themeVariant="light"
+                          accentColor={PRIMARY}
+                          style={{ alignSelf: 'center' }}
+                          onChange={(_: DateTimePickerEvent, date?: Date) => {
+                            if (date) {
+                              setDeliveryDate(date);
+                              clearFieldError('deliveryDate');
+                            }
+                          }}
+                        />
                       )}
                       {showTimePicker && (
-                        <DateTimePicker value={deliveryTime ?? new Date()} mode="time" is24Hour={false} display="spinner"
-                          themeVariant="light" accentColor={PRIMARY} style={{ alignSelf: 'center' }}
-                          onChange={(_: DateTimePickerEvent, date?: Date) => { if (date) { setDeliveryTime(date); clearFieldError('deliveryTime'); } }} />
+                        <DateTimePicker
+                          value={deliveryTime ?? new Date()}
+                          mode="time"
+                          is24Hour={false}
+                          display="spinner"
+                          themeVariant="light"
+                          accentColor={PRIMARY}
+                          style={{ alignSelf: 'center' }}
+                          onChange={(_: DateTimePickerEvent, date?: Date) => {
+                            if (date) {
+                              setDeliveryTime(date);
+                              clearFieldError('deliveryTime');
+                            }
+                          }}
+                        />
                       )}
                     </View>
                   </View>
@@ -1368,8 +1700,6 @@ export default function CreateJobScreen() {
                   [
                     ['Services', servicesTotal] as [string, number],
                     labourTotal > 0 ? (['Labour', labourTotal] as [string, number]) : null,
-                    ['Subtotal', subtotal] as [string, number],
-                    ['GST (18%)', gst] as [string, number],
                   ].filter((r): r is [string, number] => r !== null)
                 ).map(([label, val], i) => (
                   <View key={i} style={s.totalRow}>
@@ -1452,6 +1782,88 @@ export default function CreateJobScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* ── Quick Add Service Modal ── */}
+      <Modal
+        visible={showAddServiceModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddServiceModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ width: '100%', maxWidth: 400, backgroundColor: '#FFFFFF', borderRadius: 20, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center' }}>
+                  <Wrench size={16} color={PRIMARY} strokeWidth={2.2} />
+                </View>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: TEXT }}>Add New Service</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowAddServiceModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <X size={18} color="#9CA3AF" strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
+
+            {newSvcError && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FEE2E2', padding: 10, borderRadius: 8, marginBottom: 12 }}>
+                <AlertCircle size={14} color={DANGER} strokeWidth={2} />
+                <Text style={{ fontSize: 12, color: DANGER, flex: 1 }}>{newSvcError}</Text>
+              </View>
+            )}
+
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#475569', marginBottom: 4 }}>Service Name *</Text>
+            <TextInput
+              style={{ height: 44, borderWidth: 1, borderColor: BORDER, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: TEXT, backgroundColor: '#F8FAFC', marginBottom: 12 }}
+              placeholder="e.g. Engine Oil Change, Wheel Alignment"
+              placeholderTextColor="#9CA3AF"
+              value={newSvcName}
+              onChangeText={v => { setNewSvcName(v); setNewSvcError(null); }}
+            />
+
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#475569', marginBottom: 4 }}>Price (₹) *</Text>
+            <TextInput
+              style={{ height: 44, borderWidth: 1, borderColor: BORDER, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: TEXT, backgroundColor: '#F8FAFC', marginBottom: 12 }}
+              placeholder="e.g. 1500"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="numeric"
+              value={newSvcPrice}
+              onChangeText={v => { setNewSvcPrice(v); setNewSvcError(null); }}
+            />
+
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#475569', marginBottom: 4 }}>Description (Optional)</Text>
+            <TextInput
+              style={{ height: 60, borderWidth: 1, borderColor: BORDER, borderRadius: 10, paddingHorizontal: 12, paddingTop: 8, fontSize: 13, color: TEXT, backgroundColor: '#F8FAFC', marginBottom: 16 }}
+              placeholder="Short description of service…"
+              placeholderTextColor="#9CA3AF"
+              multiline
+              value={newSvcDesc}
+              onChangeText={setNewSvcDesc}
+            />
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={{ flex: 1, height: 44, borderRadius: 10, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' }}
+                onPress={() => setShowAddServiceModal(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#64748B' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1, height: 44, borderRadius: 10, backgroundColor: PRIMARY, alignItems: 'center', justifyContent: 'center' }}
+                onPress={() => createQuickService()}
+                disabled={isCreatingQuickSvc}
+                activeOpacity={0.85}
+              >
+                {isCreatingQuickSvc ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Save &amp; Select</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1580,7 +1992,7 @@ const s = StyleSheet.create({
   photoBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 13, borderRadius: 12, borderWidth: 1.5, borderColor: PRIMARY + '33',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#EFF6FF',
   },
   photoBtnText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
   thumbRow: { gap: 10, paddingBottom: 4 },
@@ -1603,7 +2015,7 @@ const s = StyleSheet.create({
   uploadBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 13, borderRadius: 12, borderWidth: 1.5, borderColor: PRIMARY + '33',
-    backgroundColor: '#FEF2F2', marginBottom: 12,
+    backgroundColor: '#EFF6FF', marginBottom: 12,
   },
   uploadBtnText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
   docList: { gap: 8 },

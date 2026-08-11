@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  ActivityIndicator, Platform, RefreshControl, ScrollView,
+  ActivityIndicator, Animated, LayoutChangeEvent, Platform, RefreshControl, ScrollView,
   StatusBar, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,26 +33,44 @@ const PERIODS: { label: string; value: UIPeriod }[] = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  OPEN:              '#3B82F6',
-  IN_PROGRESS:       '#8B5CF6',
-  WAITING_FOR_PARTS: '#F59E0B',
-  QUALITY_CHECK:     '#6366F1',
-  READY:             '#10B981',
-  COMPLETED:         '#059669',
-  DELIVERED:         '#059669',
-  CANCELLED:         '#EF4444',
+  OPEN:          '#3B82F6',
+  IN_PROGRESS:   '#8B5CF6',
+  QUALITY_CHECK: '#6366F1',
+  READY:         '#10B981',
+  COMPLETED:     '#059669',
+  DELIVERED:     '#059669',
+  CANCELLED:     '#EF4444',
 };
 
 /* ── Helpers ── */
 function jobRevenue(job: JobResponse): number {
+  if (
+    job.status === 'OPEN' ||
+    job.status === 'CANCELLED' ||
+    job.status === 'IN_PROGRESS' ||
+    job.status === 'QUALITY_CHECK'
+  ) {
+    return 0;
+  }
   return (job as any).billing?.grand_total ?? job.final_amount ?? job.estimated_amount ?? 0;
+}
+
+function getJobDate(job: JobResponse): Date {
+  const isDone = job.status === 'COMPLETED' || (job.status as string) === 'DELIVERED' || job.status === 'READY';
+  const dateStr = isDone
+    ? (job.completed_at || job.updated_at || job.created_at)
+    : (job.created_at || job.updated_at);
+
+  if (!dateStr) return new Date();
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? new Date() : d;
 }
 
 function filterByPeriod(allJobs: JobResponse[], period: UIPeriod): JobResponse[] {
   if (period === 'all') return allJobs;
   const now = new Date();
   return allJobs.filter(j => {
-    const d = new Date(j.created_at);
+    const d = getJobDate(j);
     if (period === 'week') {
       const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 6); cutoff.setHours(0,0,0,0);
       return d >= cutoff;
@@ -69,8 +87,12 @@ function buildGraph(jobs: JobResponse[], period: UIPeriod): GraphPoint[] {
   if (period === 'week' || period === 'all') {
     return Array.from({ length: 7 }, (_, i) => {
       const day = new Date(now); day.setDate(day.getDate() - (6 - i));
-      const ds = day.toISOString().slice(0, 10);
-      const dj = jobs.filter(j => j.created_at.slice(0, 10) === ds);
+      const dj = jobs.filter(j => {
+        const jd = getJobDate(j);
+        return jd.getFullYear() === day.getFullYear() &&
+               jd.getMonth() === day.getMonth() &&
+               jd.getDate() === day.getDate();
+      });
       return { label: day.toLocaleDateString('en-IN', { weekday: 'short' }), revenue: dj.reduce((s, j) => s + jobRevenue(j), 0), job_count: dj.length };
     });
   }
@@ -79,14 +101,14 @@ function buildGraph(jobs: JobResponse[], period: UIPeriod): GraphPoint[] {
     let ws = new Date(now.getFullYear(), now.getMonth(), 1); let wn = 1;
     while (ws <= now) {
       const we = new Date(ws); we.setDate(we.getDate() + 6);
-      const wj = jobs.filter(j => { const d = new Date(j.created_at); return d >= ws && d <= we; });
+      const wj = jobs.filter(j => { const d = getJobDate(j); return d >= ws && d <= we; });
       pts.push({ label: `W${wn}`, revenue: wj.reduce((s, j) => s + jobRevenue(j), 0), job_count: wj.length });
       ws = new Date(ws); ws.setDate(ws.getDate() + 7); wn++;
     }
     return pts;
   }
   return Array.from({ length: now.getMonth() + 1 }, (_, m) => {
-    const mj = jobs.filter(j => { const d = new Date(j.created_at); return d.getFullYear() === now.getFullYear() && d.getMonth() === m; });
+    const mj = jobs.filter(j => { const d = getJobDate(j); return d.getFullYear() === now.getFullYear() && d.getMonth() === m; });
     return { label: new Date(now.getFullYear(), m, 1).toLocaleDateString('en-IN', { month: 'short' }), revenue: mj.reduce((s, j) => s + jobRevenue(j), 0), job_count: mj.length };
   });
 }
@@ -129,6 +151,63 @@ const cardSt = StyleSheet.create({
   body:  { padding: 18 },
 });
 
+function PeriodSelector({ period, setPeriod }: { period: UIPeriod; setPeriod: (p: UIPeriod) => void }) {
+  const [wrapWidth, setWrapWidth] = useState(0);
+  const translateX = useRef(new Animated.Value(0)).current;
+
+  const activeIndex = Math.max(0, PERIODS.findIndex(p => p.value === period));
+  const innerWidth = wrapWidth > 0 ? wrapWidth - 8 : 0;
+  const btnWidth = innerWidth > 0 ? innerWidth / PERIODS.length : 0;
+
+  useEffect(() => {
+    if (btnWidth > 0) {
+      Animated.spring(translateX, {
+        toValue: activeIndex * btnWidth,
+        useNativeDriver: true,
+        stiffness: 260,
+        damping: 24,
+        mass: 0.8,
+      }).start();
+    }
+  }, [activeIndex, btnWidth]);
+
+  return (
+    <View
+      style={styles.periodWrap}
+      onLayout={(e: LayoutChangeEvent) => setWrapWidth(e.nativeEvent.layout.width)}
+    >
+      {/* ── Animated Sliding Active Pill Background ── */}
+      {btnWidth > 0 && (
+        <Animated.View
+          style={[
+            styles.periodActivePill,
+            {
+              width: btnWidth,
+              transform: [{ translateX }],
+            },
+          ]}
+        />
+      )}
+
+      {PERIODS.map(p => {
+        const isActive = period === p.value;
+        return (
+          <TouchableOpacity
+            key={p.value}
+            style={styles.periodBtn}
+            onPress={() => setPeriod(p.value)}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.periodText, isActive && styles.periodTextActive]}>
+              {p.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function MoreAnalyticsScreen() {
   const insets = useSafeAreaInsets();
   const [period, setPeriod] = useState<UIPeriod>('all');
@@ -161,7 +240,7 @@ export default function MoreAnalyticsScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: BG }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={BG} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <View style={[styles.topBar, { paddingTop: topPad + 16 }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
@@ -182,20 +261,7 @@ export default function MoreAnalyticsScreen() {
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={PRIMARY} />}
       >
         {/* Period selector */}
-        <View style={styles.periodWrap}>
-          {PERIODS.map(p => (
-            <TouchableOpacity
-              key={p.value}
-              style={[styles.periodBtn, period === p.value && styles.periodBtnActive]}
-              onPress={() => setPeriod(p.value)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.periodText, period === p.value && styles.periodTextActive]}>
-                {p.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <PeriodSelector period={period} setPeriod={setPeriod} />
 
         {/* KPI Row */}
         <View style={styles.kpiRow}>
@@ -366,12 +432,25 @@ const styles = StyleSheet.create({
   periodWrap: {
     flexDirection: 'row', backgroundColor: CARD,
     borderRadius: 16, borderWidth: 1, borderColor: BORDER,
-    padding: 4, gap: 4, marginBottom: 14,
+    padding: 4, marginBottom: 14,
+    position: 'relative',
   },
-  periodBtn:        { flex: 1, paddingVertical: 9, borderRadius: 12, alignItems: 'center' },
-  periodBtnActive:  { backgroundColor: PRIMARY },
-  periodText:       { fontSize: 12, fontWeight: '700', color: MUTED },
-  periodTextActive: { color: '#fff' },
+  periodActivePill: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: PRIMARY,
+    ...Platform.select({
+      ios: { shadowColor: PRIMARY, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
+      android: { elevation: 3 },
+      default: {},
+    }),
+  },
+  periodBtn:        { flex: 1, height: 36, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  periodText:       { fontSize: 12, fontWeight: '600', color: MUTED },
+  periodTextActive: { fontWeight: '700', color: '#FFFFFF' },
 
   kpiRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   kpiCard: {

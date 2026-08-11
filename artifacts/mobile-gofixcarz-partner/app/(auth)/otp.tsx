@@ -1,12 +1,10 @@
 /**
  * OTP Verification Screen
  *
- * Auto-fill strategies (priority order):
- *  1. iOS  — textContentType="oneTimeCode"  → OS reads SMS → QuickType suggests code
- *  2. Android — autoComplete="sms-otp"      → Autofill framework fills from SMS
- *  3. Multi-digit paste handler             → onChangeText receives full code string
- *  4. Clipboard polling (1.5 s interval)    → catches manual copy-paste from SMS app
- *  5. AppState listener                     → checks clipboard immediately on foreground
+ * Auto-fill & Copy-Paste strategies:
+ *  1. Single hidden TextInput overlay pattern → handles 6-digit paste, typing, & backspace flawlessly
+ *  2. iOS textContentType="oneTimeCode" & Android autoComplete="sms-otp" → OS reads SMS
+ *  3. Clipboard polling (1.5 s interval) & AppState listener → catches manual copy-paste from SMS app
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -86,11 +84,12 @@ export default function OtpScreen() {
   const { verifyOtp, resendOtp, isLoading, error, clearError } = useAuth();
   const pendingMobile = useAuthStore(s => s.pendingMobile);
 
-  const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
+  const [otp, setOtp] = useState<string>('');
+  const [focused, setFocused] = useState<boolean>(true);
   const [countdown, setCountdown] = useState(30);
   const [autofillStatus, setAutofillStatus] = useState<AutofillStatus>('idle');
 
-  const inputs = useRef<Array<TextInput | null>>([]);
+  const hiddenInputRef = useRef<TextInput | null>(null);
   const lastClipboard = useRef('');
   const hasSubmitted = useRef(false);
   const clipboardTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -111,7 +110,7 @@ export default function OtpScreen() {
       Animated.timing(shakeAnim, { toValue: 5, duration: 45, useNativeDriver: true }),
       Animated.timing(shakeAnim, { toValue: 0, duration: 45, useNativeDriver: true }),
     ]).start();
-  }, [error]);
+  }, [error, shakeAnim]);
 
   /* ── countdown ── */
   useEffect(() => {
@@ -124,13 +123,12 @@ export default function OtpScreen() {
   const fillOtp = useCallback((raw: string): boolean => {
     const digits = raw.replace(/\D/g, '').slice(0, OTP_LENGTH);
     if (digits.length < OTP_LENGTH) return false;
-    setOtp(digits.split(''));
+    setOtp(digits);
     setAutofillStatus('detected');
     Animated.sequence([
       Animated.spring(rowScale, { toValue: 1.04, friction: 4, tension: 220, useNativeDriver: true }),
       Animated.spring(rowScale, { toValue: 1, friction: 4, tension: 180, useNativeDriver: true }),
     ]).start();
-    inputs.current[OTP_LENGTH - 1]?.focus();
     return true;
   }, [rowScale]);
 
@@ -160,17 +158,22 @@ export default function OtpScreen() {
       } catch { }
     })();
 
-    // Always clear OTP boxes & errors when mounting/remounting
-    setOtp(Array(OTP_LENGTH).fill(''));
+    // Always clear OTP & errors when mounting
+    setOtp('');
     setAutofillStatus('idle');
     clearError();
     hasSubmitted.current = false;
 
+    // Focus hidden input automatically
+    setTimeout(() => {
+      hiddenInputRef.current?.focus();
+    }, 100);
+
     return () => {
       isMounted = false;
-      setOtp(Array(OTP_LENGTH).fill(''));
+      setOtp('');
     };
-  }, []);
+  }, [clearError]);
 
   useEffect(() => {
     clipboardTimer.current = setInterval(checkClipboard, 1500);
@@ -181,11 +184,11 @@ export default function OtpScreen() {
 
   /* ── auto-submit ── */
   useEffect(() => {
-    if (otp.every(d => d !== '') && pendingMobile && !isLoading && !hasSubmitted.current) {
+    if (otp.length === OTP_LENGTH && pendingMobile && !isLoading && !hasSubmitted.current) {
       hasSubmitted.current = true;
       setAutofillStatus('verifying');
       (async () => {
-        try { await verifyOtp(pendingMobile, otp.join('')); }
+        try { await verifyOtp(pendingMobile, otp); }
         finally { hasSubmitted.current = false; }
       })();
     }
@@ -193,53 +196,39 @@ export default function OtpScreen() {
   }, [otp]);
 
   /* ── input handlers ── */
-  function handleChange(val: string, idx: number) {
+  function handleChangeText(val: string) {
     clearError();
-    setAutofillStatus('idle');
-    const digits = val.replace(/\D/g, '');
-    if (digits.length >= OTP_LENGTH) { fillOtp(digits); return; }
-    if (digits.length > 1) {
-      const next = [...otp];
-      for (let i = 0; i < digits.length && idx + i < OTP_LENGTH; i++) next[idx + i] = digits[i];
-      setOtp(next);
-      inputs.current[Math.min(idx + digits.length, OTP_LENGTH - 1)]?.focus();
-      return;
-    }
-    const digit = digits.slice(-1);
-    const next = [...otp]; next[idx] = digit; setOtp(next);
-    if (digit && idx < OTP_LENGTH - 1) inputs.current[idx + 1]?.focus();
-  }
-
-  function handleKeyPress(e: any, idx: number) {
-    if (e.nativeEvent.key === 'Backspace') {
-      hasSubmitted.current = false;
+    const digits = val.replace(/\D/g, '').slice(0, OTP_LENGTH);
+    setOtp(digits);
+    if (digits.length === OTP_LENGTH) {
+      fillOtp(digits);
+    } else {
       setAutofillStatus('idle');
-      if (otp[idx]) { const next = [...otp]; next[idx] = ''; setOtp(next); }
-      else if (idx > 0) { const next = [...otp]; next[idx - 1] = ''; setOtp(next); inputs.current[idx - 1]?.focus(); }
+      hasSubmitted.current = false;
     }
   }
 
   async function handleVerify() {
-    if (!pendingMobile || isLoading || hasSubmitted.current) return;
+    if (!pendingMobile || isLoading || hasSubmitted.current || otp.length < OTP_LENGTH) return;
     hasSubmitted.current = true;
-    try { await verifyOtp(pendingMobile, otp.join('')); }
+    try { await verifyOtp(pendingMobile, otp); }
     finally { hasSubmitted.current = false; }
   }
 
   async function handleResend() {
     if (countdown > 0 || !pendingMobile) return;
     await resendOtp(pendingMobile);
-    setOtp(Array(OTP_LENGTH).fill(''));
+    setOtp('');
     setCountdown(30);
     setAutofillStatus('idle');
     clearError();
     hasSubmitted.current = false;
     lastClipboard.current = '';
-    inputs.current[0]?.focus();
+    hiddenInputRef.current?.focus();
   }
 
   /* ── derived ── */
-  const otpFilled = otp.every(d => d !== '');
+  const otpFilled = otp.length === OTP_LENGTH;
   const maskedNumber = pendingMobile ? `+91 ${pendingMobile}` : '—';
   const errorKind = detectErrorKind(error);
 
@@ -247,12 +236,11 @@ export default function OtpScreen() {
   return (
     <KeyboardAvoidingView
       style={[s.kav, { backgroundColor: BG }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+      behavior={Platform.OS === 'ios' ? undefined : 'height'}
     >
       <StatusBar barStyle="light-content" backgroundColor={PRIMARY} />
 
-      {/* Crimson hero band */}
+      {/* Hero Header */}
       <LinearGradient
         colors={['#1E40AF', '#2563EB']}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
@@ -275,9 +263,10 @@ export default function OtpScreen() {
       </LinearGradient>
 
       <ScrollView
-        contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 48 }]}
+        contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 24 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       >
         {/* ── Error banners ── */}
         {error && errorKind === 'expired' && (
@@ -335,37 +324,64 @@ export default function OtpScreen() {
         {/* OTP hint */}
         <Text style={s.boxHint}>Enter the 6-digit code</Text>
 
-        {/* OTP boxes — shake + scale both applied */}
-        <Animated.View style={[
-          s.otpRow,
-          { transform: [{ scale: rowScale }, { translateX: shakeAnim }] },
-        ]}>
-          {otp.map((digit, idx) => (
-            <TextInput
-              key={idx}
-              ref={r => { inputs.current[idx] = r; }}
-              style={[
-                s.otpBox,
-                digit ? s.otpBoxFilled : null,
-                error && errorKind !== 'network' ? s.otpBoxError : null,
-                autofillStatus === 'detected' && digit ? s.otpBoxAutofill : null,
-              ]}
-              value={digit}
-              onChangeText={v => handleChange(v, idx)}
-              onKeyPress={e => handleKeyPress(e, idx)}
-              keyboardType={Platform.OS === 'ios' ? 'number-pad' : 'phone-pad'}
-              textContentType="oneTimeCode"
-              autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
-              importantForAutofill="yes"
-              maxLength={OTP_LENGTH}
-              textAlign="center"
-              selectTextOnFocus
-              autoFocus={idx === 0}
-              caretHidden
-              editable={!isLoading}
-            />
-          ))}
-        </Animated.View>
+        {/* OTP Container: Tapping anywhere focuses hidden TextInput */}
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => hiddenInputRef.current?.focus()}
+          style={s.otpTouchContainer}
+        >
+          {/* Single Hidden TextInput that receives typing, SMS autofill & 6-digit copy-paste */}
+          <TextInput
+            ref={hiddenInputRef}
+            value={otp}
+            onChangeText={handleChangeText}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            keyboardType={Platform.OS === 'ios' ? 'number-pad' : 'phone-pad'}
+            textContentType="oneTimeCode"
+            autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
+            importantForAutofill="yes"
+            maxLength={OTP_LENGTH}
+            style={s.hiddenInput}
+            caretHidden
+            editable={!isLoading}
+          />
+
+          {/* Visual 6 Boxes (1 digit mapped cleanly per box) */}
+          <Animated.View
+            style={[
+              s.otpRow,
+              { transform: [{ scale: rowScale }, { translateX: shakeAnim }] },
+            ]}
+          >
+            {Array.from({ length: OTP_LENGTH }).map((_, idx) => {
+              const digit = otp[idx] || '';
+              const isCurrentFocus = focused && (idx === otp.length || (idx === OTP_LENGTH - 1 && otp.length === OTP_LENGTH));
+              return (
+                <View
+                  key={idx}
+                  style={[
+                    s.otpBox,
+                    digit ? s.otpBoxFilled : null,
+                    isCurrentFocus ? s.otpBoxFocused : null,
+                    error && errorKind !== 'network' ? s.otpBoxError : null,
+                    autofillStatus === 'detected' && digit ? s.otpBoxAutofill : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      s.otpBoxText,
+                      digit ? s.otpBoxTextFilled : null,
+                      autofillStatus === 'detected' && digit ? s.otpBoxTextAutofill : null,
+                    ]}
+                  >
+                    {digit}
+                  </Text>
+                </View>
+              );
+            })}
+          </Animated.View>
+        </TouchableOpacity>
 
         {/* Verifying indicator */}
         {isLoading ? (
@@ -433,22 +449,34 @@ const s = StyleSheet.create({
   bannerTitle: { fontSize: 13, fontWeight: '700', lineHeight: 18 },
   bannerSub: { fontSize: 12, color: '#6B7280', marginTop: 2, lineHeight: 17 },
 
-  /* OTP row */
+  /* OTP Touch Container & Hidden Input */
   boxHint: { fontSize: 14, color: '#64748B', textAlign: 'center', marginBottom: 20 },
-  otpRow: { flexDirection: 'row', gap: 8, marginBottom: 24, justifyContent: 'center', width: '100%' },
+  otpTouchContainer: { width: '100%', marginBottom: 24, position: 'relative' },
+  hiddenInput: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0,
+  },
+  otpRow: { flexDirection: 'row', gap: 8, justifyContent: 'center', width: '100%' },
   otpBox: {
     flex: 1, maxWidth: 52, height: 58, borderRadius: 14,
     borderWidth: 1.5, borderColor: '#E2E8F0', backgroundColor: '#FFFFFF',
-    fontSize: 22, fontWeight: '700', color: '#1E293B',
+    alignItems: 'center', justifyContent: 'center',
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
       android: { elevation: 1 },
       default: {},
     }),
   },
-  otpBoxFilled: { borderColor: PRIMARY, backgroundColor: '#EFF6FF', color: PRIMARY },
+  otpBoxFocused: { borderColor: PRIMARY, borderWidth: 2, backgroundColor: '#FFFFFF' },
+  otpBoxFilled: { borderColor: PRIMARY, backgroundColor: '#EFF6FF' },
   otpBoxError: { borderColor: DANGER, backgroundColor: '#FEF2F2' },
-  otpBoxAutofill: { borderColor: SUCCESS, backgroundColor: '#F0FDF4', color: SUCCESS },
+  otpBoxAutofill: { borderColor: SUCCESS, backgroundColor: '#F0FDF4' },
+
+  otpBoxText: { fontSize: 22, fontWeight: '700', color: '#1E293B', textAlign: 'center' },
+  otpBoxTextFilled: { color: PRIMARY },
+  otpBoxTextAutofill: { color: SUCCESS },
 
   verifyingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 },
   verifyingText: { fontSize: 13, color: PRIMARY, fontWeight: '600' },
@@ -463,3 +491,4 @@ const s = StyleSheet.create({
   tipRow: { alignItems: 'center' },
   tipText: { fontSize: 11, color: '#94A3B8', textAlign: 'center' },
 });
+

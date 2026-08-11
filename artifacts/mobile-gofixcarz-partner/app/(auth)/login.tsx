@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ShieldCheck, AlertTriangle, CheckCircle, ChevronLeft } from 'lucide-react-native';
 import { useAuth } from '@/src/context/AuthContext';
+import { cleanMobileNumber } from '@/src/utils/validators';
 
 /* ─────────────── Tokens ─────────────── */
 const PRIMARY = '#2563EB';
@@ -69,7 +70,7 @@ export default function LoginScreen() {
 
   function handleChange(raw: string) {
     clearError();
-    const cleaned = raw.replace(/\D/g, '').slice(0, 10);
+    const cleaned = cleanMobileNumber(raw);
     setMobile(cleaned);
     if (cleaned.length === 0) {
       setTouched(false);
@@ -109,13 +110,14 @@ export default function LoginScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={s.kav} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={s.kav} behavior={Platform.OS === 'ios' ? undefined : 'height'}>
       <StatusBar barStyle="light-content" backgroundColor={PRIMARY_DARK} />
 
       <ScrollView
-        contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 48 }]}
+        contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 24 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       >
         {/* Executive Hero Header matching Sign Up page */}
         <LinearGradient
@@ -171,7 +173,7 @@ export default function LoginScreen() {
               placeholderTextColor={MUTED}
               keyboardType="phone-pad"
               returnKeyType="done"
-              maxLength={10}
+              maxLength={15}
               textContentType="telephoneNumber"
               autoComplete="tel"
             />

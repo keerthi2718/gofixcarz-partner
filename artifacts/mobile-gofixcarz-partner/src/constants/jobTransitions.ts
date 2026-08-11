@@ -15,13 +15,12 @@ import type { JobStatus } from '@/src/types/job.types';
  * Update this map whenever the API transition rules change.
  */
 export const JOB_STATUS_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
-  OPEN:              ['IN_PROGRESS', 'CANCELLED'],
-  IN_PROGRESS:       ['WAITING_FOR_PARTS', 'QUALITY_CHECK', 'CANCELLED'],
-  WAITING_FOR_PARTS: ['IN_PROGRESS', 'CANCELLED'],
-  QUALITY_CHECK:     ['READY', 'CANCELLED'],
-  READY:             ['CANCELLED'],
-  COMPLETED:         [],
-  CANCELLED:         [],
+  OPEN:          ['IN_PROGRESS'],
+  IN_PROGRESS:   ['QUALITY_CHECK'],
+  QUALITY_CHECK: ['READY'],
+  READY:         [],
+  COMPLETED:     [],
+  CANCELLED:     [],
 };
 
 /**
