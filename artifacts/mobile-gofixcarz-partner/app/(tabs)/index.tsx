@@ -25,6 +25,7 @@ import GarageService from '@/src/services/garage.service';
 import JobService from '@/src/services/job.service';
 import { formatCurrency } from '@/src/utils/helpers';
 import { useNotificationContext } from '@/src/context/NotificationContext';
+import type { JobResponse, BookingResponse } from '@/src/types';
 
 /* ─── Shadow token ─────────────────────────────────────────────────────── */
 const SHADOW_CARD = Platform.select({
@@ -50,15 +51,40 @@ const QUICK_ACTIONS = [
 
 /* ─── Helpers ───────────────────────────────────────────────────────────── */
 /** Check if a date string falls on today (local time) */
-function isToday(dateStr: string | null | undefined): boolean {
-  if (!dateStr) return false;
-  const d = new Date(dateStr);
+function isToday(dateVal: string | Date | null | undefined): boolean {
+  if (!dateVal) return false;
+  const d = dateVal instanceof Date ? dateVal : new Date(dateVal);
+  if (isNaN(d.getTime())) return false;
   const now = new Date();
   return (
     d.getFullYear() === now.getFullYear() &&
     d.getMonth()    === now.getMonth() &&
     d.getDate()     === now.getDate()
   );
+}
+
+function parseJobDate(val: any): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+  if (typeof val === 'number') {
+    const ms = val < 10000000000 ? val * 1000 : val;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof val === 'string') {
+    const str = val.trim();
+    if (!str) return null;
+    if (/^\d+$/.test(str)) {
+      const num = parseInt(str, 10);
+      const ms = num < 10000000000 ? num * 1000 : num;
+      const d = new Date(ms);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const normalizedStr = str.includes(' ') && !str.includes('T') ? str.replace(' ', 'T') : str;
+    const d = new Date(normalizedStr);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
 }
 
 /* ─── Component ─────────────────────────────────────────────────────────── */
@@ -73,7 +99,7 @@ export default function DashboardScreen() {
   } = useQuery({
     queryKey: QUERY_KEYS.DASHBOARD,
     queryFn:  DashboardService.get,
-    retry: 1, // API may not exist — don't hammer
+    retry: 1,
   });
 
   const { data: bookingsData, isLoading: bookingsLoading } = useQuery({
@@ -81,7 +107,7 @@ export default function DashboardScreen() {
     queryFn:  () => BookingService.list({ page_size: 50 }),
   });
 
-  // Fetch jobs using shared query key so cache is shared with Analytics.
+  // Fetch jobs using shared query key so cache is shared with Analytics and Workshop tabs.
   const { data: jobsData, isLoading: jobsLoading } = useQuery({
     queryKey: QUERY_KEYS.JOBS({}),
     queryFn:  () => JobService.list({}),
@@ -97,54 +123,76 @@ export default function DashboardScreen() {
   const garageName = garage?.name ?? '';
 
   /* ── Derive KPIs from real job + booking data (matching Analytics tab logic) ── */
-  const allJobs = jobsData?.items ?? [];
-  const allBookings = bookingsData?.items ?? [];
+  const allJobs: JobResponse[] = Array.isArray(jobsData)
+    ? jobsData
+    : jobsData?.items ?? (jobsData as any)?.jobs ?? (jobsData as any)?.results ?? (jobsData as any)?.data ?? [];
+  const allBookings: BookingResponse[] = Array.isArray(bookingsData)
+    ? bookingsData
+    : bookingsData?.items ?? (bookingsData as any)?.bookings ?? (bookingsData as any)?.results ?? (bookingsData as any)?.data ?? [];
 
   const kpis = useMemo(() => {
-    // 1. Revenue Today — match Analytics jobRevenue calculation (excluding OPEN/CANCELLED/IN_PROGRESS)
-    let revenueToday = dashData?.revenue_today ?? 0;
-    if (!revenueToday) {
-      revenueToday = allJobs.reduce((sum, job) => {
-        if (
-          job.status === 'OPEN' ||
-          job.status === 'CANCELLED' ||
-          job.status === 'IN_PROGRESS' ||
-          job.status === 'QUALITY_CHECK'
-        ) {
-          return sum;
-        }
-        const isDone = job.status === 'COMPLETED' || (job.status as string) === 'DELIVERED' || job.status === 'READY';
-        const jobDate = isDone ? (job.completed_at || job.updated_at || job.created_at) : (job.created_at || job.updated_at);
-        if (!isToday(jobDate)) return sum;
-        const amt = job.billing?.grand_total ?? job.final_amount ?? job.estimated_amount ?? (job as any).price ?? 0;
-        const numAmt = typeof amt === 'number' ? (isNaN(amt) ? 0 : amt) : parseFloat(amt) || 0;
-        return sum + numAmt;
-      }, 0);
-    }
+    // Helper to check realized/completed status
+    const isRealized = (s: string | null | undefined) => {
+      if (!s) return false;
+      const u = s.toString().toUpperCase().trim();
+      return u === 'DELIVERED' || u === 'COMPLETED' || u === 'DONE' || u === 'CLOSED' || u.includes('DELIVER') || u.includes('COMPLETE');
+    };
 
-    // 2. Active Jobs — OPEN, IN_PROGRESS, QUALITY_CHECK, READY
-    const activeStatuses = new Set(['OPEN', 'IN_PROGRESS', 'QUALITY_CHECK', 'READY']);
-    const calculatedActive = allJobs.filter(j => activeStatuses.has(j.status)).length;
-    const activeJobs = (dashData?.open_jobs && dashData.open_jobs > 0) ? dashData.open_jobs : calculatedActive;
+    const getJobRev = (job: JobResponse) => {
+      if (!isRealized(job.status)) return 0;
+      const servicesSum = job.services?.reduce((sum, item) => {
+        const p = parseFloat(String(item.price ?? 0)) || 0;
+        const q = parseFloat(String(item.qty ?? 1)) || 1;
+        return sum + (p * q);
+      }, 0) ?? 0;
+      const labourCharge = parseFloat(String(job.labour?.charge ?? (job as any).labour_charge ?? (job as any).labour_total ?? 0)) || 0;
+      const itemsTotal = servicesSum + labourCharge;
+      if (itemsTotal > 0) return itemsTotal;
 
-    // 3. In Progress Jobs — IN_PROGRESS, QUALITY_CHECK
-    const calculatedInProgress = allJobs.filter(j => j.status === 'IN_PROGRESS' || j.status === 'QUALITY_CHECK').length;
-    const inProgressJobs = (dashData?.in_progress_jobs && dashData.in_progress_jobs > 0) ? dashData.in_progress_jobs : calculatedInProgress;
+      const billingSubtotal = parseFloat(String(job.billing?.subtotal ?? (job.billing?.services_total ?? 0) + (job.billing?.labour_total ?? 0))) || 0;
+      if (billingSubtotal > 0) return billingSubtotal;
 
-    // 4. Pending Bookings — PENDING status
-    const calculatedPending = allBookings.filter(b => b.status === 'PENDING').length;
-    const pendingBookings = (dashData?.pending_bookings && dashData.pending_bookings > 0) ? dashData.pending_bookings : calculatedPending;
+      return parseFloat(String(job.estimated_amount ?? job.final_amount ?? (job as any).price ?? 0)) || 0;
+    };
 
-    // 5. Completed Jobs — COMPLETED or DELIVERED status (matching Analytics tab logic)
-    const completedJobs = allJobs.filter(j => j.status === 'COMPLETED' || (j.status as string) === 'DELIVERED').length;
+    // 1. Revenue Today — pure sum of services + labour for jobs completed/updated today
+    const calculatedRevenueToday = allJobs.reduce((sum, job) => {
+      const jobDate = job.completed_at || (job as any).completed_date || job.updated_at || (job as any).updated_date || job.created_at || (job as any).created_date;
+      const d = parseJobDate(jobDate);
+      if (d && !isToday(d)) return sum;
+      return sum + getJobRev(job);
+    }, 0);
+    const revenueToday = calculatedRevenueToday;
+
+    // 2. Total Revenue — pure sum of services + labour for all completed/delivered jobs
+    const totalRevenue = allJobs.reduce((sum, job) => sum + getJobRev(job), 0);
+
+    // 3. Active Jobs — non-delivered, non-cancelled jobs (OPEN, IN_PROGRESS, QUALITY_CHECK, READY)
+    const activeJobs = allJobs.filter(j => {
+      const u = (j.status || '').toString().toUpperCase().trim();
+      return u !== 'CANCELLED' && u !== 'REJECTED' && !isRealized(u);
+    }).length;
+
+    // 4. In Progress Jobs — strictly jobs in the IN_PROGRESS state
+    const inProgressJobs = allJobs.filter(j => {
+      const u = (j.status || '').toString().toUpperCase().trim();
+      return u === 'IN_PROGRESS';
+    }).length;
+
+    // 5. Pending Bookings — PENDING status
+    const pendingBookings = allBookings.filter(b => (b.status || '').toString().toUpperCase().trim() === 'PENDING').length;
+
+    // 6. Completed / Delivered Jobs
+    const completedJobs = allJobs.filter(j => isRealized(j.status)).length;
+
     const completedTodayJobs = allJobs.filter(j => {
-      if (j.status !== 'COMPLETED' && (j.status as string) !== 'DELIVERED') return false;
-      const d = j.completed_at || j.updated_at || j.created_at;
+      if (!isRealized(j.status)) return false;
+      const d = j.completed_at || (j as any).completed_date || j.updated_at || (j as any).updated_date || j.created_at || (j as any).created_date;
       return isToday(d);
     }).length;
 
-    return { revenueToday, activeJobs, inProgressJobs, pendingBookings, completedJobs, completedTodayJobs };
-  }, [dashData, allJobs, allBookings]);
+    return { revenueToday, totalRevenue, activeJobs, inProgressJobs, pendingBookings, completedJobs, completedTodayJobs };
+  }, [allJobs, allBookings]);
 
   const kpiLoading = jobsLoading;
 

@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, LayoutChangeEvent, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Tabs, usePathname } from 'expo-router';
+import { Redirect, Tabs, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, CalendarClock, Wrench, BarChart2, MoreHorizontal } from 'lucide-react-native';
+import { useAuthStore } from '@/src/store/auth.store';
+import LoadingState from '@/src/components/ui/LoadingState';
 
 /* ── Tokens ── */
 const PRIMARY   = '#2563EB';
@@ -112,6 +114,16 @@ function TabBar({ state, descriptors, navigation }: any) {
 }
 
 export default function TabLayout() {
+  const { isAuthenticated, isLoading } = useAuthStore();
+
+  if (isLoading) {
+    return <LoadingState message="Verifying session..." />;
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
   return (
     <Tabs
       screenOptions={{ headerShown: false }}

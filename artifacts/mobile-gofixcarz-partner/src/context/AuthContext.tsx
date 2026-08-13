@@ -13,24 +13,35 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   if (isAxiosError(err)) {
     const status = err.response?.status;
     const data = err.response?.data;
-    const serverMsg: string | undefined =
-      typeof data === 'string'
-        ? data
-        : data?.message || data?.error || data?.detail || data?.msg;
+    let serverMsg: string | undefined = undefined;
+    if (typeof data === 'string') {
+      serverMsg = data;
+    } else if (data) {
+      if (typeof data.message === 'string') serverMsg = data.message;
+      else if (typeof data.error === 'string') serverMsg = data.error;
+      else if (typeof data.detail === 'string') serverMsg = data.detail;
+      else if (typeof data.msg === 'string') serverMsg = data.msg;
+      else if (Array.isArray(data.detail) && data.detail.length > 0) {
+        const first = data.detail[0];
+        serverMsg = typeof first === 'string' ? first : (first.msg || first.message || JSON.stringify(first));
+      } else if (Array.isArray(data.errors) && data.errors.length > 0) {
+        const first = data.errors[0];
+        serverMsg = typeof first === 'string' ? first : (first.msg || first.message || JSON.stringify(first));
+      }
+    }
 
-    // 404/401/400 containing user not found/unregistered
+    // 404/401 containing user not found/unregistered
     if (status === 404 || status === 401 || (serverMsg && (
       serverMsg.toLowerCase().includes('not found') ||
-      serverMsg.toLowerCase().includes('exist') ||
       serverMsg.toLowerCase().includes('unregister')
     ))) {
       return "Unregistered Mobile Number: No active partner account was found.";
     }
     if (status === 409) {
-      return serverMsg ?? "An account with this number already exists.";
+      return serverMsg ?? "An account with this mobile number already exists.";
     }
     if (status === 400) {
-      return serverMsg ?? "Unregistered Mobile Number: No active partner account was found.";
+      return serverMsg ?? "Invalid request. Please check your details and try again.";
     }
     if (status === 429) {
       return "Too many attempts. Please wait a moment and try again.";

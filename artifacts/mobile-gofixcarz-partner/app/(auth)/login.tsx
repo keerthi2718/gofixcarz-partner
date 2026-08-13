@@ -218,7 +218,7 @@ export default function LoginScreen() {
 
           <Text style={s.termsText}>
             {'By continuing, you agree to our '}
-            <Text style={s.termsLink} onPress={() => router.push('/(tabs)/more/privacy' as never)}>Terms &amp; Privacy</Text>
+            <Text style={s.termsLink} onPress={() => router.push('/(auth)/privacy' as never)}>Terms &amp; Privacy</Text>
           </Text>
         </View>
 

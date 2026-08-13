@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import JobService from '@/src/services/job.service';
 import DashboardService from '@/src/services/dashboard.service';
+import AnalyticsService from '@/src/services/analytics.service';
 import { QUERY_KEYS } from '@/src/constants/api';
 import { formatCurrency, formatDate } from '@/src/utils/helpers';
 import type { JobResponse } from '@/src/types';
@@ -42,6 +43,7 @@ const STATUS_COLORS: Record<string, string> = {
   READY:         '#10B981',
   COMPLETED:     '#059669',
   DELIVERED:     '#059669',
+  CLOSED:        '#059669',
   CANCELLED:     '#EF4444',
 };
 
@@ -52,35 +54,107 @@ const STATUS_LABELS: Record<string, string> = {
   READY:         'Ready for Pickup',
   COMPLETED:     'Completed',
   DELIVERED:     'Delivered',
+  CLOSED:        'Closed',
   CANCELLED:     'Cancelled',
 };
 
 /* ── Helpers ── */
-function getJobDate(job: JobResponse): Date {
-  // Revenue recognition date: for completed/delivered/ready jobs, use completed_at or updated_at first.
-  // This ensures a job created yesterday but completed today is accounted in TODAY'S revenue, not yesterday's.
-  const isDone = job.status === 'COMPLETED' || (job.status as string) === 'DELIVERED' || job.status === 'READY';
-  const dateStr = isDone
-    ? (job.completed_at || job.updated_at || job.created_at)
-    : (job.created_at || job.updated_at);
+function isRealizedStatus(status: string | null | undefined): boolean {
+  if (!status) return false;
+  const s = status.toString().toUpperCase().trim();
+  return (
+    s === 'DELIVERED' ||
+    s === 'COMPLETED' ||
+    s === 'DONE' ||
+    s === 'CLOSED' ||
+    s.includes('DELIVER') ||
+    s.includes('COMPLETE')
+  );
+}
 
-  if (!dateStr) return new Date();
-  const d = new Date(dateStr);
-  return isNaN(d.getTime()) ? new Date() : d;
+function parseJobDate(val: any): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+  if (typeof val === 'number') {
+    const ms = val < 10000000000 ? val * 1000 : val;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof val === 'string') {
+    const str = val.trim();
+    if (!str) return null;
+    if (/^\d+$/.test(str)) {
+      const num = parseInt(str, 10);
+      const ms = num < 10000000000 ? num * 1000 : num;
+      const d = new Date(ms);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const normalizedStr = str.includes(' ') && !str.includes('T') ? str.replace(' ', 'T') : str;
+    const d = new Date(normalizedStr);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
+function getJobDate(job: JobResponse): Date {
+  const statusUpper = (job.status || '').toString().toUpperCase().trim();
+  const isDone = isRealizedStatus(statusUpper);
+  const rawDate = isDone
+    ? (job.completed_at || (job as any).completed_date || job.updated_at || (job as any).updated_date || job.created_at || (job as any).created_date || (job as any).date || (job as any).service_date)
+    : (job.created_at || (job as any).created_date || job.updated_at || (job as any).updated_date || (job as any).date);
+
+  const parsed = parseJobDate(rawDate);
+  return parsed || new Date();
+}
+
+function isToday(d: Date): boolean {
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
 }
 
 function jobRevenue(job: JobResponse): number {
-  // OPEN, IN_PROGRESS, QUALITY_CHECK, and CANCELLED jobs are not realized revenue
-  if (
-    job.status === 'OPEN' ||
-    job.status === 'CANCELLED' ||
-    job.status === 'IN_PROGRESS' ||
-    job.status === 'QUALITY_CHECK'
-  ) {
+  const statusUpper = (job.status || '').toString().toUpperCase().trim();
+
+  // Only COMPLETED or DELIVERED job cards generate revenue
+  if (!isRealizedStatus(statusUpper)) {
     return 0;
   }
-  const amt = (job as any).billing?.grand_total ?? job.final_amount ?? job.estimated_amount ?? (job as any).price ?? 0;
-  return typeof amt === 'number' ? (isNaN(amt) ? 0 : amt) : parseFloat(amt) || 0;
+
+  // 1. Calculate sum from services + labour charge (pure sum without GST)
+  const servicesSum = job.services?.reduce((sum, item) => {
+    const p = parseFloat(String(item.price ?? 0)) || 0;
+    const q = parseFloat(String(item.qty ?? 1)) || 1;
+    return sum + (p * q);
+  }, 0) ?? 0;
+
+  const labourCharge = parseFloat(String(job.labour?.charge ?? (job as any).labour_charge ?? (job as any).labour_total ?? 0)) || 0;
+  const itemsTotal = servicesSum + labourCharge;
+
+  if (itemsTotal > 0) {
+    return itemsTotal;
+  }
+
+  // 2. Billing subtotal (services_total + labour_total) without GST
+  const billingSubtotal = parseFloat(String(job.billing?.subtotal ?? (job.billing?.services_total ?? 0) + (job.billing?.labour_total ?? 0))) || 0;
+  if (billingSubtotal > 0) {
+    return billingSubtotal;
+  }
+
+  // 3. Fallback for single amount fields
+  const fallbackAmt = parseFloat(String(
+    job.estimated_amount ??
+    job.final_amount ??
+    (job as any).price ??
+    (job as any).amount ??
+    (job as any).total_amount ??
+    0
+  )) || 0;
+
+  return fallbackAmt;
 }
 
 function filterByPeriod(allJobs: JobResponse[], period: UIPeriod): JobResponse[] {
@@ -92,8 +166,15 @@ function filterByPeriod(allJobs: JobResponse[], period: UIPeriod): JobResponse[]
       const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 6); cutoff.setHours(0,0,0,0);
       return d >= cutoff;
     }
-    if (period === 'month') return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-    return d.getFullYear() === now.getFullYear();
+    if (period === 'month') {
+      const isSameMonth = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+      const cutoff30 = new Date(now); cutoff30.setDate(cutoff30.getDate() - 29); cutoff30.setHours(0,0,0,0);
+      return isSameMonth || d >= cutoff30;
+    }
+    if (period === 'year') {
+      return d.getFullYear() === now.getFullYear();
+    }
+    return true;
   });
 }
 
@@ -101,7 +182,8 @@ interface GraphPoint { label: string; revenue: number; job_count: number; }
 
 function buildGraph(jobs: JobResponse[], period: UIPeriod): GraphPoint[] {
   const now = new Date();
-  if (period === 'week' || period === 'all') {
+
+  if (period === 'week') {
     return Array.from({ length: 7 }, (_, i) => {
       const day = new Date(now); day.setDate(day.getDate() - (6 - i));
       const dj = jobs.filter(j => {
@@ -117,10 +199,13 @@ function buildGraph(jobs: JobResponse[], period: UIPeriod): GraphPoint[] {
       };
     });
   }
+
   if (period === 'month') {
     const pts: GraphPoint[] = [];
-    let ws = new Date(now.getFullYear(), now.getMonth(), 1); let wn = 1;
-    while (ws <= now) {
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    let ws = new Date(firstDay);
+    let wn = 1;
+    while (ws <= now || wn <= 4) {
       const we = new Date(ws); we.setDate(we.getDate() + 6); we.setHours(23,59,59,999);
       const wj = jobs.filter(j => { const d = getJobDate(j); return d >= ws && d <= we; });
       pts.push({ label: `W${wn}`, revenue: wj.reduce((s, j) => s + jobRevenue(j), 0), job_count: wj.length });
@@ -128,10 +213,37 @@ function buildGraph(jobs: JobResponse[], period: UIPeriod): GraphPoint[] {
     }
     return pts;
   }
-  return Array.from({ length: now.getMonth() + 1 }, (_, m) => {
-    const mj = jobs.filter(j => { const d = getJobDate(j); return d.getFullYear() === now.getFullYear() && d.getMonth() === m; });
-    return { label: new Date(now.getFullYear(), m, 1).toLocaleDateString('en-IN', { month: 'short' }), revenue: mj.reduce((s, j) => s + jobRevenue(j), 0), job_count: mj.length };
-  });
+
+  if (period === 'year') {
+    return Array.from({ length: 12 }, (_, m) => {
+      const mj = jobs.filter(j => { const d = getJobDate(j); return d.getFullYear() === now.getFullYear() && d.getMonth() === m; });
+      return { label: new Date(now.getFullYear(), m, 1).toLocaleDateString('en-IN', { month: 'short' }), revenue: mj.reduce((s, j) => s + jobRevenue(j), 0), job_count: mj.length };
+    });
+  }
+
+  // period === 'all'
+  const monthsMap = new Map<string, { label: string; revenue: number; job_count: number }>();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const label = d.toLocaleDateString('en-IN', { month: 'short' });
+    monthsMap.set(key, { label, revenue: 0, job_count: 0 });
+  }
+
+  for (const j of jobs) {
+    const d = getJobDate(j);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    if (monthsMap.has(key)) {
+      const item = monthsMap.get(key)!;
+      item.revenue += jobRevenue(j);
+      item.job_count += 1;
+    } else {
+      const label = d.toLocaleDateString('en-IN', { month: 'short' });
+      monthsMap.set(key, { label, revenue: jobRevenue(j), job_count: 1 });
+    }
+  }
+
+  return Array.from(monthsMap.values());
 }
 
 /* ── UI sub-components ── */
@@ -242,6 +354,14 @@ export default function AnalyticsScreen() {
     staleTime: 5_000,
   });
 
+  /* Backend Analytics API Query */
+  const { data: analyticsData, refetch: refetchAnalytics } = useQuery({
+    queryKey: QUERY_KEYS.ANALYTICS(period),
+    queryFn:  () => AnalyticsService.get({ period: period === 'all' ? 'year' : (period as any) }),
+    staleTime: 5_000,
+    retry: 1,
+  });
+
   /* Dashboard Query for today/month summary */
   const { data: dashData, refetch: refetchDash } = useQuery({
     queryKey: QUERY_KEYS.DASHBOARD,
@@ -252,36 +372,74 @@ export default function AnalyticsScreen() {
   const refetch = useCallback(() => {
     refetchJobs();
     refetchDash();
-  }, [refetchJobs, refetchDash]);
+    refetchAnalytics();
+  }, [refetchJobs, refetchDash, refetchAnalytics]);
 
   useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
-  const allJobs   = jobsData?.items ?? [];
+  const allJobs: JobResponse[] = Array.isArray(jobsData)
+    ? jobsData
+    : jobsData?.items ?? (jobsData as any)?.jobs ?? (jobsData as any)?.results ?? (jobsData as any)?.data ?? [];
   const jobs      = filterByPeriod(allJobs, period);
-  const graphData = buildGraph(jobs, period);
-  const maxRev    = graphData.length ? Math.max(...graphData.map(p => p.revenue), 1) : 1;
+  const clientGraph = buildGraph(jobs, period);
+  const graphData   = (analyticsData?.graph_data && analyticsData.graph_data.length > 0) ? analyticsData.graph_data : clientGraph;
+  const maxRev      = graphData.length ? Math.max(...graphData.map(p => p.revenue), 1) : 1;
 
   /* ── Stats Calculations ── */
-  const totalRevenue   = jobs.reduce((s, j) => s + jobRevenue(j), 0);
-  const totalJobs      = jobs.length;
-  const completedJobs  = jobs.filter(j => j.status === 'COMPLETED' || (j.status as string) === 'DELIVERED').length;
-  const inProgressJobs = jobs.filter(j => j.status === 'IN_PROGRESS' || j.status === 'QUALITY_CHECK').length;
-  const openJobs       = jobs.filter(j => j.status === 'OPEN').length;
-  const readyJobs      = jobs.filter(j => j.status === 'READY').length;
-  const realizedJobsCount = completedJobs + readyJobs;
-  const avgJobValue       = realizedJobsCount > 0 ? totalRevenue / realizedJobsCount : (totalJobs > 0 ? totalRevenue / totalJobs : 0);
-  const completionRate = totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0;
+  const calculatedRevenue = jobs.reduce((s, j) => s + jobRevenue(j), 0);
+  const dashRevenuePeriod = period === 'month' ? (dashData?.revenue_this_month ?? 0) : (period === 'week' || period === 'all' ? (dashData?.revenue_today ?? 0) : 0);
+  const totalRevenue   = calculatedRevenue > 0
+    ? calculatedRevenue
+    : Math.max(analyticsData?.total_revenue ?? 0, dashRevenuePeriod);
 
-  /* Revenue Breakdown (Services vs Labour vs GST) - only for revenue-generating jobs */
+  const calculatedTodayRevenue = allJobs
+    .filter(j => isRealizedStatus(j.status))
+    .reduce((s, j) => s + jobRevenue(j), 0);
+  const displayTodayRevenue = calculatedTodayRevenue > 0 ? calculatedTodayRevenue : (dashData?.revenue_today ?? 0);
+
+  const totalJobs      = allJobs.length > 0 ? allJobs.length : ((dashData?.open_jobs ?? 0) + (dashData?.in_progress_jobs ?? 0) + (dashData?.completed_jobs ?? 0) + (dashData?.cancelled_jobs ?? 0));
+  const calculatedCompleted = jobs.filter(j => isRealizedStatus(j.status)).length;
+  const completedJobs  = calculatedCompleted > 0
+    ? calculatedCompleted
+    : (dashData?.completed_jobs ?? 0);
+
+  /* Active Jobs — non-delivered, non-cancelled workshop jobs */
+  const activeJobs = allJobs.filter(j => {
+    const s = (j.status || '').toString().toUpperCase().trim();
+    return s !== 'CANCELLED' && s !== 'REJECTED' && !isRealizedStatus(s);
+  }).length;
+
+  /* In Progress Jobs — strictly jobs in the IN_PROGRESS state */
+  const inProgressJobs = allJobs.filter(j => {
+    const s = (j.status || '').toString().toUpperCase().trim();
+    return s === 'IN_PROGRESS';
+  }).length;
+
+  const realizedJobsCount = completedJobs;
+  const avgJobValue       = realizedJobsCount > 0 ? totalRevenue / realizedJobsCount : (totalJobs > 0 ? totalRevenue / totalJobs : 0);
+  const completionRate    = totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0;
+
+  /* Revenue Breakdown (Services vs Labour) - only for revenue-generating jobs */
   const revenueJobs = jobs.filter(j => jobRevenue(j) > 0);
   const servicesRev = revenueJobs.reduce((s, j) => s + ((j as any).billing?.services_total ?? 0), 0);
   const labourRev   = revenueJobs.reduce((s, j) => s + ((j as any).billing?.labour_total ?? 0), 0);
-  const gstRev      = revenueJobs.reduce((s, j) => s + ((j as any).billing?.gst_amount ?? 0), 0);
-  const isBillingAvailable = servicesRev > 0 || labourRev > 0 || gstRev > 0;
+  const isBillingAvailable = servicesRev > 0 || labourRev > 0;
 
   /* Status Breakdown */
   const statusCounts: Record<string, number> = {};
-  for (const j of jobs) statusCounts[j.status] = (statusCounts[j.status] ?? 0) + 1;
+  for (const j of jobs) {
+    const raw = (j.status || '').toString().toUpperCase().trim();
+    const normalizedKey = isRealizedStatus(raw)
+      ? 'COMPLETED'
+      : (raw === 'IN_PROGRESS' || raw === 'QUALITY_CHECK' ? 'IN_PROGRESS' : raw);
+    statusCounts[normalizedKey] = (statusCounts[normalizedKey] ?? 0) + 1;
+  }
+  if (Object.keys(statusCounts).length === 0 && dashData) {
+    if (dashData.completed_jobs > 0) statusCounts['COMPLETED'] = dashData.completed_jobs;
+    if (dashData.in_progress_jobs > 0) statusCounts['IN_PROGRESS'] = dashData.in_progress_jobs;
+    if (dashData.open_jobs > 0) statusCounts['OPEN'] = dashData.open_jobs;
+    if (dashData.cancelled_jobs > 0) statusCounts['CANCELLED'] = dashData.cancelled_jobs;
+  }
   const statusEntries   = Object.entries(statusCounts).filter(([, v]) => v > 0);
   const totalFromStatus = statusEntries.reduce((a, [, v]) => a + v, 0);
 
@@ -297,7 +455,7 @@ export default function AnalyticsScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.pageTitle}>Revenue & Analytics</Text>
           <Text style={styles.pageSubtitle}>
-            {isLoading ? 'Loading stats…' : `${allJobs.length} total workshop jobs`}
+            {isLoading ? 'Loading stats…' : `${totalJobs} total workshop jobs`}
           </Text>
         </View>
         {(isLoading || isRefetching) && <ActivityIndicator size="small" color={PRIMARY} />}
@@ -329,11 +487,9 @@ export default function AnalyticsScreen() {
             </Text>
 
             {/* Sub-pills for today */}
-            {dashData && (
-              <View style={styles.kpiSubRow}>
-                <Text style={styles.kpiSubText}>Today: {formatCurrency(dashData.revenue_today ?? 0)}</Text>
-              </View>
-            )}
+            <View style={styles.kpiSubRow}>
+              <Text style={styles.kpiSubText}>Today: {formatCurrency(displayTodayRevenue)}</Text>
+            </View>
           </LinearGradient>
 
           <View style={styles.kpiCol}>
@@ -406,7 +562,7 @@ export default function AnalyticsScreen() {
               {[
                 { label: 'Total Jobs Created', value: String(totalJobs),           color: '#F97316' },
                 { label: 'Completed Jobs',     value: String(completedJobs),       color: SUCCESS   },
-                { label: 'Active Jobs',        value: String(inProgressJobs + openJobs), color: INFO },
+                { label: 'Active Jobs',        value: String(activeJobs),          color: INFO },
                 { label: 'Avg Job Revenue',    value: formatCurrency(avgJobValue), color: PRIMARY   },
                 { label: 'Completion Rate',    value: `${completionRate}%`,        color: INDIGO    },
               ].map(stat => (
@@ -422,14 +578,13 @@ export default function AnalyticsScreen() {
           )}
         </SectionCard>
 
-        {/* Revenue Breakdown (Services vs Labour vs GST) */}
+        {/* Revenue Breakdown (Services vs Labour) */}
         {isBillingAvailable && (
           <SectionCard icon="dollar-sign" title="Revenue Breakdown" iconBg="#ECFDF5" iconFg={SUCCESS}>
             <View style={styles.breakdownWrap}>
               {[
                 { label: 'Services Revenue', amount: servicesRev, color: '#10B981' },
                 { label: 'Labour Charges',   amount: labourRev,   color: '#6366F1' },
-                { label: 'GST & Taxes',       amount: gstRev,      color: '#F59E0B' },
               ].map(item => (
                 <View key={item.label} style={styles.breakdownItem}>
                   <View style={styles.breakdownTop}>

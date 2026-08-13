@@ -22,6 +22,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import * as Location from 'expo-location';
 import { useAuth } from '@/src/context/AuthContext';
 import { cleanMobileNumber } from '@/src/utils/validators';
+import type { SignUpPayload } from '@/src/types';
 import {
   Check,
   AlertTriangle,
@@ -697,56 +698,95 @@ export default function RegisterScreen() {
   }
 
   /* ── Validation errors ── */
+  const emailTrim     = form.email.trim();
+  const firstNameTrim = form.firstName.trim();
+  const workshopTrim  = form.workshopName.trim();
+  const phoneTrim     = cleanMobileNumber(form.phone);
+  const zipcodeTrim   = form.zipcode.trim();
+
   const errors = {
     firstName: touched.firstName
-      ? !form.firstName ? 'First name is required.' : ''
+      ? !firstNameTrim ? 'First name is required.' : ''
       : '',
     workshopName: touched.workshopName
-      ? !form.workshopName          ? 'Workshop name is required.'
-      : form.workshopName.length < 3 ? 'Workshop name is too short (min. 3 characters).'
+      ? !workshopTrim          ? 'Workshop name is required.'
+      : workshopTrim.length < 3 ? 'Workshop name is too short (min. 3 characters).'
       : ''
       : '',
     phone: touched.phone
-      ? !form.phone              ? 'Primary mobile number is required.'
-      : form.phone.length < 10   ? 'Please enter a valid 10-digit mobile number.'
+      ? !phoneTrim            ? 'Primary mobile number is required.'
+      : phoneTrim.length < 10 ? 'Please enter a valid 10-digit mobile number.'
       : ''
       : '',
-    email: touched.email && form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)
-      ? 'Please enter a valid email address.'
+    email: touched.email
+      ? !emailTrim              ? 'Email address is required.'
+      : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim) ? 'Please enter a valid email address.'
+      : ''
       : '',
-    zipcode: touched.zipcode && form.zipcode && form.zipcode.length !== 6
+    zipcode: touched.zipcode && zipcodeTrim.length > 0 && zipcodeTrim.length !== 6
       ? 'PIN code must contain 6 digits.'
       : '',
   };
 
   const isValid = !!(
-    form.firstName &&
-    form.workshopName && form.workshopName.length >= 3 &&
-    form.phone.length >= 10 &&
-    (!form.email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) &&
+    firstNameTrim.length > 0 &&
+    workshopTrim.length >= 3 &&
+    phoneTrim.length >= 10 &&
+    emailTrim.length > 0 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim) &&
     form.acceptTerms &&
-    (!form.zipcode || form.zipcode.length === 6)
+    (zipcodeTrim.length === 0 || zipcodeTrim.length === 6)
   );
 
   const handleSubmit = useCallback(async () => {
-    setTouched(t => ({ ...t, firstName: true, workshopName: true, phone: true, zipcode: !!form.zipcode }));
-    if (!isValid) return;
+    setTouched({
+      firstName: true,
+      workshopName: true,
+      phone: true,
+      email: true,
+      zipcode: true,
+    });
+
+    if (!isValid) {
+      if (!firstNameTrim) {
+        setSnackbar('Please enter your First Name.');
+      } else if (!workshopTrim) {
+        setSnackbar('Please enter your Workshop Name.');
+      } else if (workshopTrim.length < 3) {
+        setSnackbar('Workshop Name must be at least 3 characters.');
+      } else if (!phoneTrim || phoneTrim.length < 10) {
+        setSnackbar('Please enter a valid 10-digit mobile number.');
+      } else if (!emailTrim) {
+        setSnackbar('Please enter your email address.');
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+        setSnackbar('Please enter a valid email address.');
+      } else if (!form.acceptTerms) {
+        setSnackbar('Please accept the Terms and Conditions.');
+      } else if (zipcodeTrim.length > 0 && zipcodeTrim.length !== 6) {
+        setSnackbar('PIN code must contain 6 digits.');
+      }
+      return;
+    }
+
+    const payload: SignUpPayload = {
+      first_name:     form.firstName.trim(),
+      workshop_name:  form.workshopName.trim(),
+      mobile:         cleanMobileNumber(form.phone),
+      email:          form.email.trim(),
+      terms_accepted: true,
+    };
+
+    if (form.lastName.trim())     payload.last_name = form.lastName.trim();
+    if (form.address.trim())      payload.address   = form.address.trim();
+    if (form.city.trim())         payload.city      = form.city.trim();
+    if (form.state.trim())        payload.state     = form.state.trim();
+    if (form.zipcode.trim())      payload.zipcode   = form.zipcode.trim();
+    if (form.country.trim())      payload.country   = form.country.trim();
+    if (form.phone2.trim())       payload.mobile_2  = cleanMobileNumber(form.phone2);
+    if (form.wheelers.length > 0) payload.wheelers  = form.wheelers;
+
     try {
-      await signUp({
-        first_name:     form.firstName,
-        last_name:      form.lastName   || null,
-        mobile:         form.phone,
-        email:          form.email      || '',
-        workshop_name:  form.workshopName,
-        address:        form.address    || null,
-        city:           form.city       || null,
-        state:          form.state      || null,
-        zipcode:        form.zipcode    || null,
-        country:        form.country    || null,
-        mobile_2:       form.phone2     || null,
-        wheelers:       form.wheelers.length > 0 ? form.wheelers : null,
-        terms_accepted: true,
-      });
+      await signUp(payload);
     } catch (err: unknown) {
       if (isAxiosError(err)) {
         const status = err.response?.status;
@@ -755,12 +795,13 @@ export default function RegisterScreen() {
           err.response?.data?.error ??
           err.response?.data?.detail ?? '';
 
-        if (status === 409 || status === 400 || (msg && (
-          msg.toLowerCase().includes('already') ||
-          msg.toLowerCase().includes('registered') ||
-          msg.toLowerCase().includes('exist') ||
-          msg.toLowerCase().includes('duplicate')
-        ))) {
+        const msgLower = msg.toLowerCase();
+        const isDuplicatePhone =
+          status === 409 ||
+          (msgLower.includes('mobile') && (msgLower.includes('already') || msgLower.includes('exist') || msgLower.includes('registered') || msgLower.includes('duplicate'))) ||
+          (msgLower.includes('phone') && (msgLower.includes('already') || msgLower.includes('exist') || msgLower.includes('registered') || msgLower.includes('duplicate')));
+
+        if (isDuplicatePhone) {
           setPhoneExists(true);
           return;
         } else if (!err.response || err.code === 'ECONNABORTED') {
@@ -770,14 +811,19 @@ export default function RegisterScreen() {
         }
       } else {
         const errMsg = err instanceof Error ? err.message : 'Registration failed. Please try again.';
-        if (errMsg.toLowerCase().includes('already') || errMsg.toLowerCase().includes('registered') || errMsg.toLowerCase().includes('exist')) {
+        const errMsgLower = errMsg.toLowerCase();
+        const isDuplicatePhone =
+          (errMsgLower.includes('mobile') || errMsgLower.includes('phone') || errMsgLower.includes('account')) &&
+          (errMsgLower.includes('already') || errMsgLower.includes('duplicate'));
+
+        if (isDuplicatePhone) {
           setPhoneExists(true);
         } else {
           setSnackbar(errMsg);
         }
       }
     }
-  }, [form, isValid, signUp]);
+  }, [emailTrim, firstNameTrim, form, isValid, phoneTrim, signUp, workshopTrim, zipcodeTrim]);
 
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
@@ -868,7 +914,7 @@ export default function RegisterScreen() {
               />
 
               <RoundedInput
-                label="Email Address"
+                label="Email Address" required
                 value={form.email}
                 onChange={v => set('email', v)}
                 onBlur={() => touch('email')}
@@ -938,11 +984,8 @@ export default function RegisterScreen() {
                 <View style={s.phoneExistsBanner}>
                   <AlertTriangle size={14} color={DANGER} strokeWidth={2} />
                   <Text style={s.phoneExistsTxt}>
-                    This mobile number is already registered.{' '}
+                    This mobile number is already registered.
                   </Text>
-                  <TouchableOpacity onPress={() => router.replace('/(auth)/login' as never)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                    <Text style={s.phoneExistsLink}>Sign in instead →</Text>
-                  </TouchableOpacity>
                 </View>
               )}
 
@@ -1006,13 +1049,13 @@ export default function RegisterScreen() {
             <TouchableOpacity
               style={[
                 s.submitBtnWrap,
-                isValid && !isLoading && SHADOW_BTN,
+                !isLoading && SHADOW_BTN,
               ]}
               onPress={handleSubmit}
-              disabled={!isValid || isLoading}
+              disabled={isLoading}
               activeOpacity={0.8}
             >
-              {isValid && !isLoading ? (
+              {!isLoading ? (
                 <LinearGradient
                   colors={[PRIMARY_DARK, PRIMARY]}
                   start={{ x: 0, y: 0 }}
@@ -1024,14 +1067,7 @@ export default function RegisterScreen() {
                 </LinearGradient>
               ) : (
                 <View style={[s.submitBtn, s.submitBtnDisabled]}>
-                  {isLoading ? (
-                    <ActivityIndicator color={PRIMARY} size="small" />
-                  ) : (
-                    <>
-                      <Text style={s.submitTxtDisabled}>Send OTP</Text>
-                      <ArrowRight size={18} color="#94A3B8" strokeWidth={2.5} />
-                    </>
-                  )}
+                  <ActivityIndicator size="small" color="#94A3B8" />
                 </View>
               )}
             </TouchableOpacity>

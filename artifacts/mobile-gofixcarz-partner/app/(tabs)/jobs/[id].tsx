@@ -301,17 +301,28 @@ export default function JobDetailScreen() {
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: QUERY_KEYS.JOB(id) });
-    qc.invalidateQueries({ queryKey: QUERY_KEYS.JOBS() });
+    qc.invalidateQueries({ queryKey: ['jobs'] });
     qc.invalidateQueries({ queryKey: QUERY_KEYS.DASHBOARD });
+    qc.invalidateQueries({ queryKey: ['analytics'] });
   };
 
   const statusMut = useMutation({
     mutationFn: (status: JobStatus) => JobService.updateStatus(id, { status }),
-    onSuccess:  () => { invalidate(); setShowStatusPicker(false); },
+    onSuccess:  (_, newStatus) => {
+      invalidate();
+      setShowStatusPicker(false);
+      if (newStatus === 'READY') {
+        router.push({ pathname: '/(tabs)/jobs', params: { stage: 'Ready' } } as any);
+      }
+    },
   });
   const completeMut = useMutation({
     mutationFn: () => JobService.complete(id, {}),
-    onSuccess:  () => { invalidate(); setShowComplete(false); },
+    onSuccess:  () => {
+      invalidate();
+      setShowComplete(false);
+      router.push({ pathname: '/(tabs)/jobs', params: { stage: 'Delivered' } } as any);
+    },
   });
 
   return (
@@ -343,7 +354,7 @@ export default function JobDetailScreen() {
           <View style={styles.statusHero}>
             <View style={styles.statusHeroRow}>
               <StatusBadge status={data.status} />
-              {data.status !== 'COMPLETED' && (
+              {data.status !== 'READY' && data.status !== 'COMPLETED' && data.status !== 'CANCELLED' && (
                 <TouchableOpacity
                   style={styles.changeStatusBtn}
                   onPress={() => setShowStatusPicker(true)}
@@ -415,25 +426,34 @@ export default function JobDetailScreen() {
           ) : null}
 
           {/* Billing */}
-          {data.billing ? (
-            <SectionCard icon="credit-card" title="Billing Summary">
-              <InfoPair label="Services" value={formatCurrency(data.billing.services_total)} />
-              <InfoPair label="Labour"   value={formatCurrency(data.billing.labour_total)} />
-              <InfoPair label="Subtotal" value={formatCurrency(data.billing.subtotal)} />
-              <InfoPair label="GST"      value={formatCurrency(data.billing.gst_amount)} />
-              <View style={styles.grandTotalRow}>
-                <Text style={styles.grandTotalLabel}>Grand Total</Text>
-                <Text style={styles.grandTotalValue}>{formatCurrency(data.billing.grand_total)}</Text>
-              </View>
-            </SectionCard>
-          ) : data.estimated_amount != null ? (
-            <SectionCard icon="dollar-sign" title="Estimate">
-              <View style={styles.grandTotalRow}>
-                <Text style={styles.grandTotalLabel}>Estimated Amount</Text>
-                <Text style={styles.grandTotalValue}>{formatCurrency(data.estimated_amount)}</Text>
-              </View>
-            </SectionCard>
-          ) : null}
+          {(() => {
+            const servicesSum = data.services?.reduce((sum, item) => {
+              const p = parseFloat(String(item.price ?? 0)) || 0;
+              const q = parseFloat(String(item.qty ?? 1)) || 1;
+              return sum + (p * q);
+            }, 0) ?? 0;
+
+            const labourCharge = parseFloat(String(data.labour?.charge ?? (data as any).labour_charge ?? (data as any).labour_total ?? 0)) || 0;
+            const servicesTotal = parseFloat(String(data.billing?.services_total ?? servicesSum)) || 0;
+            const labourTotal = parseFloat(String(data.billing?.labour_total ?? labourCharge)) || 0;
+            const subtotalVal = (data.billing?.subtotal && Number(data.billing.subtotal) > 0)
+              ? parseFloat(String(data.billing.subtotal))
+              : (servicesTotal + labourTotal);
+
+            const rawEst = parseFloat(String(data.estimated_amount ?? data.final_amount ?? 0)) || 0;
+            const displayGrandTotal = subtotalVal > 0 ? subtotalVal : rawEst;
+
+            return (
+              <SectionCard icon="credit-card" title="Billing Summary">
+                <InfoPair label="Services" value={formatCurrency(servicesTotal)} />
+                <InfoPair label="Labour"   value={formatCurrency(labourTotal)} />
+                <View style={styles.grandTotalRow}>
+                  <Text style={styles.grandTotalLabel}>Grand Total</Text>
+                  <Text style={styles.grandTotalValue}>{formatCurrency(displayGrandTotal)}</Text>
+                </View>
+              </SectionCard>
+            );
+          })()}
 
           {/* Job progress stepper */}
           <JobStepper status={data.status} />

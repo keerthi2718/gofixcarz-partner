@@ -93,13 +93,13 @@ export default function EditServiceScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: BG, paddingTop: insets.top }]}
+      style={[styles.root, { backgroundColor: BG }]}
       behavior={Platform.OS === 'ios' ? undefined : 'height'}
     >
-      <StatusBar barStyle="dark-content" backgroundColor={BG} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── Header ── */}
-      <View style={styles.header}>
+      <View style={[styles.topBar, { paddingTop: (Platform.OS === 'web' ? 14 : 10) + insets.top }]}>
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => router.push('/(tabs)/services' as never)}
@@ -339,12 +339,12 @@ export default function EditServiceScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
 
-  header: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingBottom: 14,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: BORDER,

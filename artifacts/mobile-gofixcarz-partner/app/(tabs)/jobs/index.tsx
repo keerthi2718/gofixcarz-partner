@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Platform,
   RefreshControl,
@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import JobService from '@/src/services/job.service';
@@ -77,9 +77,16 @@ function getAvatarColor(name?: string): { bg: string; fg: string } {
 /* ─────────────── Component ─────────────── */
 export default function JobsScreen() {
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ stage?: string }>();
   const [activeStage, setActiveStage] = useState(DEFAULT_STAGE);
   const [search,     setSearch]       = useState('');
   const [searchOpen, setSearchOpen]   = useState(false);
+
+  useEffect(() => {
+    if (params.stage && STAGES.includes(params.stage)) {
+      setActiveStage(params.stage);
+    }
+  }, [params.stage]);
 
   const isFiltered = activeStage !== DEFAULT_STAGE || !!search || searchOpen;
 

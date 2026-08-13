@@ -20,7 +20,7 @@ export interface SignUpPayload {
   first_name: string;
   last_name?: string | null;
   workshop_name: string;
-  email: string;
+  email?: string | null;
   address?: string | null;
   city?: string | null;
   state?: string | null;

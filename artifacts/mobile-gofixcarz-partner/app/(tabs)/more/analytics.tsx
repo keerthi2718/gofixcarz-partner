@@ -9,6 +9,7 @@ import { Feather } from '@/src/components/ui/FeatherIcon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import JobService from '@/src/services/job.service';
+import { QUERY_KEYS } from '@/src/constants/api';
 import { formatCurrency } from '@/src/utils/helpers';
 import type { JobResponse } from '@/src/types';
 
@@ -39,31 +40,91 @@ const STATUS_COLORS: Record<string, string> = {
   READY:         '#10B981',
   COMPLETED:     '#059669',
   DELIVERED:     '#059669',
+  CLOSED:        '#059669',
   CANCELLED:     '#EF4444',
 };
 
 /* ── Helpers ── */
-function jobRevenue(job: JobResponse): number {
-  if (
-    job.status === 'OPEN' ||
-    job.status === 'CANCELLED' ||
-    job.status === 'IN_PROGRESS' ||
-    job.status === 'QUALITY_CHECK'
-  ) {
-    return 0;
+function isRealizedStatus(status: string | null | undefined): boolean {
+  if (!status) return false;
+  const s = status.toString().toUpperCase().trim();
+  return s === 'DELIVERED' || s.includes('DELIVER');
+}
+
+function parseJobDate(val: any): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+  if (typeof val === 'number') {
+    const ms = val < 10000000000 ? val * 1000 : val;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? null : d;
   }
-  return (job as any).billing?.grand_total ?? job.final_amount ?? job.estimated_amount ?? 0;
+  if (typeof val === 'string') {
+    const str = val.trim();
+    if (!str) return null;
+    if (/^\d+$/.test(str)) {
+      const num = parseInt(str, 10);
+      const ms = num < 10000000000 ? num * 1000 : num;
+      const d = new Date(ms);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const normalizedStr = str.includes(' ') && !str.includes('T') ? str.replace(' ', 'T') : str;
+    const d = new Date(normalizedStr);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
 }
 
 function getJobDate(job: JobResponse): Date {
-  const isDone = job.status === 'COMPLETED' || (job.status as string) === 'DELIVERED' || job.status === 'READY';
-  const dateStr = isDone
-    ? (job.completed_at || job.updated_at || job.created_at)
-    : (job.created_at || job.updated_at);
+  const statusUpper = (job.status || '').toString().toUpperCase().trim();
+  const isDone = isRealizedStatus(statusUpper);
+  const rawDate = isDone
+    ? (job.completed_at || (job as any).completed_date || job.updated_at || (job as any).updated_date || job.created_at || (job as any).created_date || (job as any).date || (job as any).service_date)
+    : (job.created_at || (job as any).created_date || job.updated_at || (job as any).updated_date || (job as any).date);
 
-  if (!dateStr) return new Date();
-  const d = new Date(dateStr);
-  return isNaN(d.getTime()) ? new Date() : d;
+  const parsed = parseJobDate(rawDate);
+  return parsed || new Date();
+}
+
+function jobRevenue(job: JobResponse): number {
+  const statusUpper = (job.status || '').toString().toUpperCase().trim();
+
+  // Only COMPLETED or DELIVERED job cards generate total revenue
+  if (!isRealizedStatus(statusUpper)) {
+    return 0;
+  }
+
+  // 1. Calculate sum from services + labour charge (pure sum without GST)
+  const servicesSum = job.services?.reduce((sum, item) => {
+    const p = parseFloat(String(item.price ?? 0)) || 0;
+    const q = parseFloat(String(item.qty ?? 1)) || 1;
+    return sum + (p * q);
+  }, 0) ?? 0;
+
+  const labourCharge = parseFloat(String(job.labour?.charge ?? (job as any).labour_charge ?? (job as any).labour_total ?? 0)) || 0;
+  const itemsTotal = servicesSum + labourCharge;
+
+  if (itemsTotal > 0) {
+    return itemsTotal;
+  }
+
+  // 2. Billing subtotal (services_total + labour_total) without GST
+  const billingSubtotal = parseFloat(String(job.billing?.subtotal ?? (job.billing?.services_total ?? 0) + (job.billing?.labour_total ?? 0))) || 0;
+  if (billingSubtotal > 0) {
+    return billingSubtotal;
+  }
+
+  // 3. Fallback for single amount fields
+  const fallbackAmt = parseFloat(String(
+    job.estimated_amount ??
+    job.final_amount ??
+    (job as any).price ??
+    (job as any).amount ??
+    (job as any).total_amount ??
+    0
+  )) || 0;
+
+  return fallbackAmt;
 }
 
 function filterByPeriod(allJobs: JobResponse[], period: UIPeriod): JobResponse[] {
@@ -75,8 +136,15 @@ function filterByPeriod(allJobs: JobResponse[], period: UIPeriod): JobResponse[]
       const cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - 6); cutoff.setHours(0,0,0,0);
       return d >= cutoff;
     }
-    if (period === 'month') return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-    return d.getFullYear() === now.getFullYear();
+    if (period === 'month') {
+      const isSameMonth = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+      const cutoff30 = new Date(now); cutoff30.setDate(cutoff30.getDate() - 29); cutoff30.setHours(0,0,0,0);
+      return isSameMonth || d >= cutoff30;
+    }
+    if (period === 'year') {
+      return d.getFullYear() === now.getFullYear();
+    }
+    return true;
   });
 }
 
@@ -84,7 +152,8 @@ interface GraphPoint { label: string; revenue: number; job_count: number; }
 
 function buildGraph(jobs: JobResponse[], period: UIPeriod): GraphPoint[] {
   const now = new Date();
-  if (period === 'week' || period === 'all') {
+
+  if (period === 'week') {
     return Array.from({ length: 7 }, (_, i) => {
       const day = new Date(now); day.setDate(day.getDate() - (6 - i));
       const dj = jobs.filter(j => {
@@ -93,24 +162,58 @@ function buildGraph(jobs: JobResponse[], period: UIPeriod): GraphPoint[] {
                jd.getMonth() === day.getMonth() &&
                jd.getDate() === day.getDate();
       });
-      return { label: day.toLocaleDateString('en-IN', { weekday: 'short' }), revenue: dj.reduce((s, j) => s + jobRevenue(j), 0), job_count: dj.length };
+      return {
+        label: day.toLocaleDateString('en-IN', { weekday: 'short' }),
+        revenue: dj.reduce((s, j) => s + jobRevenue(j), 0),
+        job_count: dj.length,
+      };
     });
   }
+
   if (period === 'month') {
     const pts: GraphPoint[] = [];
-    let ws = new Date(now.getFullYear(), now.getMonth(), 1); let wn = 1;
-    while (ws <= now) {
-      const we = new Date(ws); we.setDate(we.getDate() + 6);
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    let ws = new Date(firstDay);
+    let wn = 1;
+    while (ws <= now || wn <= 4) {
+      const we = new Date(ws); we.setDate(we.getDate() + 6); we.setHours(23,59,59,999);
       const wj = jobs.filter(j => { const d = getJobDate(j); return d >= ws && d <= we; });
       pts.push({ label: `W${wn}`, revenue: wj.reduce((s, j) => s + jobRevenue(j), 0), job_count: wj.length });
       ws = new Date(ws); ws.setDate(ws.getDate() + 7); wn++;
     }
     return pts;
   }
-  return Array.from({ length: now.getMonth() + 1 }, (_, m) => {
-    const mj = jobs.filter(j => { const d = getJobDate(j); return d.getFullYear() === now.getFullYear() && d.getMonth() === m; });
-    return { label: new Date(now.getFullYear(), m, 1).toLocaleDateString('en-IN', { month: 'short' }), revenue: mj.reduce((s, j) => s + jobRevenue(j), 0), job_count: mj.length };
-  });
+
+  if (period === 'year') {
+    return Array.from({ length: 12 }, (_, m) => {
+      const mj = jobs.filter(j => { const d = getJobDate(j); return d.getFullYear() === now.getFullYear() && d.getMonth() === m; });
+      return { label: new Date(now.getFullYear(), m, 1).toLocaleDateString('en-IN', { month: 'short' }), revenue: mj.reduce((s, j) => s + jobRevenue(j), 0), job_count: mj.length };
+    });
+  }
+
+  // period === 'all'
+  const monthsMap = new Map<string, { label: string; revenue: number; job_count: number }>();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const label = d.toLocaleDateString('en-IN', { month: 'short' });
+    monthsMap.set(key, { label, revenue: 0, job_count: 0 });
+  }
+
+  for (const j of jobs) {
+    const d = getJobDate(j);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    if (monthsMap.has(key)) {
+      const item = monthsMap.get(key)!;
+      item.revenue += jobRevenue(j);
+      item.job_count += 1;
+    } else {
+      const label = d.toLocaleDateString('en-IN', { month: 'short' });
+      monthsMap.set(key, { label, revenue: jobRevenue(j), job_count: 1 });
+    }
+  }
+
+  return Array.from(monthsMap.values());
 }
 
 /* ── UI sub-components ── */
@@ -213,28 +316,36 @@ export default function MoreAnalyticsScreen() {
   const [period, setPeriod] = useState<UIPeriod>('all');
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
-  /* Dedicated key — won't conflict with Workshop tab */
+  /* Shared Query key so cache invalidation on job creation immediately updates analytics */
   const { data: jobsData, isLoading, isRefetching, refetch } = useQuery({
-    queryKey: ['analytics', 'jobs'],
-    queryFn:  () => JobService.list({ page_size: 200 }),
-    staleTime: 30_000,
+    queryKey: QUERY_KEYS.JOBS({}),
+    queryFn:  () => JobService.list({}),
+    staleTime: 5_000,
   });
 
   useFocusEffect(useCallback(() => { refetch(); }, []));
 
-  const allJobs  = jobsData?.items ?? [];
+  const allJobs: JobResponse[] = Array.isArray(jobsData)
+    ? jobsData
+    : jobsData?.items ?? (jobsData as any)?.jobs ?? (jobsData as any)?.results ?? (jobsData as any)?.data ?? [];
   const jobs     = filterByPeriod(allJobs, period);
   const graphData = buildGraph(jobs, period);
   const maxRev   = graphData.length ? Math.max(...graphData.map(p => p.revenue), 1) : 1;
 
   const totalRevenue   = jobs.reduce((s, j) => s + jobRevenue(j), 0);
   const totalJobs      = jobs.length;
-  const completedJobs  = jobs.filter(j => j.status === 'COMPLETED').length;
+  const completedJobs  = jobs.filter(j => isRealizedStatus(j.status)).length;
   const avgJobValue    = totalJobs > 0 ? totalRevenue / totalJobs : 0;
   const completionRate = totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0;
 
   const statusCounts: Record<string, number> = {};
-  for (const j of jobs) statusCounts[j.status] = (statusCounts[j.status] ?? 0) + 1;
+  for (const j of jobs) {
+    const raw = (j.status || '').toString().toUpperCase().trim();
+    const normalizedKey = isRealizedStatus(raw)
+      ? 'COMPLETED'
+      : (raw === 'IN_PROGRESS' || raw === 'QUALITY_CHECK' ? 'IN_PROGRESS' : raw);
+    statusCounts[normalizedKey] = (statusCounts[normalizedKey] ?? 0) + 1;
+  }
   const statusEntries   = Object.entries(statusCounts).filter(([, v]) => v > 0);
   const totalFromStatus = statusEntries.reduce((a, [, v]) => a + v, 0);
 

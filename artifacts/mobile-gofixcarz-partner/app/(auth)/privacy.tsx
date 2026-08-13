@@ -22,7 +22,6 @@ import {
   Phone,
   ChevronDown,
   ChevronUp,
-  Share2,
 } from 'lucide-react-native';
 
 const BG       = '#F8FAFC';
@@ -114,12 +113,20 @@ const POLICY_SECTIONS: PolicySection[] = [
   },
 ];
 
-export default function PrivacyPolicyScreen() {
+export default function AuthPrivacyScreen() {
   const insets = useSafeAreaInsets();
   const [expandedId, setExpandedId] = useState<string | null>('scope');
 
   function toggle(id: string) {
     setExpandedId(prev => (prev === id ? null : id));
+  }
+
+  function handleBack() {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(auth)/login');
+    }
   }
 
   return (
@@ -130,7 +137,7 @@ export default function PrivacyPolicyScreen() {
       <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? 14 : 10) + insets.top }]}>
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => router.back()}
+          onPress={handleBack}
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
