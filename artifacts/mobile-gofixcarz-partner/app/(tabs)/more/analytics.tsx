@@ -86,6 +86,13 @@ function getJobDate(job: JobResponse): Date {
   return parsed || new Date();
 }
 
+function formatDate(d?: string | null): string {
+  if (!d) return '—';
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+}
+
 function jobRevenue(job: JobResponse): number {
   const statusUpper = (job.status || '').toString().toUpperCase().trim();
 
@@ -125,6 +132,35 @@ function jobRevenue(job: JobResponse): number {
   )) || 0;
 
   return fallbackAmt;
+}
+
+function getJobValue(job: JobResponse): number {
+  if (!job) return 0;
+  const servicesSum = job.services?.reduce((sum, item) => {
+    const p = parseFloat(String(item.price ?? 0)) || 0;
+    const q = parseFloat(String(item.qty ?? 1)) || 1;
+    return sum + (p * q);
+  }, 0) ?? 0;
+
+  const labourCharge = parseFloat(String(job.labour?.charge ?? (job as any).labour_charge ?? (job as any).labour_total ?? 0)) || 0;
+  const itemsTotal = servicesSum + labourCharge;
+  if (itemsTotal > 0) return itemsTotal;
+
+  const billingTotal = parseFloat(String(
+    job.billing?.grand_total ??
+    job.billing?.subtotal ??
+    (job.billing?.services_total ?? 0) + (job.billing?.labour_total ?? 0)
+  )) || 0;
+  if (billingTotal > 0) return billingTotal;
+
+  return parseFloat(String(
+    job.estimated_amount ??
+    job.final_amount ??
+    (job as any).price ??
+    (job as any).amount ??
+    (job as any).total_amount ??
+    0
+  )) || 0;
 }
 
 function filterByPeriod(allJobs: JobResponse[], period: UIPeriod): JobResponse[] {
@@ -334,6 +370,12 @@ export default function MoreAnalyticsScreen() {
 
   const totalRevenue   = jobs.reduce((s, j) => s + jobRevenue(j), 0);
   const totalJobs      = jobs.length;
+  
+  /* Recent 5 Jobs for quick stats view */
+  const recentJobs = [...jobs].sort((a, b) => getJobDate(b).getTime() - getJobDate(a).getTime()).slice(0, 5);
+  const recentTotalRev = recentJobs.reduce((s, j) => s + getJobValue(j), 0);
+  const recentAvgRev = recentJobs.length > 0 ? recentTotalRev / recentJobs.length : 0;
+  
   const completedJobs  = jobs.filter(j => isRealizedStatus(j.status)).length;
   const avgJobValue    = totalJobs > 0 ? totalRevenue / totalJobs : 0;
   const completionRate = totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0;
@@ -607,6 +649,78 @@ const styles = StyleSheet.create({
   statusCount:     { fontSize: 13, fontWeight: '700' },
   trackBg:         { height: 6, borderRadius: 4, backgroundColor: '#F1F5F9', overflow: 'hidden' },
   trackFill:       { height: '100%', borderRadius: 4 },
+
+  /* ── Recent Job Cards Stats Redesign ──────────────────────── */
+  recentStatBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 14,
+  },
+  recentStatItem: { flex: 1, alignItems: 'center' },
+  recentStatLabel: { fontSize: 9.5, fontWeight: '800', color: '#64748B', letterSpacing: 0.5 },
+  recentStatValPrimary: { fontSize: 15, fontWeight: '800', color: PRIMARY, marginTop: 2 },
+  recentStatValSecondary: { fontSize: 14, fontWeight: '800', color: TEXT, marginTop: 2 },
+  recentStatDivider: { width: 1, height: 26, backgroundColor: '#CBD5E1' },
+
+  recentCardList: { gap: 10 },
+  jobStatCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    gap: 8,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6 },
+      android: { elevation: 2 },
+      default: {},
+    }),
+  },
+  jobStatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  jobStatTitleGroup: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  jobStatRegBadge: {
+    backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE',
+    paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6,
+  },
+  jobStatRegText: { fontSize: 11, fontWeight: '800', color: PRIMARY },
+  jobStatModelText: { fontSize: 14.5, fontWeight: '800', color: TEXT, flex: 1 },
+
+  jobStatStatusBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 9, paddingVertical: 3.5, borderRadius: 20, borderWidth: 1,
+  },
+  jobStatStatusDot: { width: 6, height: 6, borderRadius: 3 },
+  jobStatStatusText: { fontSize: 10.5, fontWeight: '800' },
+
+  jobStatBody: { gap: 4 },
+  jobStatMetaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  jobStatCustName: { fontSize: 12, fontWeight: '700', color: '#334155' },
+  jobStatDateText: { fontSize: 11, color: MUTED, fontWeight: '500' },
+  jobStatServiceText: { fontSize: 12, color: '#475569', fontWeight: '500' },
+
+  jobStatFooter: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F1F5F9', marginTop: 2,
+  },
+  jobStatBreakdownText: { fontSize: 11, color: '#64748B', fontWeight: '600' },
+  jobStatAmountWrap: {
+    backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0',
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
+  },
+  jobStatAmountText: { fontSize: 14.5, fontWeight: '800', color: '#059669' },
+
+  recentViewAllBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E2E8F0',
+  },
+  recentViewAllBarText: { fontSize: 13, fontWeight: '700', color: PRIMARY },
 
   infoChip: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
