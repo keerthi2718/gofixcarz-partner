@@ -366,6 +366,11 @@ export default function JobDetailScreen() {
               )}
             </View>
             <Text style={styles.statusDate}>Created {formatDateTime(data.created_at)}</Text>
+            {(data.status === 'COMPLETED' || (data.status as string) === 'DELIVERED' || data.completed_at) ? (
+              <Text style={[styles.statusDate, { color: '#059669', fontWeight: '700', marginTop: 4 }]}>
+                Delivered {formatDateTime(data.completed_at || data.updated_at || data.created_at)}
+              </Text>
+            ) : null}
           </View>
 
           {/* Customer & Vehicle */}
@@ -376,6 +381,9 @@ export default function JobDetailScreen() {
             <InfoPair label="Vehicle"      value={[data.brand, data.vehicle_model].filter(Boolean).join(' ')} />
             <InfoPair label="Fuel Type"    value={data.fuel_type} />
             <InfoPair label="Odometer"     value={data.odometer_km ? `${data.odometer_km} km` : null} />
+            {(data.status === 'COMPLETED' || (data.status as string) === 'DELIVERED' || data.completed_at) ? (
+              <InfoPair label="Delivered Date" value={formatDateTime(data.completed_at || data.updated_at || data.created_at)} />
+            ) : null}
           </SectionCard>
 
           {/* Before Service Photos */}

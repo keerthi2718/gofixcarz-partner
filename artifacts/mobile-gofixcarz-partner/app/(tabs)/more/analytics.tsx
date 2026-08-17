@@ -11,6 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import JobService from '@/src/services/job.service';
 import { QUERY_KEYS } from '@/src/constants/api';
 import { formatCurrency } from '@/src/utils/helpers';
+import AnimatedCurrencyText from '@/src/components/ui/AnimatedCurrencyText';
 import type { JobResponse } from '@/src/types';
 
 /* ── Tokens ── */
@@ -69,7 +70,9 @@ function parseJobDate(val: any): Date | null {
       return isNaN(d.getTime()) ? null : d;
     }
     const normalizedStr = str.includes(' ') && !str.includes('T') ? str.replace(' ', 'T') : str;
-    const d = new Date(normalizedStr);
+    let d = new Date(normalizedStr);
+    if (!isNaN(d.getTime())) return d;
+    d = new Date(str.replace(/-/g, '/'));
     return isNaN(d.getTime()) ? null : d;
   }
   return null;
@@ -88,9 +91,9 @@ function getJobDate(job: JobResponse): Date {
 
 function formatDate(d?: string | null): string {
   if (!d) return '—';
-  const date = new Date(d);
-  if (isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+  const parsed = parseJobDate(d);
+  if (!parsed) return '—';
+  return parsed.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 }
 
 function jobRevenue(job: JobResponse): number {
@@ -428,7 +431,7 @@ export default function MoreAnalyticsScreen() {
             </View>
             {isLoading
               ? <SkeletonBlock height={20} width={80} style={{ backgroundColor: 'rgba(255,255,255,0.3)' }} />
-              : <Text style={styles.kpiValue}>{formatCurrency(totalRevenue)}</Text>}
+              : <AnimatedCurrencyText value={totalRevenue} style={styles.kpiValue} />}
             <Text style={styles.kpiLabel}>Total Revenue</Text>
           </LinearGradient>
 

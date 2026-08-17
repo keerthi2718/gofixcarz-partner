@@ -4,7 +4,7 @@
     "slug": "mobile-gofixcarz-partner",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/logo_square.png",
     "scheme": "mobile-gofixcarz-partner",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -14,6 +14,7 @@
       "backgroundColor": "#0D0D0D"
     },
     "ios": {
+      "icon": "./assets/images/logo_square.png",
       "supportsTablet": false,
       "bundleIdentifier": "com.gofixcarz.partner",
       "config": {
@@ -25,6 +26,10 @@
     },
     "android": {
       "package": "com.gofixcarz.partner",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/logo_square.png",
+        "backgroundColor": "#0D0D0D"
+      },
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyBUCnvnJyRUoph57Ft2X3Qhkkbfz8Ldkls"
@@ -32,7 +37,7 @@
       }
     },
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/logo_square.png"
     },
     "plugins": [
       [
@@ -53,7 +58,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
+          "icon": "./assets/images/logo_square.png",
           "color": "#2563EB",
           "defaultChannel": "default",
           "sounds": []

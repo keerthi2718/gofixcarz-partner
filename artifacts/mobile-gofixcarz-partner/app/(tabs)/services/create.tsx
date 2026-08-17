@@ -166,7 +166,7 @@ export default function CreateServiceScreen() {
         >
           {/* ── Form Section Header ── */}
           <View style={s.sectionHeader}>
-            <View style={[s.iconCircle, { backgroundColor: '#FEE2E2' }]}>
+            <View style={[s.iconCircle, { backgroundColor: '#EFF6FF' }]}>
               <Wrench size={14} color={PRIMARY} strokeWidth={2.2} />
             </View>
             <Text style={s.sectionTitle}>Service Details</Text>
@@ -468,7 +468,7 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },

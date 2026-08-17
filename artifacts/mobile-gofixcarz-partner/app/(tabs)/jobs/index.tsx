@@ -16,7 +16,8 @@ import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import JobService from '@/src/services/job.service';
 import { formatCurrency } from '@/src/utils/helpers';
-import { Filter, Plus, Wrench, Clock, ChevronRight, Search, X } from 'lucide-react-native';
+import type { JobResponse } from '@/src/types';
+import { Filter, Plus, Wrench, Clock, ChevronRight, Search, X, Calendar, CheckCircle2 } from 'lucide-react-native';
 
 const DEFAULT_STAGE = 'Open';
 
@@ -74,6 +75,62 @@ function getAvatarColor(name?: string): { bg: string; fg: string } {
   return AVATAR_PALETTE[idx];
 }
 
+function parseJobDate(val: any): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+  if (typeof val === 'number') {
+    const ms = val < 10000000000 ? val * 1000 : val;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof val === 'string') {
+    const str = val.trim();
+    if (!str) return null;
+    if (/^\d+$/.test(str)) {
+      const num = parseInt(str, 10);
+      const ms = num < 10000000000 ? num * 1000 : num;
+      const d = new Date(ms);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const dateOnlyMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+    if (dateOnlyMatch) {
+      const [, y, m, day] = dateOnlyMatch;
+      const d = new Date(Number(y), Number(m) - 1, Number(day));
+      return isNaN(d.getTime()) ? null : d;
+    }
+    let normalizedStr = str.includes(' ') && !str.includes('T') ? str.replace(' ', 'T') : str;
+    normalizedStr = normalizedStr.replace(/(\.\d{3})\d+/, '$1');
+    let d = new Date(normalizedStr);
+    if (!isNaN(d.getTime())) return d;
+    d = new Date(str.replace(/-/g, '/'));
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
+function isToday(d: Date | null): boolean {
+  if (!d) return false;
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+function formatJobDate(rawDate: any, isDelivered?: boolean): string {
+  const parsed = parseJobDate(rawDate);
+  if (!parsed) return '';
+  if (isToday(parsed)) {
+    return isDelivered ? 'Delivered Today' : 'Today';
+  }
+  return parsed.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 /* ─────────────── Component ─────────────── */
 export default function JobsScreen() {
   const insets = useSafeAreaInsets();
@@ -101,7 +158,9 @@ export default function JobsScreen() {
     queryFn: () => JobService.list({}),
   });
 
-  const allItems = data?.items ?? [];
+  const allItems: JobResponse[] = Array.isArray(data)
+    ? data
+    : data?.items ?? (data as any)?.jobs ?? (data as any)?.results ?? (data as any)?.data ?? [];
 
   /* Count per stage */
   const stageCount = (stage: string) => {
@@ -109,18 +168,55 @@ export default function JobsScreen() {
     return allItems.filter(j => statuses.includes(j.status)).length;
   };
 
-  /* Filtered jobs */
+  /* Filtered & Sorted jobs: Today's delivered jobs always stay at the top */
   const activeStatuses = STAGE_STATUS_MAP[activeStage] ?? [];
   const filteredJobs = allItems
     .filter(j => activeStatuses.includes(j.status))
     .filter(j => {
       if (!search) return true;
-      const q = search.toLowerCase();
+      const q = search.trim().toLowerCase();
+      if (!q) return true;
+      const qNoSpace = q.replace(/\s+/g, '');
+      const regNoSpace = (j.registration_number ?? '').replace(/\s+/g, '').toLowerCase();
+      const vehicleStr = `${j.brand ?? ''} ${j.vehicle_model ?? ''}`.toLowerCase();
+      const servicesStr = j.services?.map((s: any) => s.name).join(' ').toLowerCase() ?? '';
+
       return (
         (j.registration_number ?? '').toLowerCase().includes(q) ||
+        (regNoSpace && qNoSpace && regNoSpace.includes(qNoSpace)) ||
         (j.customer_name ?? '').toLowerCase().includes(q) ||
-        (j.job_number ?? '').toLowerCase().includes(q)
+        (j.customer_mobile ?? '').toLowerCase().includes(q) ||
+        (j.job_number ?? '').toLowerCase().includes(q) ||
+        vehicleStr.includes(q) ||
+        servicesStr.includes(q) ||
+        j.id.toLowerCase().includes(q)
       );
+    })
+    .sort((a, b) => {
+      const isDeliveredA = (a.status || '').toString().toUpperCase().includes('DELIVER') || (a.status || '').toString().toUpperCase().includes('COMPLETE');
+      const isDeliveredB = (b.status || '').toString().toUpperCase().includes('DELIVER') || (b.status || '').toString().toUpperCase().includes('COMPLETE');
+
+      const rawDateA = isDeliveredA
+        ? (a.completed_at || (a as any).completed_date || a.updated_at || (a as any).updated_date || a.created_at || (a as any).created_date)
+        : (a.created_at || (a as any).created_date || a.updated_at || (a as any).updated_date);
+      const rawDateB = isDeliveredB
+        ? (b.completed_at || (b as any).completed_date || b.updated_at || (b as any).updated_date || b.created_at || (b as any).created_date)
+        : (b.created_at || (b as any).created_date || b.updated_at || (b as any).updated_date);
+
+      const dateA = parseJobDate(rawDateA);
+      const dateB = parseJobDate(rawDateB);
+
+      const isTodayA = isToday(dateA);
+      const isTodayB = isToday(dateB);
+
+      // 1. Today's delivered/completed jobs always come first at the very top!
+      if (isTodayA && !isTodayB) return -1;
+      if (!isTodayA && isTodayB) return 1;
+
+      // 2. Otherwise sort by date descending (most recent first)
+      const timeA = dateA ? dateA.getTime() : 0;
+      const timeB = dateB ? dateB.getTime() : 0;
+      return timeB - timeA;
     });
 
   return (
@@ -276,7 +372,7 @@ export default function JobsScreen() {
             filteredJobs.map(item => {
               const st = JOB_STATUS[item.status] ?? { label: item.status, color: '#475569', bg: '#F3F4F6', dot: '#94A3B8' };
               const vehicleLine = [item.brand, item.vehicle_model].filter(Boolean).join(' ');
-              const serviceNames = item.services?.map(s => s.name).join(' · ') || item.description || '';
+              const serviceNames = item.services?.map((s: any) => s.name).join(' · ') || item.description || '';
               const customerName = item.customer_name ?? 'Walk-in Customer';
               const jobRef = item.job_number ?? `#${item.id.substring(0, 6).toUpperCase()}`;
               const plate = item.registration_number
@@ -284,6 +380,16 @@ export default function JobsScreen() {
                 : null;
               const avatar = getAvatarColor(customerName);
               const estAmount = item.estimated_amount ?? item.final_amount ?? null;
+
+              const isDelivered = (item.status || '').toString().toUpperCase().includes('DELIVER') ||
+                                  (item.status || '').toString().toUpperCase().includes('COMPLETE');
+              const rawCreatedDate = item.created_at || (item as any).created_date;
+              const rawCompletedDate = isDelivered
+                ? (item.completed_at || (item as any).completed_date || item.updated_at || (item as any).updated_date)
+                : null;
+
+              const formattedCreatedDate = formatJobDate(rawCreatedDate, false);
+              const formattedCompletedDate = rawCompletedDate ? formatJobDate(rawCompletedDate, true) : null;
 
               return (
                 <TouchableOpacity
@@ -319,14 +425,6 @@ export default function JobsScreen() {
                       </View>
                     </View>
 
-                    {/* Services / Complaint Box */}
-                    {!!serviceNames && (
-                      <View style={styles.serviceBox}>
-                        <Wrench size={12} color="#64748B" strokeWidth={2} />
-                        <Text style={styles.serviceText} numberOfLines={2}>{serviceNames}</Text>
-                      </View>
-                    )}
-
                     {/* Footer Row */}
                     <View style={styles.cardFooter}>
                       <View style={styles.customerRow}>
@@ -346,6 +444,25 @@ export default function JobsScreen() {
                           <ChevronRight size={14} color="#64748B" strokeWidth={2.5} />
                         </View>
                       </View>
+                    </View>
+
+                    {/* Date Subtitle Line at bottom under customer name: Created left, Delivered right */}
+                    <View style={styles.bottomDateRow}>
+                      {!!formattedCreatedDate ? (
+                        <View style={styles.dateItem}>
+                          <Clock size={11} color="#64748B" strokeWidth={2} />
+                          <Text style={styles.dateSubText}>Created: {formattedCreatedDate}</Text>
+                        </View>
+                      ) : <View />}
+
+                      {isDelivered && !!formattedCompletedDate ? (
+                        <View style={styles.dateItem}>
+                          <CheckCircle2 size={11} color="#059669" strokeWidth={2.2} />
+                          <Text style={[styles.dateSubText, { color: '#047857', fontWeight: '700' }]}>
+                            {formattedCompletedDate.startsWith('Delivered') ? formattedCompletedDate : `Delivered: ${formattedCompletedDate}`}
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -686,11 +803,39 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  /* Date Subtitle Line at bottom under customer name */
+  bottomDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  dateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  dateSubText: {
+    fontSize: 11.5,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+  dateDividerText: {
+    fontSize: 11,
+    color: '#CBD5E1',
+    fontWeight: '400',
+    letterSpacing: -0.5,
+  },
 
   /* Badges Row */
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 6,
     marginBottom: 8,
   },
@@ -718,6 +863,30 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#2563EB',
+  },
+  dateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  deliveredDateBadge: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  dateText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  deliveredDateText: {
+    color: '#047857',
+    fontWeight: '700',
   },
 
   /* Service / Complaint Box */

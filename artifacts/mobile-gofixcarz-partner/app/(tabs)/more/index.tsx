@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import {
-  Platform, ScrollView, StatusBar, StyleSheet, Text,
+  Image, Platform, ScrollView, StatusBar, StyleSheet, Text,
   TouchableOpacity, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

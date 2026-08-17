@@ -27,14 +27,28 @@ const apiClient = axios.create({
 });
 
 // ---------------------------------------------------------------------------
-// Request interceptor — inject Bearer token
+// Request interceptor — inject Bearer token safely (Android OkHttp compatible)
 // ---------------------------------------------------------------------------
 
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    const token = await StorageService.get(STORAGE_KEYS.ACCESS_TOKEN);
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    try {
+      const token = await StorageService.get(STORAGE_KEYS.ACCESS_TOKEN);
+      if (token) {
+        // Sanitize token: remove quotes, carriage returns, newlines, and surrounding spaces
+        const cleanToken = typeof token === 'string'
+          ? token.trim().replace(/^"|"$/g, '').replace(/[\r\n]/g, '')
+          : token;
+        if (cleanToken) {
+          if (config.headers && typeof config.headers.set === 'function') {
+            config.headers.set('Authorization', `Bearer ${cleanToken}`);
+          } else if (config.headers) {
+            config.headers.Authorization = `Bearer ${cleanToken}`;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[API Client] Error reading auth token from storage:', e);
     }
     return config;
   },
@@ -42,7 +56,7 @@ apiClient.interceptors.request.use(
 );
 
 // ---------------------------------------------------------------------------
-// Response interceptor — handle 401 / token refresh
+// Response interceptor — handle 401 / token refresh & error logging
 // ---------------------------------------------------------------------------
 
 let isRefreshing = false;
@@ -56,9 +70,19 @@ function onTokenRefreshed(newToken: string) {
 apiClient.interceptors.response.use(
   response => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & {
+    if (error.response) {
+      console.warn(`[API Client] Error ${error.response.status} for ${error.config?.method?.toUpperCase()} ${error.config?.url}:`, error.response.data);
+    } else {
+      console.warn(`[API Client] Network / Connection Error for ${error.config?.method?.toUpperCase()} ${error.config?.url}:`, error.message);
+    }
+
+    const originalRequest = error.config as (InternalAxiosRequestConfig & {
       _retry?: boolean;
-    };
+    }) | undefined;
+
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
 
     // If the request itself is the refresh endpoint — do not retry
     if (originalRequest.url === ENDPOINTS.AUTH.REFRESH) {
@@ -70,7 +94,11 @@ apiClient.interceptors.response.use(
         // Queue the request until the refresh is done
         return new Promise(resolve => {
           pendingRequests.push((token: string) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
+            if (originalRequest.headers && typeof originalRequest.headers.set === 'function') {
+              originalRequest.headers.set('Authorization', `Bearer ${token}`);
+            } else if (originalRequest.headers) {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+            }
             resolve(apiClient(originalRequest));
           });
         });
@@ -80,7 +108,10 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshToken = await StorageService.get(STORAGE_KEYS.REFRESH_TOKEN);
+        const rawRefreshToken = await StorageService.get(STORAGE_KEYS.REFRESH_TOKEN);
+        const refreshToken = rawRefreshToken
+          ? rawRefreshToken.trim().replace(/^"|"$/g, '').replace(/[\r\n]/g, '')
+          : null;
 
         if (!refreshToken) {
           throw new Error('No refresh token available');
@@ -93,7 +124,11 @@ apiClient.interceptors.response.use(
         const newAccessToken = data.data.accessToken;
         await StorageService.set(STORAGE_KEYS.ACCESS_TOKEN, newAccessToken);
 
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        if (originalRequest.headers && typeof originalRequest.headers.set === 'function') {
+          originalRequest.headers.set('Authorization', `Bearer ${newAccessToken}`);
+        } else if (originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        }
         onTokenRefreshed(newAccessToken);
 
         return apiClient(originalRequest);

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import {
+  Image,
   Platform,
   RefreshControl,
   ScrollView,
@@ -24,6 +25,7 @@ import BookingService from '@/src/services/booking.service';
 import GarageService from '@/src/services/garage.service';
 import JobService from '@/src/services/job.service';
 import { formatCurrency } from '@/src/utils/helpers';
+import AnimatedCurrencyText, { AnimatedNumberText } from '@/src/components/ui/AnimatedCurrencyText';
 import { useNotificationContext } from '@/src/context/NotificationContext';
 import type { JobResponse, BookingResponse } from '@/src/types';
 
@@ -80,8 +82,17 @@ function parseJobDate(val: any): Date | null {
       const d = new Date(ms);
       return isNaN(d.getTime()) ? null : d;
     }
-    const normalizedStr = str.includes(' ') && !str.includes('T') ? str.replace(' ', 'T') : str;
-    const d = new Date(normalizedStr);
+    const dateOnlyMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+    if (dateOnlyMatch) {
+      const [, y, m, day] = dateOnlyMatch;
+      const d = new Date(Number(y), Number(m) - 1, Number(day));
+      return isNaN(d.getTime()) ? null : d;
+    }
+    let normalizedStr = str.includes(' ') && !str.includes('T') ? str.replace(' ', 'T') : str;
+    normalizedStr = normalizedStr.replace(/(\.\d{3})\d+/, '$1');
+    let d = new Date(normalizedStr);
+    if (!isNaN(d.getTime())) return d;
+    d = new Date(str.replace(/-/g, '/'));
     return isNaN(d.getTime()) ? null : d;
   }
   return null;
@@ -159,7 +170,7 @@ export default function DashboardScreen() {
     const calculatedRevenueToday = allJobs.reduce((sum, job) => {
       const jobDate = job.completed_at || (job as any).completed_date || job.updated_at || (job as any).updated_date || job.created_at || (job as any).created_date;
       const d = parseJobDate(jobDate);
-      if (d && !isToday(d)) return sum;
+      if (!d || !isToday(d)) return sum;
       return sum + getJobRev(job);
     }, 0);
     const revenueToday = calculatedRevenueToday;
@@ -242,18 +253,20 @@ export default function DashboardScreen() {
           {/* Today's Revenue */}
           <View style={[styles.kpiCard, SHADOW_CARD]}>
             <Text style={styles.kpiLabel}>Today's Revenue</Text>
-            <Text style={[styles.kpiValue, { color: '#2563EB' }]}>
-              {kpiLoading ? '—' : formatCurrency(kpis.revenueToday)}
-            </Text>
+            <AnimatedCurrencyText
+              value={kpiLoading ? 0 : kpis.revenueToday}
+              style={[styles.kpiValue, { color: '#2563EB' }]}
+            />
           </View>
 
           {/* Active Jobs */}
           <View style={[styles.kpiCard, SHADOW_CARD]}>
             <Text style={styles.kpiLabel}>Active Jobs</Text>
-            <Text style={[styles.kpiValue, { color: '#0F172A' }]}>
-              {kpiLoading ? '—' : kpis.activeJobs}
-            </Text>
-            {!kpiLoading && kpis.inProgressJobs > 0 && (
+            <AnimatedNumberText
+              value={kpiLoading ? 0 : kpis.activeJobs}
+              style={[styles.kpiValue, { color: '#0F172A' }]}
+            />
+            {kpis.inProgressJobs > 0 && (
               <View style={styles.kpiSubRow}>
                 <View style={styles.urgentDot} />
                 <Text style={[styles.kpiSubText, { color: '#D97706' }]}>{kpis.inProgressJobs} in progress</Text>
@@ -264,28 +277,28 @@ export default function DashboardScreen() {
           {/* Bookings */}
           <View style={[styles.kpiCard, SHADOW_CARD]}>
             <Text style={styles.kpiLabel}>Bookings</Text>
-            <Text style={[styles.kpiValue, { color: '#0F172A' }]}>
-              {kpiLoading ? '—' : kpis.pendingBookings}
-            </Text>
+            <AnimatedNumberText
+              value={kpiLoading ? 0 : kpis.pendingBookings}
+              style={[styles.kpiValue, { color: '#0F172A' }]}
+            />
             <Text style={[styles.kpiSubText, { color: '#64748B', marginTop: 6 }]}>
-              {kpiLoading ? '' : `${kpis.pendingBookings} pending`}
+              {`${kpis.pendingBookings} pending`}
             </Text>
           </View>
 
           {/* Completed Jobs */}
           <View style={[styles.kpiCard, SHADOW_CARD]}>
             <Text style={styles.kpiLabel}>Completed Jobs</Text>
-            <Text style={[styles.kpiValue, { color: '#10B981' }]}>
-              {kpiLoading ? '—' : kpis.completedJobs}
-            </Text>
-            {!kpiLoading && (
-              <View style={styles.kpiSubRow}>
-                <View style={[styles.urgentDot, { backgroundColor: '#10B981' }]} />
-                <Text style={[styles.kpiSubText, { color: '#059669' }]}>
-                  {kpis.completedTodayJobs > 0 ? `${kpis.completedTodayJobs} done today` : 'Delivered & Done'}
-                </Text>
-              </View>
-            )}
+            <AnimatedNumberText
+              value={kpiLoading ? 0 : kpis.completedJobs}
+              style={[styles.kpiValue, { color: '#10B981' }]}
+            />
+            <View style={styles.kpiSubRow}>
+              <View style={[styles.urgentDot, { backgroundColor: '#10B981' }]} />
+              <Text style={[styles.kpiSubText, { color: '#059669' }]}>
+                {kpis.completedTodayJobs > 0 ? `${kpis.completedTodayJobs} done today` : 'Delivered & Done'}
+              </Text>
+            </View>
           </View>
         </View>
 

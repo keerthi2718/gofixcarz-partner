@@ -1536,12 +1536,12 @@ export default function CreateJobScreen() {
 
                 <View style={s.timeSlotGrid}>
                   {[
-                    { label: '10:00 AM', h: 10, m: 0, tag: 'Morning 🌅' },
-                    { label: '11:30 AM', h: 11, m: 30, tag: 'Morning 🌅' },
-                    { label: '02:00 PM', h: 14, m: 0, tag: 'Afternoon ☀️' },
-                    { label: '04:00 PM', h: 16, m: 0, tag: 'Afternoon ☀️' },
-                    { label: '06:00 PM', h: 18, m: 0, tag: 'Evening 🌆' },
-                    { label: '07:30 PM', h: 19, m: 30, tag: 'Evening 🌆' },
+                    { label: '10:00 AM', h: 10, m: 0, tag: 'Morning' },
+                    { label: '11:30 AM', h: 11, m: 30, tag: 'Morning' },
+                    { label: '02:00 PM', h: 14, m: 0, tag: 'Afternoon' },
+                    { label: '04:00 PM', h: 16, m: 0, tag: 'Afternoon' },
+                    { label: '06:00 PM', h: 18, m: 0, tag: 'Evening' },
+                    { label: '07:30 PM', h: 19, m: 30, tag: 'Evening' },
                   ].map(slot => {
                     const isSel = deliveryTime ? (deliveryTime.getHours() === slot.h && deliveryTime.getMinutes() === slot.m) : false;
                     return (

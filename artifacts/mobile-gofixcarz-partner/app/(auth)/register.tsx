@@ -228,7 +228,7 @@ const ri = StyleSheet.create({
   },
   iconSlot:  { marginRight: 8 },
   prefixSlot:{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingRight: 8, borderRightWidth: 1, borderRightColor: BORDER, marginRight: 10 },
-  field:     { flex: 1, fontSize: 14, fontWeight: '500', color: TEXT, paddingVertical: 0 },
+  field:     { flex: 1, height: '100%', fontSize: 14, fontWeight: '500', color: TEXT, paddingVertical: 0, textAlignVertical: 'center' },
   hintText:  { fontSize: 11, color: MUTED, marginTop: 4, fontStyle: 'italic' },
 });
 
@@ -886,16 +886,17 @@ export default function RegisterScreen() {
                   onChange={v => set('firstName', v)}
                   onBlur={() => touch('firstName')}
                   capitalize="words"
-                  Icon={User}
+                  placeholder="First name"
                   half
-                  error={errors.firstName}
+                  error={touched.firstName ? errors.firstName : undefined}
                 />
                 <RoundedInput
                   label="Last Name"
                   value={form.lastName}
                   onChange={v => set('lastName', v)}
+                  onBlur={() => touch('lastName')}
                   capitalize="words"
-                  Icon={User}
+                  placeholder="Last name"
                   half
                 />
               </View>
@@ -909,7 +910,6 @@ export default function RegisterScreen() {
                 onChange={v => set('workshopName', v)}
                 onBlur={() => touch('workshopName')}
                 capitalize="words"
-                Icon={Wrench}
                 error={errors.workshopName}
               />
 
@@ -1038,10 +1038,9 @@ export default function RegisterScreen() {
               </View>
               <Text style={s.termsText}>
                 {'I accept the '}
-                <Text style={s.termsLink} onPress={() => Linking.openURL('https://gofixcarz.com/terms')}>
-                  Terms and Conditions
+                <Text style={s.termsLink} onPress={() => router.push('/(auth)/privacy' as never)}>
+                  Terms & Conditions & Privacy Policy
                 </Text>
-                {' & Privacy Policy'}
               </Text>
             </TouchableOpacity>
 
@@ -1132,7 +1131,7 @@ const s = StyleSheet.create({
     marginTop: 18,
   },
 
-  twoCol: { flexDirection: 'row', gap: 12 },
+  twoCol: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
 
   flagBox: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   countryCode: { fontSize: 13, fontWeight: '700', color: TEXT },

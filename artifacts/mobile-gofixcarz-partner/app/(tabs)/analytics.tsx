@@ -13,6 +13,7 @@ import DashboardService from '@/src/services/dashboard.service';
 import AnalyticsService from '@/src/services/analytics.service';
 import { QUERY_KEYS } from '@/src/constants/api';
 import { formatCurrency, formatDate } from '@/src/utils/helpers';
+import AnimatedCurrencyText from '@/src/components/ui/AnimatedCurrencyText';
 import type { JobResponse } from '@/src/types';
 
 /* ── Tokens ── */
@@ -89,8 +90,17 @@ function parseJobDate(val: any): Date | null {
       const d = new Date(ms);
       return isNaN(d.getTime()) ? null : d;
     }
-    const normalizedStr = str.includes(' ') && !str.includes('T') ? str.replace(' ', 'T') : str;
-    const d = new Date(normalizedStr);
+    const dateOnlyMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+    if (dateOnlyMatch) {
+      const [, y, m, day] = dateOnlyMatch;
+      const d = new Date(Number(y), Number(m) - 1, Number(day));
+      return isNaN(d.getTime()) ? null : d;
+    }
+    let normalizedStr = str.includes(' ') && !str.includes('T') ? str.replace(' ', 'T') : str;
+    normalizedStr = normalizedStr.replace(/(\.\d{3})\d+/, '$1');
+    let d = new Date(normalizedStr);
+    if (!isNaN(d.getTime())) return d;
+    d = new Date(str.replace(/-/g, '/'));
     return isNaN(d.getTime()) ? null : d;
   }
   return null;
@@ -384,9 +394,10 @@ export default function AnalyticsScreen() {
   });
 
   /* Backend Analytics API Query */
+  const apiPeriod = period === 'week' ? 'weekly' : 'monthly';
   const { data: analyticsData, refetch: refetchAnalytics } = useQuery({
     queryKey: QUERY_KEYS.ANALYTICS(period),
-    queryFn:  () => AnalyticsService.get({ period: period === 'all' ? 'year' : (period as any) }),
+    queryFn:  () => AnalyticsService.get({ period: apiPeriod as any }),
     staleTime: 5_000,
     retry: 1,
   });
@@ -422,9 +433,14 @@ export default function AnalyticsScreen() {
     : Math.max(analyticsData?.total_revenue ?? 0, dashRevenuePeriod);
 
   const calculatedTodayRevenue = allJobs
-    .filter(j => isRealizedStatus(j.status))
+    .filter(j => {
+      if (!isRealizedStatus(j.status)) return false;
+      const rawDate = j.completed_at || (j as any).completed_date || j.updated_at || (j as any).updated_date || j.created_at || (j as any).created_date || (j as any).date || (j as any).service_date;
+      const d = parseJobDate(rawDate);
+      return !!d && isToday(d);
+    })
     .reduce((s, j) => s + jobRevenue(j), 0);
-  const displayTodayRevenue = calculatedTodayRevenue > 0 ? calculatedTodayRevenue : (dashData?.revenue_today ?? 0);
+  const displayTodayRevenue = allJobs.length > 0 ? calculatedTodayRevenue : (dashData?.revenue_today ?? 0);
 
   const totalJobs      = allJobs.length > 0 ? allJobs.length : ((dashData?.open_jobs ?? 0) + (dashData?.in_progress_jobs ?? 0) + (dashData?.completed_jobs ?? 0) + (dashData?.cancelled_jobs ?? 0));
   const calculatedCompleted = jobs.filter(j => isRealizedStatus(j.status)).length;
@@ -512,14 +528,14 @@ export default function AnalyticsScreen() {
             </View>
             {isLoading
               ? <SkeletonBlock height={20} width={80} style={{ backgroundColor: 'rgba(255,255,255,0.3)' }} />
-              : <Text style={styles.kpiValue}>{formatCurrency(totalRevenue)}</Text>}
+              : <AnimatedCurrencyText value={totalRevenue} style={styles.kpiValue} />}
             <Text style={styles.kpiLabel}>
               {period === 'all' ? 'Total Revenue' : `${PERIODS.find(p => p.value === period)?.label} Revenue`}
             </Text>
 
             {/* Sub-pills for today */}
             <View style={styles.kpiSubRow}>
-              <Text style={styles.kpiSubText}>Today: {formatCurrency(displayTodayRevenue)}</Text>
+              <Text style={styles.kpiSubText}>Today: <AnimatedCurrencyText value={displayTodayRevenue} style={styles.kpiSubText} /></Text>
             </View>
           </LinearGradient>
 
