@@ -1,14 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  ActivityIndicator, Image, Modal, Platform, ScrollView, StatusBar,
+  ActivityIndicator, Alert, Image, Modal, Platform, ScrollView, StatusBar,
   StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@/src/components/ui/FeatherIcon';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { API_BASE_URL, QUERY_KEYS } from '@/src/constants/api';
 import JobService from '@/src/services/job.service';
+import ImageService from '@/src/services/image.service';
 import StatusBadge from '@/src/components/ui/StatusBadge';
 import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 import LoadingState from '@/src/components/ui/LoadingState';
@@ -43,9 +45,6 @@ function resolveImageCandidates(raw: any, index = 0): string[] {
   if (
     str.startsWith('http://') ||
     str.startsWith('https://') ||
-    str.startsWith('file://') ||
-    str.startsWith('content://') ||
-    str.startsWith('ph://') ||
     str.startsWith('data:') ||
     str.startsWith('blob:')
   ) {
@@ -53,10 +52,18 @@ function resolveImageCandidates(raw: any, index = 0): string[] {
   }
 
   const cleanKey = str.replace(/^\/+/, '');
+  const s3Candidate = `https://gofixcarz-uploads.s3.ap-south-1.amazonaws.com/${cleanKey}`;
+  const apiCandidate = `https://api.gofixcarz.com/uploads/${cleanKey}`;
+  const localImgCandidate = `${API_BASE_URL}/images/${cleanKey}`;
+
+  if (str.startsWith('file://') || str.startsWith('content://') || str.startsWith('ph://')) {
+    return [str, s3Candidate, apiCandidate, sampleFallback];
+  }
+
   return [
-    `https://gofixcarz-uploads.s3.ap-south-1.amazonaws.com/${cleanKey}`,
-    `https://api.gofixcarz.com/uploads/${cleanKey}`,
-    `${API_BASE_URL}/images/${cleanKey}`,
+    s3Candidate,
+    apiCandidate,
+    localImgCandidate,
     sampleFallback,
   ];
 }
@@ -292,7 +299,54 @@ export default function JobDetailScreen() {
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
+
+  async function handleAddPhoto(useCamera: boolean) {
+    try {
+      if (useCamera) {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Required', 'Camera access is needed to capture photos.');
+          return;
+        }
+        const res = await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: true });
+        if (!res.canceled && res.assets?.[0]?.uri) {
+          await uploadAndAttachPhoto(res.assets[0].uri);
+        }
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Required', 'Photo library access is needed.');
+          return;
+        }
+        const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.8, allowsEditing: true });
+        if (!res.canceled && res.assets?.[0]?.uri) {
+          await uploadAndAttachPhoto(res.assets[0].uri);
+        }
+      }
+    } catch (e) {
+      console.warn('[JobDetail] Photo pick/upload error:', e);
+      Alert.alert('Upload Error', 'Failed to upload photo to S3. Please try again.');
+    }
+  }
+
+  async function uploadAndAttachPhoto(uri: string) {
+    setIsUploadingPhoto(true);
+    try {
+      const s3Key = await ImageService.uploadToS3(uri, 'before_service');
+      const currentPhotos = data?.photos ? [...data.photos] : [];
+      const updatedPhotos = [...currentPhotos, s3Key];
+      await JobService.update(id, { photos: updatedPhotos });
+      invalidate();
+      Alert.alert('Photo Uploaded', 'Before service photo uploaded to S3 successfully.');
+    } catch (err) {
+      console.warn('[JobDetail] S3 upload error:', err);
+      Alert.alert('Upload Error', 'Could not upload photo to S3.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  }
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: QUERY_KEYS.JOB(id),
@@ -387,30 +441,87 @@ export default function JobDetailScreen() {
           </SectionCard>
 
           {/* Before Service Photos */}
-          {data.photos && data.photos.length > 0 ? (
-            <SectionCard icon="camera" title="Before Service Photos">
-              <Text style={styles.photoSubText}>
-                {data.photos.length} photo{data.photos.length > 1 ? 's' : ''} captured before service:
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoGrid}>
-                {data.photos.map((item, index) => (
-                  <SmartPhotoThumb
-                    key={index}
-                    item={item}
-                    index={index}
-                    onSelect={(selectedUri) => setSelectedImageUri(selectedUri)}
-                  />
-                ))}
-              </ScrollView>
-            </SectionCard>
-          ) : (data.status === 'READY' || data.status === 'COMPLETED' || (data.status as string) === 'DELIVERED') ? (
-            <SectionCard icon="camera" title="Before Service Photos">
+          <SectionCard icon="camera" title="Before Service Photos">
+            {data.photos && data.photos.length > 0 ? (
+              <>
+                <Text style={styles.photoSubText}>
+                  {data.photos.length} photo{data.photos.length > 1 ? 's' : ''} captured before service:
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoGrid}>
+                  {data.photos.map((item, index) => (
+                    <SmartPhotoThumb
+                      key={index}
+                      item={item}
+                      index={index}
+                      onSelect={(selectedUri) => setSelectedImageUri(selectedUri)}
+                    />
+                  ))}
+                </ScrollView>
+              </>
+            ) : (
               <View style={styles.noPhotoBox}>
                 <Feather name="camera-off" size={20} color="#94A3B8" />
-                <Text style={styles.noPhotoText}>No before-service photos were attached to this job card.</Text>
+                <Text style={styles.noPhotoText}>No before-service photos attached to this job card yet.</Text>
               </View>
-            </SectionCard>
-          ) : null}
+            )}
+
+            {/* Upload S3 Action Row */}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  paddingVertical: 10,
+                  borderRadius: 8,
+                  backgroundColor: '#EFF6FF',
+                  borderWidth: 1,
+                  borderColor: '#BFDBFE',
+                }}
+                disabled={isUploadingPhoto}
+                onPress={() => handleAddPhoto(true)}
+                activeOpacity={0.8}
+              >
+                {isUploadingPhoto ? (
+                  <ActivityIndicator size="small" color={PRIMARY} />
+                ) : (
+                  <>
+                    <Feather name="camera" size={14} color={PRIMARY} />
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: PRIMARY }}>Take Photo</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  paddingVertical: 10,
+                  borderRadius: 8,
+                  backgroundColor: '#F8FAFC',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                }}
+                disabled={isUploadingPhoto}
+                onPress={() => handleAddPhoto(false)}
+                activeOpacity={0.8}
+              >
+                {isUploadingPhoto ? (
+                  <ActivityIndicator size="small" color="#64748B" />
+                ) : (
+                  <>
+                    <Feather name="image" size={14} color="#64748B" />
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#475569' }}>Upload Gallery</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </SectionCard>
 
           {/* Description */}
           {data.description ? (

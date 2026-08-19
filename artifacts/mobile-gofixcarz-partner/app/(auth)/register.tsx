@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Image,
   KeyboardAvoidingView,
@@ -606,18 +607,39 @@ const sc = StyleSheet.create({
 });
 
 /* ─────────────── WheelerCard ────────── */
-function WheelerCard({ label, subtitle, checked, onPress }: { label: string; subtitle: string; checked: boolean; onPress: () => void }) {
+function WheelerCard({
+  label,
+  subtitle,
+  checked,
+  disabled,
+  soon,
+  onPress,
+}: {
+  label: string;
+  subtitle: string;
+  checked: boolean;
+  disabled?: boolean;
+  soon?: boolean;
+  onPress: () => void;
+}) {
   return (
     <TouchableOpacity
-      style={[wc.card, checked && wc.cardActive]}
+      style={[wc.card, checked && wc.cardActive, disabled && wc.cardDisabled]}
       onPress={onPress}
       activeOpacity={0.8}
     >
-      <View style={[wc.checkCircle, checked && wc.checkCircleActive]}>
-        {checked && <Check size={11} color="#FFFFFF" strokeWidth={3.5} />}
+      <View style={wc.cardHeader}>
+        <View style={[wc.checkCircle, checked && wc.checkCircleActive, disabled && wc.checkCircleDisabled]}>
+          {checked && <Check size={11} color="#FFFFFF" strokeWidth={3.5} />}
+        </View>
+        {soon && (
+          <View style={wc.soonBadge}>
+            <Text style={wc.soonText}>SOON</Text>
+          </View>
+        )}
       </View>
-      <Text style={[wc.label, checked && wc.labelActive]}>{label}</Text>
-      <Text style={wc.sub}>{subtitle}</Text>
+      <Text style={[wc.label, checked && wc.labelActive, disabled && wc.labelDisabled]}>{label}</Text>
+      <Text style={[wc.sub, disabled && wc.subDisabled]}>{subtitle}</Text>
     </TouchableOpacity>
   );
 }
@@ -637,19 +659,50 @@ const wc = StyleSheet.create({
     backgroundColor: PRIMARY_BG,
     borderColor: PRIMARY,
   },
+  cardDisabled: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+    opacity: 0.75,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   checkCircle: {
     width: 18, height: 18, borderRadius: 9,
     borderWidth: 1.5, borderColor: MUTED,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 8,
   },
   checkCircleActive: {
     backgroundColor: PRIMARY,
     borderColor: PRIMARY,
   },
+  checkCircleDisabled: {
+    borderColor: '#CBD5E1',
+    backgroundColor: '#E2E8F0',
+  },
   label: { fontSize: 14, fontWeight: '700', color: TEXT },
   labelActive: { color: PRIMARY },
+  labelDisabled: { color: '#94A3B8' },
   sub: { fontSize: 11, color: MUTED, marginTop: 2 },
+  subDisabled: { color: '#CBD5E1' },
+  soonBadge: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  soonText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#D97706',
+    letterSpacing: 0.5,
+  },
 });
 
 /* ════════════════════ Main Screen ══════════════════ */
@@ -680,7 +733,7 @@ export default function RegisterScreen() {
     country:      'India',
     phone:        '',
     phone2:       '',
-    wheelers:     [] as string[],
+    wheelers:     ['4W'] as string[],
     acceptTerms:  true,
   });
 
@@ -694,7 +747,14 @@ export default function RegisterScreen() {
   function touch(key: string) { setTouched(t => ({ ...t, [key]: true })); }
 
   function toggleWheeler(id: string) {
-    setForm(f => ({ ...f, wheelers: f.wheelers.includes(id) ? f.wheelers.filter(w => w !== id) : [...f.wheelers, id] }));
+    if (id !== '4W') {
+      Alert.alert(
+        'Coming Soon',
+        'Support for 2-Wheeler, 3-Wheeler, and 6-Wheeler is coming soon! Currently, only 4-Wheeler (Cars & SUVs) is supported.'
+      );
+      return;
+    }
+    setForm(f => ({ ...f, wheelers: ['4W'] }));
   }
 
   /* ── Validation errors ── */
@@ -1011,16 +1071,18 @@ export default function RegisterScreen() {
             <SectionCard title="Vehicle Types Serviced" Icon={Hash} showLine={false}>
               <View style={s.wheelerGrid}>
                 {[
-                  { id: '2W', label: '2-Wheeler', sub: 'Bikes & Scooters' },
-                  { id: '3W', label: '3-Wheeler', sub: 'Autos & Commercial' },
-                  { id: '4W', label: '4-Wheeler', sub: 'Cars & SUVs' },
-                  { id: '6W', label: '6-Wheeler+', sub: 'Heavy Commercial' },
+                  { id: '2W', label: '2-Wheeler', sub: 'Bikes & Scooters', soon: true },
+                  { id: '3W', label: '3-Wheeler', sub: 'Autos & Commercial', soon: true },
+                  { id: '4W', label: '4-Wheeler', sub: 'Cars & SUVs', soon: false },
+                  { id: '6W', label: '6-Wheeler+', sub: 'Heavy Commercial', soon: true },
                 ].map(item => (
                   <WheelerCard
                     key={item.id}
                     label={item.label}
                     subtitle={item.sub}
                     checked={form.wheelers.includes(item.id)}
+                    disabled={item.soon}
+                    soon={item.soon}
                     onPress={() => { toggleWheeler(item.id); touch('wheelers'); }}
                   />
                 ))}

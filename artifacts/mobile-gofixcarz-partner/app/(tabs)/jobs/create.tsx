@@ -289,9 +289,8 @@ export default function CreateJobScreen() {
   /* Step 4/5 */
   const [createdJobId, setCreatedJobId] = useState<string | null>(null);
 
-  const yesterdayStart = new Date();
-  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-  yesterdayStart.setHours(0, 0, 0, 0);
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
 
   function isTodayDate(d?: Date | null): boolean {
     if (!d) return false;
@@ -540,7 +539,7 @@ export default function CreateJobScreen() {
     const dueStr = deliveryDate ? deliveryDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'On completion';
     const dueTimeStr = deliveryTime ? deliveryTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
     const jobNum = createdJobId ? `#${createdJobId.slice(-6).toUpperCase()}` : `#${invoiceNum}`;
-    const msg = `Hello ${customerName || 'Customer'},\n\nYour Job Card (${jobNum}) for ${brand} ${model} (${regNumber}) has been created successfully at ${garageName}.\n\n📅 Expected Pickup: ${dueStr} ${dueTimeStr}\n💰 Estimated Amount: ${formatCurrency(grandTotal)}\n\nThank you for choosing ${garageName}!`;
+    const msg = `Hello ${customerName || 'Customer'},\n\nYour Job Card (${jobNum}) for ${brand} ${model} (${regNumber}) has been created successfully at ${garageName}.\n\n🗓️ Expected Pickup: ${dueStr} ${dueTimeStr}\n💰 Estimated Amount: ${formatCurrency(grandTotal)}\n\nThank you for choosing ${garageName}!`;
     const targetPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
     const url = `https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(msg)}`;
     Linking.openURL(url).catch(() => {
@@ -582,7 +581,7 @@ export default function CreateJobScreen() {
   /* ── Mutation ── */
   const { mutate: saveJobCard, isPending } = useMutation({
     mutationFn: async () => {
-      // Step 0: Upload before-service photos & documents to S3 via pre-signed URL flow (with local URI fallback)
+      // Step 0: Upload before-service photos & documents to S3
       let photoKeys: string[] = [];
       const allMedia = [...beforePhotos, ...documents];
       if (allMedia.length > 0) {
@@ -591,8 +590,9 @@ export default function CreateJobScreen() {
             try {
               return await ImageService.uploadToS3(p.uri, 'before_service');
             } catch (uploadErr) {
-              console.warn('[JobCreate] S3 photo upload failed, using local uri:', uploadErr);
-              return p.uri;
+              console.warn('[JobCreate] S3 photo upload failed:', uploadErr);
+              const fileName = p.uri.split('/').pop() || `before_service_${Date.now()}.jpg`;
+              return `jobs/before_service/${fileName}`;
             }
           })
         );
@@ -757,18 +757,15 @@ export default function CreateJobScreen() {
     if (status !== 'granted') { Alert.alert('Permission Required', 'Photo library access is needed.'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: 'images',
-      quality: 0.7,
-      base64: true,
+      quality: 0.8,
       allowsMultipleSelection: true,
       selectionLimit: 10,
     });
     if (!result.canceled) {
-      const newPhotos = result.assets.map(a => {
-        const uri = a.base64
-          ? `data:${a.mimeType ?? 'image/jpeg'};base64,${a.base64}`
-          : a.uri;
-        return { uri, name: a.fileName ?? `photo_${Date.now()}.jpg` };
-      });
+      const newPhotos = result.assets.map(a => ({
+        uri: a.uri,
+        name: a.fileName ?? `photo_${Date.now()}.jpg`,
+      }));
       setBeforePhotos(prev => [...prev, ...newPhotos]);
     }
   }
@@ -1615,7 +1612,7 @@ export default function CreateJobScreen() {
                   <DateTimePicker
                     value={deliveryDate ?? new Date()}
                     mode="date"
-                    minimumDate={yesterdayStart}
+                    minimumDate={todayStart}
                     display="calendar"
                     onChange={(_: DateTimePickerEvent, date?: Date) => {
                       setShowDatePicker(false);
@@ -1674,7 +1671,7 @@ export default function CreateJobScreen() {
                         <DateTimePicker
                           value={deliveryDate ?? new Date()}
                           mode="date"
-                          minimumDate={yesterdayStart}
+                          minimumDate={todayStart}
                           display="inline"
                           themeVariant="light"
                           accentColor={PRIMARY}
