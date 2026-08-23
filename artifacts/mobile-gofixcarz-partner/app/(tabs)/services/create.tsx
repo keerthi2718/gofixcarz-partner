@@ -48,12 +48,14 @@ export default function CreateServiceScreen() {
   const { from } = useLocalSearchParams<{ from?: string }>();
 
   function handleGoBack() {
-    if (from === 'job_create') {
+    if (from === 'dashboard') {
+      router.replace('/(tabs)' as never);
+    } else if (from === 'job_create') {
       router.push('/(tabs)/jobs/create' as never);
     } else if (router.canGoBack()) {
       router.back();
     } else {
-      router.push('/(tabs)/services' as never);
+      router.push('/(tabs)' as never);
     }
   }
 
@@ -69,6 +71,13 @@ export default function CreateServiceScreen() {
     queryFn: () => ServicePackageService.list({ page_size: 50 }),
   });
   const existingPackages = pkgsData?.items ?? [];
+
+  const isDuplicateName = React.useMemo(() => {
+    if (!name.trim()) return false;
+    return existingPackages.some(
+      pkg => pkg.name.trim().toLowerCase() === name.trim().toLowerCase()
+    );
+  }, [name, existingPackages]);
 
   /* ── Delete mutation ── */
   const deleteMut = useMutation({
@@ -89,15 +98,28 @@ export default function CreateServiceScreen() {
         is_active: true,
       });
     },
-    onSuccess: () => {
+    onSuccess: (newPkg) => {
       qc.invalidateQueries({ queryKey: ['service-packages'] });
       qc.invalidateQueries({ queryKey: QUERY_KEYS.SERVICE_PACKAGES() });
-      Alert.alert('Success', 'New service package created successfully!', [
-        {
-          text: 'OK',
-          onPress: handleGoBack,
-        },
-      ]);
+      const addedName = newPkg?.name || name.trim();
+      Alert.alert(
+        'Success',
+        `New service "${addedName}" added successfully!`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              if (from === 'dashboard') {
+                router.replace('/(tabs)' as never);
+              } else if (from === 'job_create') {
+                router.push('/(tabs)/jobs/create' as never);
+              } else {
+                router.push('/(tabs)/services' as never);
+              }
+            },
+          },
+        ]
+      );
       setName('');
       setPrice('');
       setDuration('');
@@ -114,7 +136,11 @@ export default function CreateServiceScreen() {
 
   function validate(): boolean {
     const errs: Record<string, string> = {};
-    if (!name.trim()) errs.name = 'Service name is required.';
+    if (!name.trim()) {
+      errs.name = 'Service name is required.';
+    } else if (isDuplicateName) {
+      errs.name = 'This service already exists.';
+    }
     if (!price.trim()) {
       errs.price = 'Service price is required.';
     } else if (isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
@@ -177,7 +203,7 @@ export default function CreateServiceScreen() {
             <Text style={s.inputLabel}>
               SERVICE NAME <Text style={{ color: DANGER }}>*</Text>
             </Text>
-            <View style={[s.inputRow, !!errors.name && s.inputRowError]}>
+            <View style={[s.inputRow, (!!errors.name || isDuplicateName) && s.inputRowError]}>
               <TextInput
                 style={[s.field, { paddingLeft: 14 }]}
                 value={name}
@@ -189,10 +215,10 @@ export default function CreateServiceScreen() {
                 placeholderTextColor="#94A3B8"
               />
             </View>
-            {!!errors.name && (
+            {(!!errors.name || isDuplicateName) && (
               <View style={s.errRow}>
                 <AlertCircle size={11} color={DANGER} strokeWidth={2} />
-                <Text style={s.errText}>{errors.name}</Text>
+                <Text style={s.errText}>{errors.name || 'This service already exists.'}</Text>
               </View>
             )}
           </View>

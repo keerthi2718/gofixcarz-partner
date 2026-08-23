@@ -23,6 +23,10 @@ export const AnimatedCurrencyText: React.FC<AnimatedCurrencyTextProps> = ({
   const animFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
+    if (targetVal === startValueRef.current) {
+      return;
+    }
+
     if (targetVal === 0) {
       setDisplayValue(0);
       startValueRef.current = 0;
@@ -31,6 +35,8 @@ export const AnimatedCurrencyText: React.FC<AnimatedCurrencyTextProps> = ({
 
     const startVal = startValueRef.current;
     const diff = targetVal - startVal;
+    let lastRenderedVal = startVal;
+    let lastUpdateTimestamp = 0;
 
     // Ease-out cubic for natural deceleration as it reaches final value
     const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
@@ -44,7 +50,16 @@ export const AnimatedCurrencyText: React.FC<AnimatedCurrencyTextProps> = ({
       const easedProgress = easeOutCubic(progress);
 
       const currentVal = Math.round(startVal + diff * easedProgress);
-      setDisplayValue(currentVal);
+
+      // Throttle updates to ~40ms (25fps for state) and only when rounded value changes
+      if (
+        progress >= 1 ||
+        (currentVal !== lastRenderedVal && timestamp - lastUpdateTimestamp >= 40)
+      ) {
+        lastRenderedVal = currentVal;
+        lastUpdateTimestamp = timestamp;
+        setDisplayValue(currentVal);
+      }
 
       if (progress < 1) {
         animFrameRef.current = requestAnimationFrame(animate);

@@ -241,9 +241,17 @@ export default function CreateJobScreen() {
   const [newSvcDesc, setNewSvcDesc] = useState('');
   const [newSvcError, setNewSvcError] = useState<string | null>(null);
 
+  const isDuplicateQuickSvcName = React.useMemo(() => {
+    if (!newSvcName.trim()) return false;
+    const q = newSvcName.trim().toLowerCase();
+    return servicePackages.some(pkg => pkg.name.trim().toLowerCase() === q) ||
+      services.some(svc => svc.name.trim().toLowerCase() === q);
+  }, [newSvcName, servicePackages, services]);
+
   const { mutate: createQuickService, isPending: isCreatingQuickSvc } = useMutation({
     mutationFn: async () => {
       if (!newSvcName.trim()) throw new Error('Service name is required.');
+      if (isDuplicateQuickSvcName) throw new Error('This service already exists.');
       const p = parseFloat(newSvcPrice);
       if (isNaN(p) || p <= 0) throw new Error('Please enter a valid price.');
 
@@ -259,10 +267,15 @@ export default function CreateJobScreen() {
       qc.invalidateQueries({ queryKey: QUERY_KEYS.SERVICE_PACKAGES() });
       refetchPkgs();
 
-      setServices(prev => [
-        ...prev,
-        { name: newPkg.name, price: newPkg.price ?? 0, qty: 1 },
-      ]);
+      setServices(prev => {
+        const idx = prev.findIndex(svc => svc.name.toLowerCase() === newPkg.name.toLowerCase());
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], qty: updated[idx].qty + 1 };
+          return updated;
+        }
+        return [...prev, { name: newPkg.name, price: newPkg.price ?? 0, qty: 1 }];
+      });
       clearFieldError('services');
 
       setNewSvcName('');
@@ -296,8 +309,8 @@ export default function CreateJobScreen() {
     if (!d) return false;
     const now = new Date();
     return d.getDate() === now.getDate() &&
-           d.getMonth() === now.getMonth() &&
-           d.getFullYear() === now.getFullYear();
+      d.getMonth() === now.getMonth() &&
+      d.getFullYear() === now.getFullYear();
   }
 
   function isTomorrowDate(d?: Date | null): boolean {
@@ -305,8 +318,31 @@ export default function CreateJobScreen() {
     const tom = new Date();
     tom.setDate(tom.getDate() + 1);
     return d.getDate() === tom.getDate() &&
-           d.getMonth() === tom.getMonth() &&
-           d.getFullYear() === tom.getFullYear();
+      d.getMonth() === tom.getMonth() &&
+      d.getFullYear() === tom.getFullYear();
+  }
+
+  const PICKUP_TIME_SLOTS = [
+    { label: '10:00 AM', h: 10, m: 0, tag: 'Morning' },
+    { label: '11:30 AM', h: 11, m: 30, tag: 'Morning' },
+    { label: '02:00 PM', h: 14, m: 0, tag: 'Afternoon' },
+    { label: '04:00 PM', h: 16, m: 0, tag: 'Afternoon' },
+    { label: '06:00 PM', h: 18, m: 0, tag: 'Evening' },
+    { label: '07:30 PM', h: 19, m: 30, tag: 'Evening' },
+  ];
+
+  function isTimeSlotInPast(slot: { h: number; m: number }, targetDate?: Date | null, hours = 0): boolean {
+    if (!targetDate) return false;
+    if (!isTodayDate(targetDate)) return false; // Tomorrow or future date -> enabled!
+
+    const now = new Date();
+    const requiredBufferMs = Math.max(0, hours) * 3600 * 1000;
+    const minTimeMs = now.getTime() + requiredBufferMs;
+
+    const slotDate = new Date(targetDate);
+    slotDate.setHours(slot.h, slot.m, 0, 0);
+
+    return slotDate.getTime() < minTimeMs;
   }
 
   function selectQuickDate(type: 'today' | 'tomorrow') {
@@ -316,6 +352,14 @@ export default function CreateJobScreen() {
     }
     setDeliveryDate(d);
     clearFieldError('deliveryDate');
+
+    if (type === 'today' && deliveryTime) {
+      const slot = { h: deliveryTime.getHours(), m: deliveryTime.getMinutes() };
+      const hNum = parseFloat(estHours || '0');
+      if (isTimeSlotInPast(slot, d, hNum)) {
+        setDeliveryTime(null);
+      }
+    }
   }
 
   const servicesTotal = services.reduce((sum, s) => sum + s.price * s.qty, 0);
@@ -569,7 +613,14 @@ export default function CreateJobScreen() {
       if (!selectedTechName.trim()) errs.technician = 'Please assign a technician.';
       if (!estHours.trim() || parseFloat(estHours) <= 0) errs.estHours = 'Please enter expected hours.';
       if (!deliveryDate) errs.deliveryDate = 'Please select an expected delivery date.';
-      if (!deliveryTime) errs.deliveryTime = 'Please select an expected pickup time.';
+      if (!deliveryTime) {
+        errs.deliveryTime = 'Please select an expected pickup time.';
+      } else if (deliveryDate && isTodayDate(deliveryDate)) {
+        const slot = { h: deliveryTime.getHours(), m: deliveryTime.getMinutes() };
+        if (isTimeSlotInPast(slot, deliveryDate)) {
+          errs.deliveryTime = 'Selected pickup time is in the past. Please select a valid future time slot.';
+        }
+      }
     }
     return errs;
   }
@@ -1170,16 +1221,24 @@ export default function CreateJobScreen() {
                     return (
                       <View style={s.pkgGrid}>
                         {filteredPackages.map(pkg => {
-                          const isAdded = services.some(svc => svc.name.toLowerCase() === pkg.name.toLowerCase());
+                          const addedItem = services.find(svc => svc.name.toLowerCase() === pkg.name.toLowerCase());
+                          const isAdded = !!addedItem;
+                          const qty = addedItem?.qty ?? 0;
                           return (
                             <TouchableOpacity
                               key={pkg.id}
                               style={[s.pkgGridCard, isAdded && s.pkgGridCardAdded]}
                               onPress={() => {
-                                if (!isAdded) {
-                                  setServices(prev => [...prev, { name: pkg.name, price: pkg.price ?? 0, qty: 1 }]);
-                                  clearFieldError('services');
-                                }
+                                setServices(prev => {
+                                  const idx = prev.findIndex(svc => svc.name.toLowerCase() === pkg.name.toLowerCase());
+                                  if (idx >= 0) {
+                                    const updated = [...prev];
+                                    updated[idx] = { ...updated[idx], qty: updated[idx].qty + 1 };
+                                    return updated;
+                                  }
+                                  return [...prev, { name: pkg.name, price: pkg.price ?? 0, qty: 1 }];
+                                });
+                                clearFieldError('services');
                               }}
                               activeOpacity={0.8}
                             >
@@ -1197,7 +1256,9 @@ export default function CreateJobScreen() {
                                   {isAdded ? (
                                     <>
                                       <Check size={10} color={SUCCESS} strokeWidth={3} />
-                                      <Text style={s.pkgGridBadgeTextAdded}>Added</Text>
+                                      <Text style={s.pkgGridBadgeTextAdded}>
+                                        {qty > 1 ? `Added ×${qty}` : 'Added'}
+                                      </Text>
                                     </>
                                   ) : (
                                     <>
@@ -1532,29 +1593,42 @@ export default function CreateJobScreen() {
                 <Text style={s.timeSlotHeader}>2. SELECT PICKUP TIME *</Text>
 
                 <View style={s.timeSlotGrid}>
-                  {[
-                    { label: '10:00 AM', h: 10, m: 0, tag: 'Morning' },
-                    { label: '11:30 AM', h: 11, m: 30, tag: 'Morning' },
-                    { label: '02:00 PM', h: 14, m: 0, tag: 'Afternoon' },
-                    { label: '04:00 PM', h: 16, m: 0, tag: 'Afternoon' },
-                    { label: '06:00 PM', h: 18, m: 0, tag: 'Evening' },
-                    { label: '07:30 PM', h: 19, m: 30, tag: 'Evening' },
-                  ].map(slot => {
+                  {PICKUP_TIME_SLOTS.map(slot => {
                     const isSel = deliveryTime ? (deliveryTime.getHours() === slot.h && deliveryTime.getMinutes() === slot.m) : false;
+                    const hNum = parseFloat(estHours || '0');
+                    const isDisabled = isTimeSlotInPast(slot, deliveryDate, hNum);
                     return (
                       <TouchableOpacity
                         key={slot.label}
-                        style={[s.timeSlotCard, isSel && s.timeSlotCardActive]}
+                        disabled={isDisabled}
+                        style={[
+                          s.timeSlotCard,
+                          isSel && s.timeSlotCardActive,
+                          isDisabled && s.timeSlotCardDisabled,
+                        ]}
                         onPress={() => {
+                          if (isDisabled) return;
                           const d = deliveryDate ? new Date(deliveryDate) : new Date();
                           d.setHours(slot.h, slot.m, 0, 0);
                           setDeliveryTime(d);
                           clearFieldError('deliveryTime');
                         }}
-                        activeOpacity={0.8}
+                        activeOpacity={isDisabled ? 1 : 0.8}
                       >
-                        <Text style={[s.timeSlotLabel, isSel && s.timeSlotLabelActive]}>{slot.label}</Text>
-                        <Text style={[s.timeSlotTag, isSel && s.timeSlotTagActive]}>{slot.tag}</Text>
+                        <Text style={[
+                          s.timeSlotLabel,
+                          isSel && s.timeSlotLabelActive,
+                          isDisabled && s.timeSlotLabelDisabled,
+                        ]}>
+                          {slot.label}
+                        </Text>
+                        <Text style={[
+                          s.timeSlotTag,
+                          isSel && s.timeSlotTagActive,
+                          isDisabled && s.timeSlotTagDisabled,
+                        ]}>
+                          {isDisabled ? 'Expired' : slot.tag}
+                        </Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -2600,10 +2674,20 @@ const s = StyleSheet.create({
     backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center', gap: 2,
   },
   timeSlotCardActive: { backgroundColor: '#EFF6FF', borderColor: PRIMARY },
+  timeSlotCardDisabled: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+    opacity: 0.5,
+  },
   timeSlotLabel: { fontSize: 12, fontWeight: '700', color: TEXT },
   timeSlotLabelActive: { color: PRIMARY },
+  timeSlotLabelDisabled: {
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
+  },
   timeSlotTag: { fontSize: 9.5, fontWeight: '600', color: MUTED },
   timeSlotTagActive: { color: PRIMARY, fontWeight: '700' },
+  timeSlotTagDisabled: { color: '#CBD5E1' },
 
   customTimeBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,

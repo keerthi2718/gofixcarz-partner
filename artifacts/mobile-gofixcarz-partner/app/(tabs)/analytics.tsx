@@ -295,6 +295,7 @@ function SkeletonBlock({ height = 16, width = '100%', radius = 8, style }: {
 function PeriodSelector({ period, setPeriod }: { period: UIPeriod; setPeriod: (p: UIPeriod) => void }) {
   const [wrapWidth, setWrapWidth] = useState(0);
   const translateX = useRef(new Animated.Value(0)).current;
+  const isInitial = useRef(true);
 
   const activeIndex = Math.max(0, PERIODS.findIndex(p => p.value === period));
   const innerWidth = wrapWidth > 0 ? wrapWidth - 8 : 0;
@@ -302,13 +303,22 @@ function PeriodSelector({ period, setPeriod }: { period: UIPeriod; setPeriod: (p
 
   useEffect(() => {
     if (btnWidth > 0) {
-      Animated.spring(translateX, {
-        toValue: activeIndex * btnWidth,
-        useNativeDriver: true,
-        stiffness: 260,
-        damping: 24,
-        mass: 0.8,
-      }).start();
+      const targetPos = activeIndex * btnWidth;
+      if (isInitial.current) {
+        isInitial.current = false;
+        translateX.setValue(targetPos);
+      } else {
+        translateX.stopAnimation();
+        Animated.spring(translateX, {
+          toValue: targetPos,
+          useNativeDriver: true,
+          stiffness: 320,
+          damping: 28,
+          mass: 0.6,
+          restDisplacementThreshold: 0.01,
+          restSpeedThreshold: 0.01,
+        }).start();
+      }
     }
   }, [activeIndex, btnWidth]);
 
@@ -401,7 +411,6 @@ export default function AnalyticsScreen() {
     staleTime: 5_000,
     retry: 1,
   });
-
   /* Dashboard Query for today/month summary */
   const { data: dashData, refetch: refetchDash } = useQuery({
     queryKey: QUERY_KEYS.DASHBOARD,
@@ -409,11 +418,28 @@ export default function AnalyticsScreen() {
     staleTime: 5_000,
   });
 
-  const refetch = useCallback(() => {
-    refetchJobs();
-    refetchDash();
-    refetchAnalytics();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refetch = useCallback(async () => {
+    try {
+      await Promise.all([
+        refetchJobs(),
+        refetchDash(),
+        refetchAnalytics(),
+      ]);
+    } catch {
+      // silent
+    }
   }, [refetchJobs, refetchDash, refetchAnalytics]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
 
   useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
@@ -511,7 +537,9 @@ export default function AnalyticsScreen() {
       <ScrollView
         contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 110 }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={PRIMARY} />}
+        automaticallyAdjustContentInsets={false}
+        contentInsetAdjustmentBehavior="never"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={PRIMARY} />}
       >
         {/* Period selector with sliding pill animation */}
         <PeriodSelector period={period} setPeriod={setPeriod} />

@@ -296,6 +296,7 @@ const cardSt = StyleSheet.create({
 function PeriodSelector({ period, setPeriod }: { period: UIPeriod; setPeriod: (p: UIPeriod) => void }) {
   const [wrapWidth, setWrapWidth] = useState(0);
   const translateX = useRef(new Animated.Value(0)).current;
+  const isInitial = useRef(true);
 
   const activeIndex = Math.max(0, PERIODS.findIndex(p => p.value === period));
   const innerWidth = wrapWidth > 0 ? wrapWidth - 8 : 0;
@@ -303,13 +304,22 @@ function PeriodSelector({ period, setPeriod }: { period: UIPeriod; setPeriod: (p
 
   useEffect(() => {
     if (btnWidth > 0) {
-      Animated.spring(translateX, {
-        toValue: activeIndex * btnWidth,
-        useNativeDriver: true,
-        stiffness: 260,
-        damping: 24,
-        mass: 0.8,
-      }).start();
+      const targetPos = activeIndex * btnWidth;
+      if (isInitial.current) {
+        isInitial.current = false;
+        translateX.setValue(targetPos);
+      } else {
+        translateX.stopAnimation();
+        Animated.spring(translateX, {
+          toValue: targetPos,
+          useNativeDriver: true,
+          stiffness: 320,
+          damping: 28,
+          mass: 0.6,
+          restDisplacementThreshold: 0.01,
+          restSpeedThreshold: 0.01,
+        }).start();
+      }
     }
   }, [activeIndex, btnWidth]);
 
@@ -355,6 +365,8 @@ export default function MoreAnalyticsScreen() {
   const [period, setPeriod] = useState<UIPeriod>('all');
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
+  const [refreshing, setRefreshing] = useState(false);
+
   /* Shared Query key so cache invalidation on job creation immediately updates analytics */
   const { data: jobsData, isLoading, isRefetching, refetch } = useQuery({
     queryKey: QUERY_KEYS.JOBS({}),
@@ -362,7 +374,18 @@ export default function MoreAnalyticsScreen() {
     staleTime: 5_000,
   });
 
-  useFocusEffect(useCallback(() => { refetch(); }, []));
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } catch {
+      // silent
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
+
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
   const allJobs: JobResponse[] = Array.isArray(jobsData)
     ? jobsData
@@ -396,16 +419,16 @@ export default function MoreAnalyticsScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: BG }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor={BG} />
 
-      <View style={[styles.topBar, { paddingTop: topPad + 16 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Feather name="arrow-left" size={18} color={TEXT} />
+      <View style={[styles.topBar, { paddingTop: (Platform.OS === 'web' ? 20 : 12) + insets.top }]}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
+          <Feather name="chevron-left" size={24} color={TEXT} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.pageTitle}>Revenue & Analytics</Text>
+          <Text style={styles.pageTitle}>Analytics</Text>
           <Text style={styles.pageSubtitle}>
-            {isLoading ? 'Loading…' : `${allJobs.length} total jobs`}
+            {isLoading ? 'Loading stats…' : `${totalJobs} total jobs (${period})`}
           </Text>
         </View>
         {(isLoading || isRefetching) && <ActivityIndicator size="small" color={PRIMARY} />}
@@ -414,7 +437,9 @@ export default function MoreAnalyticsScreen() {
       <ScrollView
         contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={PRIMARY} />}
+        automaticallyAdjustContentInsets={false}
+        contentInsetAdjustmentBehavior="never"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={PRIMARY} />}
       >
         {/* Period selector */}
         <PeriodSelector period={period} setPeriod={setPeriod} />

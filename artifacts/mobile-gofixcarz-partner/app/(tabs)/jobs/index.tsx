@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Platform,
   RefreshControl,
@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/src/constants/api';
 import JobService from '@/src/services/job.service';
@@ -33,11 +33,11 @@ const JOB_STATUS: Record<string, { label: string; color: string; bg: string; dot
 
 /* Stage id → status values it matches */
 const STAGE_STATUS_MAP: Record<string, string[]> = {
-  Open:           ['OPEN'],
-  'In Progress':  ['IN_PROGRESS'],
-  'Quality Check':['QUALITY_CHECK'],
-  Ready:          ['READY'],
-  Delivered:      ['COMPLETED', 'DELIVERED'],
+  Open:           ['OPEN', 'PENDING', 'DRAFT', 'CREATED', 'NEW'],
+  'In Progress':  ['IN_PROGRESS', 'WORKING', 'REPAIRING', 'IN_REPAIR'],
+  'Quality Check':['QUALITY_CHECK', 'INSPECTION', 'QC', 'TESTING'],
+  Ready:          ['READY', 'READY_FOR_DELIVERY'],
+  Delivered:      ['COMPLETED', 'DELIVERED', 'CLOSED', 'DONE'],
 };
 
 const STAGES = ['Open', 'In Progress', 'Quality Check', 'Ready', 'Delivered'];
@@ -145,33 +145,77 @@ export default function JobsScreen() {
     }
   }, [params.stage]);
 
-  const isFiltered = activeStage !== DEFAULT_STAGE || !!search || searchOpen;
+  const stageScrollRef = useRef<ScrollView>(null);
+  const itemLayoutsRef = useRef<Record<string, { x: number; width: number }>>({});
+  const [containerWidth, setContainerWidth] = useState(0);
 
-  function resetFilters() {
-    setActiveStage(DEFAULT_STAGE);
+  const scrollToCenter = useCallback((stage: string) => {
+    const layout = itemLayoutsRef.current[stage];
+    if (layout && stageScrollRef.current && containerWidth > 0) {
+      const targetX = layout.x + layout.width / 2 - containerWidth / 2;
+      stageScrollRef.current.scrollTo({
+        x: Math.max(0, targetX),
+        animated: true,
+      });
+    }
+  }, [containerWidth]);
+
+  useEffect(() => {
+    scrollToCenter(activeStage);
+  }, [activeStage, scrollToCenter]);
+
+  const isSearchActive = !!search.trim();
+
+  function resetSearch() {
     setSearch('');
-    setSearchOpen(false);
   }
+
+  const [refreshing, setRefreshing] = useState(false);
 
   const { data, isLoading, isRefetching, refetch } = useQuery({
     queryKey: QUERY_KEYS.JOBS({}),
     queryFn: () => JobService.list({}),
   });
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } catch {
+      // silent
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
+
+  /* Auto-refetch when Jobs tab becomes focused */
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
   const allItems: JobResponse[] = Array.isArray(data)
     ? data
     : data?.items ?? (data as any)?.jobs ?? (data as any)?.results ?? (data as any)?.data ?? [];
 
+  /* Case-insensitive status matching helper */
+  const isStatusMatch = (jobStatus: string | undefined | null, targetStatuses: string[]) => {
+    if (!jobStatus) return targetStatuses.includes('OPEN');
+    const u = jobStatus.toString().toUpperCase().trim();
+    return targetStatuses.some(ts => ts === u || u.includes(ts));
+  };
+
   /* Count per stage */
   const stageCount = (stage: string) => {
     const statuses = STAGE_STATUS_MAP[stage] ?? [];
-    return allItems.filter(j => statuses.includes(j.status)).length;
+    return allItems.filter(j => isStatusMatch(j.status, statuses)).length;
   };
 
   /* Filtered & Sorted jobs: Today's delivered jobs always stay at the top */
   const activeStatuses = STAGE_STATUS_MAP[activeStage] ?? [];
   const filteredJobs = allItems
-    .filter(j => activeStatuses.includes(j.status))
+    .filter(j => isStatusMatch(j.status, activeStatuses))
     .filter(j => {
       if (!search) return true;
       const q = search.trim().toLowerCase();
@@ -229,12 +273,12 @@ export default function JobsScreen() {
         <View style={styles.headerRight}>
           <Text style={styles.headerSub}>Today, {allItems.length} jobs</Text>
           <TouchableOpacity
-            style={[styles.filterBtn, (searchOpen || isFiltered) && styles.filterBtnActive]}
+            style={[styles.filterBtn, (searchOpen || isSearchActive) && styles.filterBtnActive]}
             activeOpacity={0.7}
             onPress={() => { setSearchOpen(v => !v); if (searchOpen) setSearch(''); }}
           >
-            <Search size={16} color={searchOpen || isFiltered ? '#2563EB' : '#64748B'} strokeWidth={2} />
-            {isFiltered && <View style={styles.filterDot} />}
+            <Search size={16} color={searchOpen || isSearchActive ? '#2563EB' : '#64748B'} strokeWidth={2} />
+            {isSearchActive && <View style={styles.filterDot} />}
           </TouchableOpacity>
         </View>
       </View>
@@ -243,10 +287,12 @@ export default function JobsScreen() {
       <ScrollView
         style={styles.body}
         showsVerticalScrollIndicator={false}
+        automaticallyAdjustContentInsets={false}
+        contentInsetAdjustmentBehavior="never"
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
             tintColor="#2563EB"
           />
         }
@@ -289,16 +335,21 @@ export default function JobsScreen() {
 
         {/* ── Pipeline strip ── */}
         <ScrollView
+          ref={stageScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.stageScroll}
           contentContainerStyle={styles.stageRow}
+          onLayout={(e) => {
+            const width = e.nativeEvent.layout.width;
+            setContainerWidth(width);
+          }}
         >
-          {/* Reset pill — shown when any filter or search is active */}
-          {isFiltered && (
-            <TouchableOpacity style={styles.resetPill} onPress={resetFilters} activeOpacity={0.75}>
+          {/* Reset pill — shown ONLY when a search query is active */}
+          {isSearchActive && (
+            <TouchableOpacity style={styles.resetPill} onPress={resetSearch} activeOpacity={0.75}>
               <X size={11} color="#2563EB" strokeWidth={3} />
-              <Text style={styles.resetPillText}>Reset</Text>
+              <Text style={styles.resetPillText}>Reset Search</Text>
             </TouchableOpacity>
           )}
           {STAGES.map(stage => {
@@ -312,7 +363,17 @@ export default function JobsScreen() {
                   styles.stagePill,
                   isActive ? styles.stagePillActive : styles.stagePillInactive,
                 ]}
-                onPress={() => setActiveStage(stage)}
+                onLayout={(e) => {
+                  const { x, width } = e.nativeEvent.layout;
+                  itemLayoutsRef.current[stage] = { x, width };
+                  if (stage === activeStage) {
+                    scrollToCenter(stage);
+                  }
+                }}
+                onPress={() => {
+                  setActiveStage(stage);
+                  scrollToCenter(stage);
+                }}
               >
                 <Text
                   style={[

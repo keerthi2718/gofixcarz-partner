@@ -21,55 +21,51 @@ import type { JobStatus } from '@/src/types';
 
 /* ── Design tokens ── */
 import { getValidNextStatuses } from '@/src/constants/jobTransitions';
-const BG      = '#FFFFFF';
-const CARD    = '#FFFFFF';
+const BG = '#FFFFFF';
+const CARD = '#FFFFFF';
 const PRIMARY = '#2563EB';
-const TEXT    = '#1E293B';
-const MUTED   = '#64748B';
-const BORDER  = 'rgba(226,232,240,0.7)';
+const TEXT = '#1E293B';
+const MUTED = '#64748B';
+const BORDER = 'rgba(226,232,240,0.7)';
 const SUCCESS = '#10B981';
 
-const SAMPLE_INSPECTION_PHOTOS = [
-  'https://images.unsplash.com/photo-1580273916550-e323be2ae537?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1486006920555-c77dce18193b?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1563720223185-11003d516935?auto=format&fit=crop&w=600&q=80',
-];
-
-function resolveImageCandidates(raw: any, index = 0): string[] {
-  const sampleFallback = SAMPLE_INSPECTION_PHOTOS[index % SAMPLE_INSPECTION_PHOTOS.length];
-  if (!raw) return [sampleFallback];
+function resolveImageCandidates(raw: any): string[] {
+  if (!raw) return [];
   const str = typeof raw === 'object' ? (raw.uri || raw.url || raw.path || raw.object_key || '') : String(raw);
-  if (!str) return [sampleFallback];
+  if (!str) return [];
 
+  // Local device URIs
+  if (str.startsWith('file://') || str.startsWith('content://') || str.startsWith('ph://')) {
+    const cleanKey = str.replace(/^(file:\/\/|content:\/\/|ph:\/\/)/, '').replace(/^\/+/, '');
+    const s3Candidate = `https://gofixcarz-uploads.s3.ap-south-1.amazonaws.com/${cleanKey}`;
+    return [str, s3Candidate];
+  }
+
+  // Full HTTP/HTTPS / Data URIs
   if (
     str.startsWith('http://') ||
     str.startsWith('https://') ||
     str.startsWith('data:') ||
     str.startsWith('blob:')
   ) {
-    return [str, sampleFallback];
+    return [str];
   }
 
+  // S3 object key or relative backend path
   const cleanKey = str.replace(/^\/+/, '');
   const s3Candidate = `https://gofixcarz-uploads.s3.ap-south-1.amazonaws.com/${cleanKey}`;
   const apiCandidate = `https://api.gofixcarz.com/uploads/${cleanKey}`;
   const localImgCandidate = `${API_BASE_URL}/images/${cleanKey}`;
 
-  if (str.startsWith('file://') || str.startsWith('content://') || str.startsWith('ph://')) {
-    return [str, s3Candidate, apiCandidate, sampleFallback];
-  }
-
   return [
     s3Candidate,
     apiCandidate,
     localImgCandidate,
-    sampleFallback,
   ];
 }
 
 function SmartPhotoThumb({ item, index, onSelect }: { item: any; index: number; onSelect: (uri: string) => void }) {
-  const candidates = useMemo(() => resolveImageCandidates(item, index), [item, index]);
+  const candidates = useMemo(() => resolveImageCandidates(item), [item]);
   const [candidateIdx, setCandidateIdx] = useState(0);
   const [hasError, setHasError] = useState(false);
 
@@ -116,11 +112,11 @@ function SmartPhotoThumb({ item, index, onSelect }: { item: any; index: number; 
 
 /* ── Job progress stepper ── */
 const STEPPER_STEPS: { status: JobStatus; label: string }[] = [
-  { status: 'OPEN',          label: 'Open'       },
-  { status: 'IN_PROGRESS',   label: 'In Progress'},
-  { status: 'QUALITY_CHECK', label: 'QC Check'   },
-  { status: 'READY',         label: 'Ready'      },
-  { status: 'COMPLETED',     label: 'Done'       },
+  { status: 'OPEN', label: 'Open' },
+  { status: 'IN_PROGRESS', label: 'In Progress' },
+  { status: 'QUALITY_CHECK', label: 'QC Check' },
+  { status: 'READY', label: 'Ready' },
+  { status: 'COMPLETED', label: 'Done' },
 ];
 
 function stepIndex(status: string) {
@@ -129,7 +125,7 @@ function stepIndex(status: string) {
 
 function JobStepper({ status }: { status: string }) {
   const isCancelled = status === 'CANCELLED';
-  const current     = isCancelled ? -1 : stepIndex(status);
+  const current = isCancelled ? -1 : stepIndex(status);
 
   return (
     <View style={sp.card}>
@@ -148,7 +144,7 @@ function JobStepper({ status }: { status: string }) {
       ) : (
         <View style={sp.track}>
           {STEPPER_STEPS.map((step, i) => {
-            const done   = i < current;
+            const done = i < current;
             const active = i === current;
             const upcoming = i > current;
             return (
@@ -157,7 +153,7 @@ function JobStepper({ status }: { status: string }) {
                 <View style={sp.node}>
                   <View style={[
                     sp.circle,
-                    done   && sp.circleDone,
+                    done && sp.circleDone,
                     active && sp.circleActive,
                     upcoming && sp.circleUpcoming,
                   ]}>
@@ -194,7 +190,7 @@ const sp = StyleSheet.create({
     backgroundColor: CARD, borderRadius: 18,
     borderWidth: 1, borderColor: BORDER,
     ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
       android: { elevation: 2 },
       default: {},
     }),
@@ -215,22 +211,22 @@ const sp = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-start',
     paddingHorizontal: 16, paddingVertical: 18,
   },
-  node:  { alignItems: 'center', width: 52 },
+  node: { alignItems: 'center', width: 52 },
 
   circle: {
     width: 28, height: 28, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 6,
   },
-  circleDone:     { backgroundColor: SUCCESS },
-  circleActive:   { backgroundColor: PRIMARY, borderWidth: 2.5, borderColor: `${PRIMARY}40` },
+  circleDone: { backgroundColor: SUCCESS },
+  circleActive: { backgroundColor: PRIMARY, borderWidth: 2.5, borderColor: `${PRIMARY}40` },
   circleUpcoming: { backgroundColor: '#F1F5F9', borderWidth: 1.5, borderColor: BORDER },
 
   innerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' },
 
-  label:         { fontSize: 9, fontWeight: '500', color: '#CBD5E1', textAlign: 'center' },
-  labelDone:     { color: SUCCESS, fontWeight: '600' },
-  labelActive:   { color: PRIMARY, fontWeight: '700' },
+  label: { fontSize: 9, fontWeight: '500', color: '#CBD5E1', textAlign: 'center' },
+  labelDone: { color: SUCCESS, fontWeight: '600' },
+  labelActive: { color: PRIMARY, fontWeight: '700' },
   labelUpcoming: { color: '#CBD5E1' },
 
   line: { flex: 1, height: 2, backgroundColor: '#E2E8F0', marginTop: 13, borderRadius: 1 },
@@ -299,58 +295,11 @@ export default function JobDetailScreen() {
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
-  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
-
-  async function handleAddPhoto(useCamera: boolean) {
-    try {
-      if (useCamera) {
-        const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert('Permission Required', 'Camera access is needed to capture photos.');
-          return;
-        }
-        const res = await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: true });
-        if (!res.canceled && res.assets?.[0]?.uri) {
-          await uploadAndAttachPhoto(res.assets[0].uri);
-        }
-      } else {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert('Permission Required', 'Photo library access is needed.');
-          return;
-        }
-        const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.8, allowsEditing: true });
-        if (!res.canceled && res.assets?.[0]?.uri) {
-          await uploadAndAttachPhoto(res.assets[0].uri);
-        }
-      }
-    } catch (e) {
-      console.warn('[JobDetail] Photo pick/upload error:', e);
-      Alert.alert('Upload Error', 'Failed to upload photo to S3. Please try again.');
-    }
-  }
-
-  async function uploadAndAttachPhoto(uri: string) {
-    setIsUploadingPhoto(true);
-    try {
-      const s3Key = await ImageService.uploadToS3(uri, 'before_service');
-      const currentPhotos = data?.photos ? [...data.photos] : [];
-      const updatedPhotos = [...currentPhotos, s3Key];
-      await JobService.update(id, { photos: updatedPhotos });
-      invalidate();
-      Alert.alert('Photo Uploaded', 'Before service photo uploaded to S3 successfully.');
-    } catch (err) {
-      console.warn('[JobDetail] S3 upload error:', err);
-      Alert.alert('Upload Error', 'Could not upload photo to S3.');
-    } finally {
-      setIsUploadingPhoto(false);
-    }
-  }
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: QUERY_KEYS.JOB(id),
-    queryFn:  () => JobService.getById(id),
+    queryFn: () => JobService.getById(id),
   });
 
   const invalidate = () => {
@@ -362,7 +311,7 @@ export default function JobDetailScreen() {
 
   const statusMut = useMutation({
     mutationFn: (status: JobStatus) => JobService.updateStatus(id, { status }),
-    onSuccess:  (_, newStatus) => {
+    onSuccess: (_, newStatus) => {
       invalidate();
       setShowStatusPicker(false);
       if (newStatus === 'READY') {
@@ -372,7 +321,7 @@ export default function JobDetailScreen() {
   });
   const completeMut = useMutation({
     mutationFn: () => JobService.complete(id, {}),
-    onSuccess:  () => {
+    onSuccess: () => {
       invalidate();
       setShowComplete(false);
       router.push({ pathname: '/(tabs)/jobs', params: { stage: 'Delivered' } } as any);
@@ -429,12 +378,12 @@ export default function JobDetailScreen() {
 
           {/* Customer & Vehicle */}
           <SectionCard icon="user" title="Customer & Vehicle">
-            <InfoPair label="Customer"     value={data.customer_name} />
-            <InfoPair label="Mobile"       value={data.customer_mobile} />
+            <InfoPair label="Customer" value={data.customer_name} />
+            <InfoPair label="Mobile" value={data.customer_mobile} />
             <InfoPair label="Registration" value={data.registration_number} />
-            <InfoPair label="Vehicle"      value={[data.brand, data.vehicle_model].filter(Boolean).join(' ')} />
-            <InfoPair label="Fuel Type"    value={data.fuel_type} />
-            <InfoPair label="Odometer"     value={data.odometer_km ? `${data.odometer_km} km` : null} />
+            <InfoPair label="Vehicle" value={[data.brand, data.vehicle_model].filter(Boolean).join(' ')} />
+            <InfoPair label="Fuel Type" value={data.fuel_type} />
+            <InfoPair label="Odometer" value={data.odometer_km ? `${data.odometer_km} km` : null} />
             {(data.status === 'COMPLETED' || (data.status as string) === 'DELIVERED' || data.completed_at) ? (
               <InfoPair label="Delivered Date" value={formatDateTime(data.completed_at || data.updated_at || data.created_at)} />
             ) : null}
@@ -461,66 +410,10 @@ export default function JobDetailScreen() {
             ) : (
               <View style={styles.noPhotoBox}>
                 <Feather name="camera-off" size={20} color="#94A3B8" />
-                <Text style={styles.noPhotoText}>No before-service photos attached to this job card yet.</Text>
+                <Text style={styles.noPhotoText}>No photos available.</Text>
               </View>
             )}
 
-            {/* Upload S3 Action Row */}
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-              <TouchableOpacity
-                style={{
-                  flex: 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  paddingVertical: 10,
-                  borderRadius: 8,
-                  backgroundColor: '#EFF6FF',
-                  borderWidth: 1,
-                  borderColor: '#BFDBFE',
-                }}
-                disabled={isUploadingPhoto}
-                onPress={() => handleAddPhoto(true)}
-                activeOpacity={0.8}
-              >
-                {isUploadingPhoto ? (
-                  <ActivityIndicator size="small" color={PRIMARY} />
-                ) : (
-                  <>
-                    <Feather name="camera" size={14} color={PRIMARY} />
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: PRIMARY }}>Take Photo</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={{
-                  flex: 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  paddingVertical: 10,
-                  borderRadius: 8,
-                  backgroundColor: '#F8FAFC',
-                  borderWidth: 1,
-                  borderColor: '#E2E8F0',
-                }}
-                disabled={isUploadingPhoto}
-                onPress={() => handleAddPhoto(false)}
-                activeOpacity={0.8}
-              >
-                {isUploadingPhoto ? (
-                  <ActivityIndicator size="small" color="#64748B" />
-                ) : (
-                  <>
-                    <Feather name="image" size={14} color="#64748B" />
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#475569' }}>Upload Gallery</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
           </SectionCard>
 
           {/* Description */}
@@ -565,7 +458,7 @@ export default function JobDetailScreen() {
             return (
               <SectionCard icon="credit-card" title="Billing Summary">
                 <InfoPair label="Services" value={formatCurrency(servicesTotal)} />
-                <InfoPair label="Labour"   value={formatCurrency(labourTotal)} />
+                <InfoPair label="Labour" value={formatCurrency(labourTotal)} />
                 <View style={styles.grandTotalRow}>
                   <Text style={styles.grandTotalLabel}>Grand Total</Text>
                   <Text style={styles.grandTotalValue}>{formatCurrency(displayGrandTotal)}</Text>
@@ -713,7 +606,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFF6FF',
   },
   changeStatusText: { fontSize: 12, fontWeight: '700', color: PRIMARY },
-  statusDate:       { fontSize: 11, color: MUTED },
+  statusDate: { fontSize: 11, color: MUTED },
 
   /* Section card */
   sectionCard: {
@@ -736,7 +629,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: TEXT },
-  sectionBody:  { padding: 18 },
+  sectionBody: { padding: 18 },
 
   /* Info pair */
   infoPair: {
@@ -754,7 +647,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between',
     paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
   },
-  serviceName:  { fontSize: 13, color: TEXT, flex: 1 },
+  serviceName: { fontSize: 13, color: TEXT, flex: 1 },
   servicePrice: { fontSize: 13, color: PRIMARY, fontWeight: '700' },
 
   /* Billing */
@@ -790,8 +683,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center', width: 40, height: 4,
     borderRadius: 2, backgroundColor: '#E2E8F0', marginBottom: 16,
   },
-  sheetTitle:      { fontSize: 17, fontWeight: '700', color: TEXT, marginBottom: 10 },
-  sheetOption:     { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  sheetTitle: { fontSize: 17, fontWeight: '700', color: TEXT, marginBottom: 10 },
+  sheetOption: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   sheetCancel: {
     marginTop: 10, paddingVertical: 14,
     borderRadius: 14, alignItems: 'center',

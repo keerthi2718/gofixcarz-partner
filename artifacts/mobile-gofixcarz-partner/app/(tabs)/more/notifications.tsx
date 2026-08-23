@@ -28,10 +28,23 @@ export default function NotificationsScreen() {
   const qc     = useQueryClient();
   const [unreadOnly, setUnreadOnly] = useState(false);
 
+  const [refreshing, setRefreshing] = useState(false);
+
   const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: QUERY_KEYS.NOTIFICATIONS(unreadOnly),
     queryFn:  () => NotificationService.list({ unread_only: unreadOnly, page_size: 30 }),
   });
+
+  const handleRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } catch {
+      // silent
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
 
   const markReadMut = useMutation({
     mutationFn: (id: string) => NotificationService.markRead(id),
@@ -65,23 +78,19 @@ export default function NotificationsScreen() {
           )}
         </View>
 
-        {/* All / Unread toggle */}
-        <View style={styles.toggle}>
-          <TouchableOpacity
-            style={[styles.toggleBtn, !unreadOnly && styles.toggleBtnActive]}
-            onPress={() => setUnreadOnly(false)}
-          >
-            <Text style={[styles.toggleText, !unreadOnly && styles.toggleTextActive]}>All</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.toggleBtn, unreadOnly && styles.toggleBtnActive]}
-            onPress={() => setUnreadOnly(true)}
-          >
-            <Text style={[styles.toggleText, unreadOnly && styles.toggleTextActive]}>Unread</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Unread toggle */}
+        <TouchableOpacity
+          style={[styles.toggleBtn, unreadOnly && styles.toggleBtnActive]}
+          onPress={() => setUnreadOnly(v => !v)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.toggleText, unreadOnly && styles.toggleTextActive]}>
+            {unreadOnly ? 'All' : 'Unread'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
+      {/* ── Content ── */}
       {isLoading ? (
         <ScrollView contentContainerStyle={styles.list}>
           <SkeletonList count={6} />
@@ -108,8 +117,10 @@ export default function NotificationsScreen() {
             />
           )}
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 40 }]}
+          automaticallyAdjustContentInsets={false}
+          contentInsetAdjustmentBehavior="never"
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={PRIMARY} />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={PRIMARY} />
           }
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={

@@ -69,7 +69,7 @@ router.post("/jobs/:jobId/assign", async (req, res) => {
     return;
   }
 
-  const tokens = rows.map((r) => r.token);
+  const tokens = rows.map((r: { token: string }) => r.token);
 
   // 2. Dispatch FCM notification
   await sendToTokens(tokens, {
@@ -93,6 +93,110 @@ router.post("/jobs/:jobId/assign", async (req, res) => {
     tokenCount: tokens.length,
     jobId,
     partnerId,
+  });
+});
+
+/**
+ * Backend delivery date & time slot validation function.
+ * Enforces that delivery date and pickup time slot are not in the past.
+ */
+export function validateDeliverySlotBackend(
+  deliveryDateStr?: string | null,
+  deliveryTimeStr?: string | null,
+  estimatedHours?: number | null
+): { valid: boolean; error?: string } {
+  if (!deliveryDateStr || !deliveryTimeStr) return { valid: true };
+
+  const deliveryDate = new Date(deliveryDateStr);
+  const deliveryTime = new Date(deliveryTimeStr);
+
+  if (isNaN(deliveryDate.getTime()) || isNaN(deliveryTime.getTime())) {
+    return { valid: true };
+  }
+
+  const now = new Date();
+  const isToday =
+    deliveryDate.getFullYear() === now.getFullYear() &&
+    deliveryDate.getMonth() === now.getMonth() &&
+    deliveryDate.getDate() === now.getDate();
+
+  const bufferMs = Math.max(0, estimatedHours ?? 0) * 3600 * 1000;
+  const minTimeMs = now.getTime() + bufferMs - 60000; // 1 min grace buffer
+
+  if (isToday) {
+    if (deliveryTime.getTime() < minTimeMs) {
+      const hoursInfo = estimatedHours && estimatedHours > 0 ? ` (including ${estimatedHours} hrs estimated service time)` : '';
+      return {
+        valid: false,
+        error: `Selected delivery/pickup time slot is earlier than required service completion time${hoursInfo}. Please select a valid future time slot.`,
+      };
+    }
+  } else {
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfDelivery = new Date(deliveryDate.getFullYear(), deliveryDate.getMonth(), deliveryDate.getDate());
+    if (startOfDelivery.getTime() < startOfToday.getTime()) {
+      return {
+        valid: false,
+        error: "Selected delivery date is in the past. Please select today or a future date.",
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
+const createJobPayloadSchema = z.object({
+  customer_name: z.string().optional().nullable(),
+  customer_mobile: z.string().optional().nullable(),
+  registration_number: z.string().optional().nullable(),
+  brand: z.string().optional().nullable(),
+  vehicle_model: z.string().optional().nullable(),
+  fuel_type: z.string().optional().nullable(),
+  odometer_km: z.number().optional().nullable(),
+  description: z.string().optional().nullable(),
+  estimated_amount: z.number().optional().nullable(),
+  estimated_hours: z.number().optional().nullable(),
+  photos: z.array(z.string()).optional().nullable(),
+  delivery_date: z.string().optional().nullable(),
+  delivery_time: z.string().optional().nullable(),
+});
+
+/**
+ * POST /api/jobs
+ * Backend handler for job creation with delivery time slot validation.
+ */
+router.post("/jobs", async (req, res) => {
+  const parsed = createJobPayloadSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({
+      success: false,
+      message: "Validation error",
+      errors: parsed.error.flatten().fieldErrors,
+    });
+    return;
+  }
+
+  const { delivery_date, delivery_time, estimated_hours } = req.body;
+  const timeValidation = validateDeliverySlotBackend(delivery_date, delivery_time, estimated_hours);
+  if (!timeValidation.valid) {
+    res.status(400).json({
+      success: false,
+      message: timeValidation.error,
+      errors: { delivery_time: [timeValidation.error!] },
+    });
+    return;
+  }
+
+  res.status(201).json({
+    success: true,
+    data: {
+      id: "job-" + Date.now(),
+      job_number: "JC-" + Math.floor(100 + Math.random() * 900),
+      ...req.body,
+      status: "OPEN",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
   });
 });
 

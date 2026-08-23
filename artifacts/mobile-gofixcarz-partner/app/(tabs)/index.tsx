@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Image,
   Platform,
@@ -47,8 +47,8 @@ const BOOKING_STATUS: Record<string, { label: string; color: string; bg: string;
 
 /* ─── Quick actions ─────────────────────────────────────────────────────── */
 const QUICK_ACTIONS = [
-  { label: 'Create Job',  Icon: Wrench,     route: '/jobs/create'     as const },
-  { label: 'Add Service', Icon: PlusCircle, route: '/services/create' as const },
+  { label: 'Create Job',  Icon: Wrench,     route: '/jobs/create?from=dashboard'     as const },
+  { label: 'Add Service', Icon: PlusCircle, route: '/services/create?from=dashboard' as const },
 ];
 
 /* ─── Helpers ───────────────────────────────────────────────────────────── */
@@ -101,25 +101,25 @@ function parseJobDate(val: any): Date | null {
 /* ─── Component ─────────────────────────────────────────────────────────── */
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
+  const [refreshing, setRefreshing] = useState(false);
 
   /* ── Queries ── */
   const {
     data: dashData,
-    isRefetching,
-    refetch,
+    refetch: refetchDash,
   } = useQuery({
     queryKey: QUERY_KEYS.DASHBOARD,
     queryFn:  DashboardService.get,
     retry: 1,
   });
 
-  const { data: bookingsData, isLoading: bookingsLoading } = useQuery({
+  const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useQuery({
     queryKey: QUERY_KEYS.BOOKINGS({ page_size: 50 }),
     queryFn:  () => BookingService.list({ page_size: 50 }),
   });
 
   // Fetch jobs using shared query key so cache is shared with Analytics and Workshop tabs.
-  const { data: jobsData, isLoading: jobsLoading } = useQuery({
+  const { data: jobsData, isLoading: jobsLoading, refetch: refetchJobs } = useQuery({
     queryKey: QUERY_KEYS.JOBS({}),
     queryFn:  () => JobService.list({}),
   });
@@ -128,6 +128,21 @@ export default function DashboardScreen() {
     queryKey: QUERY_KEYS.GARAGE,
     queryFn:  GarageService.get,
   });
+
+  const handleRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        refetchDash(),
+        refetchBookings(),
+        refetchJobs(),
+      ]);
+    } catch {
+      // silent on manual refresh error
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchDash, refetchBookings, refetchJobs]);
 
   const { unreadCount } = useNotificationContext();
 
@@ -214,6 +229,25 @@ export default function DashboardScreen() {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
 
+      {/* ── Header ── */}
+      <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? 20 : 12) + insets.top }]}>
+        <Text style={styles.headerGreeting}>Dashboard</Text>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => router.push('/(tabs)/more' as any)}
+          style={styles.bellWrap}
+        >
+          <Bell size={24} color="#0F172A" strokeWidth={2} />
+          {unreadCount > 0 && (
+            <View style={styles.bellBadge}>
+              <Text style={styles.bellBadgeText}>
+                {unreadCount > 9 ? '9+' : String(unreadCount)}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         style={styles.root}
         contentContainerStyle={[
@@ -221,33 +255,16 @@ export default function DashboardScreen() {
           { paddingBottom: insets.bottom + 80 },
         ]}
         showsVerticalScrollIndicator={false}
+        automaticallyAdjustContentInsets={false}
+        contentInsetAdjustmentBehavior="never"
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
             tintColor="#2563EB"
           />
         }
       >
-        {/* ── Header ── */}
-        <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? 20 : 12) + insets.top }]}>
-          <Text style={styles.headerGreeting}>Dashboard</Text>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => router.push('/(tabs)/more' as any)}
-            style={styles.bellWrap}
-          >
-            <Bell size={24} color="#0F172A" strokeWidth={2} />
-            {unreadCount > 0 && (
-              <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>
-                  {unreadCount > 9 ? '9+' : String(unreadCount)}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
         {/* ── KPI 2×2 grid ── */}
         <View style={styles.kpiGrid}>
           {/* Today's Revenue */}
@@ -411,10 +428,13 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    width: '100%',
     backgroundColor: '#F8FAFC',
   },
   scrollContent: {
-    // paddingBottom set dynamically
+    flexGrow: 1,
+    width: '100%',
+    justifyContent: 'flex-start',
   },
 
   /* Header */
@@ -469,16 +489,16 @@ const styles = StyleSheet.create({
   kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
     marginHorizontal: 16,
     marginTop: 16,
     gap: 12,
   },
   kpiCard: {
-    width: '47%',
+    width: '48%',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
-    flexShrink: 0,
   },
   kpiLabel: {
     fontSize: 12,

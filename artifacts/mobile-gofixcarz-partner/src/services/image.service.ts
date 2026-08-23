@@ -18,9 +18,9 @@ import type { APIResponse } from '@/src/types';
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 
 const MIME_MAP: Record<string, string> = {
-  jpg:  'image/jpeg',
+  jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
-  png:  'image/png',
+  png: 'image/png',
   webp: 'image/webp',
 };
 
@@ -66,7 +66,7 @@ const ImageService = {
     }
 
     const contentType = getMime(fileUri);
-    const fileName    = buildFileName(contentType, prefix);
+    const fileName = buildFileName(contentType, prefix);
 
     // Guard: validate file size before uploading if accessible
     try {

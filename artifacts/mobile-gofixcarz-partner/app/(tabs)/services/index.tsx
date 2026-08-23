@@ -28,11 +28,23 @@ export default function ServicesScreen() {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const [deleteItem, setDeleteItem] = useState<{ id: string; name: string } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const { data, isLoading, isRefetching, refetch } = useQuery({
     queryKey: QUERY_KEYS.SERVICE_PACKAGES({}),
     queryFn:  () => ServicePackageService.list({ page_size: 50 }),
   });
+
+  const handleRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } catch {
+      // silent
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => ServicePackageService.delete(id),
@@ -78,7 +90,9 @@ export default function ServicesScreen() {
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={PRIMARY} />}
+        automaticallyAdjustContentInsets={false}
+        contentInsetAdjustmentBehavior="never"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={PRIMARY} />}
       >
         {/* Catalog Subheading */}
         <View style={styles.summaryRow}>

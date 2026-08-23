@@ -190,7 +190,18 @@ export default function BookingsScreen() {
   const upcomingBookings    = filtered.filter(b => b.booking_date && !isToday(b.booking_date) && !isTomorrow(b.booking_date));
   const unscheduledBookings = filtered.filter(b => !b.booking_date);
 
-  const onRefresh = () => { refetch(); };
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } catch {
+      // silent
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
 
   return (
     <View style={styles.root}>
@@ -227,8 +238,10 @@ export default function BookingsScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        automaticallyAdjustContentInsets={false}
+        contentInsetAdjustmentBehavior="never"
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 80 }]}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor="#2563EB" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#2563EB" />}
       >
         {/* ── Search bar ── */}
         {searchOpen && (

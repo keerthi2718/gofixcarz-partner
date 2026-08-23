@@ -29,9 +29,47 @@ const HIDDEN_PATH_PREFIXES = [
   '/more/notifications',
 ];
 
+function shouldHideTabBar(pathname: string): boolean {
+  if (HIDDEN_PATH_PREFIXES.some(p => pathname.includes(p))) return true;
+  // Hide footer on job details screen (/jobs/[id])
+  if (pathname.includes('/jobs/') && !pathname.endsWith('/jobs') && !pathname.endsWith('/jobs/index')) {
+    return true;
+  }
+  return false;
+}
+
+function getActiveTabName(pathname: string, stateRouteName?: string): string {
+  const p = (pathname || '').toLowerCase();
+
+  if (p === '/' || p === '/index' || p.endsWith('/(tabs)') || p.endsWith('/(tabs)/index')) {
+    return 'index';
+  }
+  if (p.includes('/bookings')) {
+    return 'bookings';
+  }
+  if (p.includes('/jobs')) {
+    return 'jobs';
+  }
+  if (p.includes('/analytics')) {
+    return 'analytics';
+  }
+  if (p.includes('/more')) {
+    return 'more';
+  }
+
+  if (stateRouteName && TABS.some(t => t.name === stateRouteName)) {
+    return stateRouteName;
+  }
+
+  return 'index';
+}
+
 function TabBar({ state, descriptors, navigation }: any) {
   const insets   = useSafeAreaInsets();
   const pathname = usePathname();
+
+  const currentRouteName = state.routes[state.index]?.name;
+  const activeTabName = getActiveTabName(pathname, currentRouteName);
 
   // Filter visible tabs (excluding href === null)
   const visibleRoutes = state.routes.filter((route: any) => {
@@ -39,7 +77,7 @@ function TabBar({ state, descriptors, navigation }: any) {
     return options.href !== null && TABS.some(t => t.name === route.name);
   });
 
-  const activeIndex = Math.max(0, visibleRoutes.findIndex((r: any) => r.key === state.routes[state.index]?.key));
+  const activeIndex = Math.max(0, visibleRoutes.findIndex((r: any) => r.name === activeTabName));
   const tabCount = visibleRoutes.length || 5;
 
   const [barWidth, setBarWidth] = useState(0);
@@ -49,17 +87,21 @@ function TabBar({ state, descriptors, navigation }: any) {
 
   useEffect(() => {
     if (tabWidth > 0) {
+      const targetPos = activeIndex * tabWidth;
+      translateX.stopAnimation();
       Animated.spring(translateX, {
-        toValue: activeIndex * tabWidth,
+        toValue: targetPos,
         useNativeDriver: true,
-        stiffness: 260,
-        damping: 24,
-        mass: 0.8,
+        stiffness: 350,
+        damping: 30,
+        mass: 0.5,
+        restDisplacementThreshold: 0.01,
+        restSpeedThreshold: 0.01,
       }).start();
     }
   }, [activeIndex, tabWidth]);
 
-  if (HIDDEN_PATH_PREFIXES.some(p => pathname.includes(p))) return null;
+  if (shouldHideTabBar(pathname)) return null;
 
   return (
     <View
@@ -80,8 +122,7 @@ function TabBar({ state, descriptors, navigation }: any) {
       )}
 
       {visibleRoutes.map((route: any) => {
-        const routeIdx = state.routes.findIndex((r: any) => r.key === route.key);
-        const focused = state.index === routeIdx;
+        const focused = route.name === activeTabName;
         const tabDef = TABS.find(t => t.name === route.name)!;
         const color = focused ? PRIMARY : INACTIVE;
         const { Icon } = tabDef;
@@ -96,10 +137,17 @@ function TabBar({ state, descriptors, navigation }: any) {
                 target: route.key,
                 canPreventDefault: true,
               });
-              if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
+              if (!event.defaultPrevented) {
+                if (route.name === 'index') {
+                  navigation.navigate('index');
+                } else {
+                  navigation.navigate(route.name, { screen: 'index' });
+                }
+              }
             }}
             activeOpacity={0.75}
             accessibilityRole="tab"
+            accessibilityState={{ selected: focused }}
             accessibilityLabel={tabDef.label}
           >
             <Icon size={20} color={color} strokeWidth={focused ? 2.5 : 2} />

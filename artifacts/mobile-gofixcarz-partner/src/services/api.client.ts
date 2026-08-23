@@ -59,11 +59,31 @@ apiClient.interceptors.request.use(
 // Response interceptor — handle 401 / token refresh & error logging
 // ---------------------------------------------------------------------------
 
+interface PendingRequest {
+  resolve: (value: any) => void;
+  reject: (reason?: any) => void;
+  config: InternalAxiosRequestConfig;
+}
+
 let isRefreshing = false;
-let pendingRequests: Array<(token: string) => void> = [];
+let pendingRequests: PendingRequest[] = [];
 
 function onTokenRefreshed(newToken: string) {
-  pendingRequests.forEach(resolve => resolve(newToken));
+  pendingRequests.forEach(({ resolve, config }) => {
+    if (config.headers && typeof config.headers.set === 'function') {
+      config.headers.set('Authorization', `Bearer ${newToken}`);
+    } else if (config.headers) {
+      config.headers.Authorization = `Bearer ${newToken}`;
+    }
+    resolve(apiClient(config));
+  });
+  pendingRequests = [];
+}
+
+function onRefreshFailed(error: any) {
+  pendingRequests.forEach(({ reject }) => {
+    reject(error);
+  });
   pendingRequests = [];
 }
 
@@ -92,15 +112,8 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         // Queue the request until the refresh is done
-        return new Promise(resolve => {
-          pendingRequests.push((token: string) => {
-            if (originalRequest.headers && typeof originalRequest.headers.set === 'function') {
-              originalRequest.headers.set('Authorization', `Bearer ${token}`);
-            } else if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-            }
-            resolve(apiClient(originalRequest));
-          });
+        return new Promise((resolve, reject) => {
+          pendingRequests.push({ resolve, reject, config: originalRequest });
         });
       }
 
@@ -133,7 +146,8 @@ apiClient.interceptors.response.use(
 
         return apiClient(originalRequest);
       } catch (refreshError) {
-        // Clear stored credentials on refresh failure
+        // Reject all queued requests & clear stored credentials on refresh failure
+        onRefreshFailed(refreshError);
         await StorageService.removeMany([
           STORAGE_KEYS.ACCESS_TOKEN,
           STORAGE_KEYS.REFRESH_TOKEN,
