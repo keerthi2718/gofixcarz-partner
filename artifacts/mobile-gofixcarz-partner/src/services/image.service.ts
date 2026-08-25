@@ -2,9 +2,10 @@
 // ImageService
 // Implements the 2-step S3 pre-signed upload flow shared by all upload flows:
 //   Step 1 — POST /images/upload-url  → { upload_url, object_key, expires_in }
-//   Step 2 — PUT <upload_url>         → raw binary, Content-Type only (NO Auth)
+//   Step 2 — PUT <upload_url>         → raw binary, Content-Type only (NO Auth header)
 //
-// Returns the object_key for the caller to register with the appropriate API.
+// Returns ONLY the object_key for the caller to register with the appropriate API.
+// Implements deleteObjectKey cleanup endpoint: DELETE /images/<encoded-object-key>
 // ---------------------------------------------------------------------------
 
 import { Platform } from 'react-native';
@@ -17,124 +18,142 @@ import type { APIResponse } from '@/src/types';
 /* ── Constants ── */
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 
-const MIME_MAP: Record<string, string> = {
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
+const EXT_TO_MIME: Record<string, string> = {
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
   png: 'image/png',
   webp: 'image/webp',
 };
 
-/* ── Helpers ── */
-function getMime(uri: string): string {
-  const ext = uri.split('?')[0].split('.').pop()?.toLowerCase() ?? 'jpg';
-  return MIME_MAP[ext] ?? 'image/jpeg';
-}
-
-function buildFileName(mime: string, prefix: string): string {
-  const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
-}
-
 /* ── Response shape ── */
 interface UploadUrlResponse {
   upload_url: string;
   object_key: string;
-  expires_in: number;
+  expires_in?: number;
 }
 
 /* ── Service ── */
 const ImageService = {
   /**
-   * Upload a local image URI to S3 via the 2-step pre-signed URL flow,
-   * falling back to direct multipart S3 upload if pre-signed route is unavailable.
-   *
-   * @param fileUri   Local file URI from expo-image-picker or expo-camera
-   * @param prefix    Prefix for the generated filename (e.g. 'logo', 'before_service')
-   * @returns         S3 object_key or full S3 URL
+   * Validates local image file properties before initiating upload.
+   * Rejects files > 5MB, unsupported mime types, PDFs, GIFs, videos, and remote URLs.
    */
-  async uploadToS3(fileUri: string, prefix = 'image'): Promise<string> {
+  async validateImageFile(fileUri: string): Promise<{ contentType: string; fileName: string }> {
+    if (!fileUri) {
+      throw new Error('No image file selected.');
+    }
+
+    // Reject remote web URLs (Pexels, HTTP, HTTPS)
+    if (fileUri.startsWith('http://') || fileUri.startsWith('https://')) {
+      throw new Error('Remote image URLs are not supported for upload.');
+    }
+
+    const cleanPath = fileUri.split('?')[0];
+    const ext = cleanPath.split('.').pop()?.toLowerCase() ?? '';
+
+    // Reject invalid extensions
+    if (ext === 'pdf' || ext === 'gif' || ext === 'mp4' || ext === 'mov' || ext === 'avi') {
+      throw new Error(`Unsupported file format (.${ext}). Only JPEG, PNG, and WebP images are allowed.`);
+    }
+
+    const contentType = EXT_TO_MIME[ext] ?? 'image/jpeg';
+    if (!ALLOWED_MIME_TYPES.includes(contentType)) {
+      throw new Error('Unsupported image format. Please select a JPEG, PNG, or WebP image.');
+    }
+
+    // Check size if file system info is accessible
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const info = await FileSystem.getInfoAsync(fileUri, { size: true } as any);
+      if (info.exists && typeof (info as any).size === 'number') {
+        if ((info as any).size > MAX_BYTES) {
+          throw new Error('Image size exceeds the 5 MB limit. Please select a smaller photo.');
+        }
+      }
+    } catch (err: any) {
+      if (err?.message?.includes('exceeds')) throw err;
+    }
+
+    const safeExt = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
+    const plainFileName = `photo_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${safeExt}`;
+
+    return { contentType, fileName: plainFileName };
+  },
+
+  /**
+   * Upload a local image URI to S3 via the 2-step pre-signed URL flow.
+   * Step 1: POST /images/upload-url (with Auth header)
+   * Step 2: PUT <upload_url> (binary body, NO Auth header sent to S3)
+   * Returns ONLY the S3 object_key.
+   */
+  async uploadToS3(fileUri: string, prefix = 'before-service'): Promise<string> {
     if (!fileUri) return '';
 
-    // If already an S3 URL or object key (not a local device URI), return directly
+    // If already an object key (e.g. "jobs/101/photo.jpg"), return directly
     if (
       !fileUri.startsWith('file://') &&
       !fileUri.startsWith('content://') &&
       !fileUri.startsWith('ph://') &&
-      (fileUri.startsWith('http://') || fileUri.startsWith('https://') || !fileUri.includes('/'))
+      !fileUri.startsWith('data:') &&
+      !fileUri.startsWith('http://') &&
+      !fileUri.startsWith('https://')
     ) {
       return fileUri;
     }
 
-    const contentType = getMime(fileUri);
-    const fileName = buildFileName(contentType, prefix);
+    // 1. Pre-upload validation
+    const { contentType, fileName } = await this.validateImageFile(fileUri);
+    const finalFileName = `${prefix}_${fileName}`;
 
-    // Guard: validate file size before uploading if accessible
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const info = await FileSystem.getInfoAsync(fileUri, { size: true } as any);
-      if (info.exists && (info as any).size > MAX_BYTES) {
-        throw new Error('Image is too large. Maximum allowed size is 5 MB.');
-      }
-    } catch (e) {
-      // Ignore getInfoAsync failure on certain remote/virtual paths
-    }
-
-    // ── Flow 1 — Pre-signed S3 Upload ──
+    // 2. Step 1 — POST /images/upload-url to receive signed upload_url & object_key
     try {
       const { data } = await apiClient.post<APIResponse<UploadUrlResponse>>(
         ENDPOINTS.IMAGES.UPLOAD_URL,
-        { file_name: fileName, content_type: contentType }
+        { file_name: finalFileName, content_type: contentType }
       );
 
-      if (data?.data?.upload_url) {
-        const { upload_url, object_key } = data.data;
+      const uploadUrl = data?.data?.upload_url;
+      const objectKey = data?.data?.object_key;
 
-        const result = await FileSystem.uploadAsync(upload_url, fileUri, {
+      if (uploadUrl && objectKey) {
+        // Step 2 — Direct S3 Binary PUT Upload (NO Bearer token header sent to S3)
+        const result = await FileSystem.uploadAsync(uploadUrl, fileUri, {
           httpMethod: 'PUT',
           uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
           headers: { 'Content-Type': contentType },
         });
 
         if (result.status >= 200 && result.status < 300) {
-          return object_key || upload_url;
+          return objectKey;
         }
       }
-    } catch (presignedErr) {
-      console.warn('[ImageService] Pre-signed S3 upload failed, trying multipart upload route:', presignedErr);
+    } catch (presignedErr: any) {
+      console.warn('[ImageService] Signed URL upload failed:', presignedErr?.message || presignedErr);
+      throw presignedErr;
     }
 
-    // ── Flow 2 — Multipart Form S3 Upload Fallback ──
+    throw new Error('S3 image upload failed. Please try again.');
+  },
+
+  /**
+   * Delete an uncommitted S3 object key via backend cleanup endpoint:
+   * DELETE /images/<encoded-object-key>
+   */
+  async deleteObjectKey(objectKey: string): Promise<boolean> {
+    if (!objectKey || objectKey.startsWith('file://') || objectKey.startsWith('data:')) {
+      return false;
+    }
     try {
-      const formData = new FormData();
-      const cleanUri = Platform.OS === 'android' ? fileUri : fileUri.replace('file://', '');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      formData.append('photo', {
-        uri: cleanUri,
-        name: fileName,
-        type: contentType,
-      } as any);
-
-      const { data } = await apiClient.post<APIResponse<{ url?: string; object_key?: string }>>(
-        ENDPOINTS.JOBS.UPLOAD_PHOTO,
-        formData,
-        {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          transformRequest: (data) => data,
-        }
-      );
-
-      if (data?.data?.url || data?.data?.object_key) {
-        return data.data.url || data.data.object_key!;
-      }
-    } catch (multipartErr) {
-      console.warn('[ImageService] Multipart S3 upload also failed:', multipartErr);
+      const encodedKey = encodeURIComponent(objectKey);
+      await apiClient.delete(ENDPOINTS.IMAGES.DELETE_IMAGE(encodedKey));
+      console.log(`[ImageService] Cleaned up unused S3 object key: ${objectKey}`);
+      return true;
+    } catch (err: any) {
+      console.warn(`[ImageService] Cleanup call failed for ${objectKey}:`, err?.message || err);
+      return false;
     }
-
-    // ── Fallback S3 Key Generator (dev/offline mode) ──
-    // Ensures photos are referenced by S3 key rather than local file:// path
-    const fallbackS3Key = `jobs/${prefix}/${fileName}`;
-    console.log(`[ImageService] Generated S3 key for job photo: ${fallbackS3Key}`);
-    return fallbackS3Key;
   },
 };
 

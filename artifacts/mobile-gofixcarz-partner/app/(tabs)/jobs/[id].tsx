@@ -64,7 +64,17 @@ function resolveImageCandidates(raw: any): string[] {
   ];
 }
 
-function SmartPhotoThumb({ item, index, onSelect }: { item: any; index: number; onSelect: (uri: string) => void }) {
+function SmartPhotoThumb({
+  item,
+  index,
+  onSelect,
+  onRemove,
+}: {
+  item: any;
+  index: number;
+  onSelect: (uri: string) => void;
+  onRemove?: () => void;
+}) {
   const candidates = useMemo(() => resolveImageCandidates(item), [item]);
   const [candidateIdx, setCandidateIdx] = useState(0);
   const [hasError, setHasError] = useState(false);
@@ -86,27 +96,38 @@ function SmartPhotoThumb({ item, index, onSelect }: { item: any; index: number; 
   }
 
   return (
-    <TouchableOpacity
-      style={styles.photoThumbWrap}
-      activeOpacity={0.85}
-      onPress={() => onSelect(currentUri)}
-    >
-      <Image
-        source={{ uri: currentUri }}
-        style={styles.photoThumb}
-        resizeMode="cover"
-        onError={() => {
-          if (candidateIdx < candidates.length - 1) {
-            setCandidateIdx(prev => prev + 1);
-          } else {
-            setHasError(true);
-          }
-        }}
-      />
-      <View style={styles.photoZoomIcon}>
-        <Feather name="maximize-2" size={11} color="#fff" />
-      </View>
-    </TouchableOpacity>
+    <View style={{ position: 'relative', marginRight: 10 }}>
+      <TouchableOpacity
+        style={styles.photoThumbWrap}
+        activeOpacity={0.85}
+        onPress={() => onSelect(currentUri)}
+      >
+        <Image
+          source={{ uri: currentUri }}
+          style={styles.photoThumb}
+          resizeMode="cover"
+          onError={() => {
+            if (candidateIdx < candidates.length - 1) {
+              setCandidateIdx(prev => prev + 1);
+            } else {
+              setHasError(true);
+            }
+          }}
+        />
+        <View style={styles.photoZoomIcon}>
+          <Feather name="maximize-2" size={11} color="#fff" />
+        </View>
+      </TouchableOpacity>
+      {onRemove && (
+        <TouchableOpacity
+          style={styles.photoDelBtn}
+          onPress={onRemove}
+          hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+        >
+          <Feather name="x" size={10} color="#fff" />
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
@@ -309,6 +330,71 @@ export default function JobDetailScreen() {
     qc.invalidateQueries({ queryKey: ['analytics'] });
   };
 
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  async function handleAddPhoto() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow photo library access to add photos.');
+      return;
+    }
+
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+    });
+
+    if (res.canceled || !res.assets[0]?.uri) return;
+
+    const pickedUri = res.assets[0].uri;
+
+    try {
+      await ImageService.validateImageFile(pickedUri);
+    } catch (valErr: any) {
+      Alert.alert('Invalid Image', valErr?.message || 'Selected file is invalid.');
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    try {
+      const objectKey = await ImageService.uploadToS3(pickedUri, 'before-service');
+      const existingPhotos = data?.photos || [];
+      await JobService.update(id as string, { photos: [...existingPhotos, objectKey] });
+      invalidate();
+      Alert.alert('Success', 'Photo uploaded successfully.');
+    } catch (err: any) {
+      Alert.alert('Upload Failed', err?.message || 'Failed to upload photo.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  }
+
+  async function handleRemovePhoto(index: number) {
+    const existingPhotos = [...(data?.photos || [])];
+    const targetKey = existingPhotos[index];
+    if (!targetKey) return;
+
+    Alert.alert('Remove Photo', 'Are you sure you want to remove this photo?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          const remaining = existingPhotos.filter((_, i) => i !== index);
+          try {
+            await JobService.update(id as string, { photos: remaining });
+            invalidate();
+            if (typeof targetKey === 'string' && !targetKey.startsWith('file://')) {
+              ImageService.deleteObjectKey(targetKey);
+            }
+          } catch (err: any) {
+            Alert.alert('Error', 'Failed to remove photo.');
+          }
+        },
+      },
+    ]);
+  }
+
   const statusMut = useMutation({
     mutationFn: (status: JobStatus) => JobService.updateStatus(id, { status }),
     onSuccess: (_, newStatus) => {
@@ -391,29 +477,47 @@ export default function JobDetailScreen() {
 
           {/* Before Service Photos */}
           <SectionCard icon="camera" title="Before Service Photos">
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={styles.photoSubText}>
+                {data.photos && data.photos.length > 0
+                  ? `${data.photos.length} photo${data.photos.length > 1 ? 's' : ''} captured:`
+                  : 'Add vehicle photos'}
+              </Text>
+              <TouchableOpacity
+                style={[styles.addPhotoBtn, isUploadingPhoto && { opacity: 0.5 }]}
+                onPress={handleAddPhoto}
+                disabled={isUploadingPhoto}
+                activeOpacity={0.8}
+              >
+                {isUploadingPhoto ? (
+                  <ActivityIndicator size="small" color={PRIMARY} />
+                ) : (
+                  <>
+                    <Feather name="plus" size={13} color={PRIMARY} />
+                    <Text style={styles.addPhotoBtnText}>Add Photo</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
             {data.photos && data.photos.length > 0 ? (
-              <>
-                <Text style={styles.photoSubText}>
-                  {data.photos.length} photo{data.photos.length > 1 ? 's' : ''} captured before service:
-                </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoGrid}>
-                  {data.photos.map((item, index) => (
-                    <SmartPhotoThumb
-                      key={index}
-                      item={item}
-                      index={index}
-                      onSelect={(selectedUri) => setSelectedImageUri(selectedUri)}
-                    />
-                  ))}
-                </ScrollView>
-              </>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoGrid}>
+                {data.photos.map((item, index) => (
+                  <SmartPhotoThumb
+                    key={index}
+                    item={item}
+                    index={index}
+                    onSelect={(selectedUri) => setSelectedImageUri(selectedUri)}
+                    onRemove={() => handleRemovePhoto(index)}
+                  />
+                ))}
+              </ScrollView>
             ) : (
               <View style={styles.noPhotoBox}>
                 <Feather name="camera-off" size={20} color="#94A3B8" />
                 <Text style={styles.noPhotoText}>No photos available.</Text>
               </View>
             )}
-
           </SectionCard>
 
           {/* Description */}
@@ -693,7 +797,7 @@ const styles = StyleSheet.create({
   sheetCancelText: { fontSize: 15, fontWeight: '600', color: TEXT },
 
   /* Photos */
-  photoSubText: { fontSize: 12, color: MUTED, marginBottom: 12 },
+  photoSubText: { fontSize: 12, color: MUTED, marginBottom: 4 },
   photoGrid: { gap: 10, paddingBottom: 4 },
   photoThumbWrap: { position: 'relative', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: BORDER },
   photoThumb: { width: 100, height: 100, borderRadius: 12 },
@@ -709,6 +813,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center', justifyContent: 'center',
   },
+  photoDelBtn: {
+    position: 'absolute', top: -5, right: -5,
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center',
+    zIndex: 10, borderWidth: 1.5, borderColor: '#FFFFFF',
+  },
+  addPhotoBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
+    backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE',
+  },
+  addPhotoBtnText: { fontSize: 11.5, fontWeight: '700', color: PRIMARY },
   noPhotoBox: { alignItems: 'center', paddingVertical: 16, gap: 8 },
   noPhotoText: { fontSize: 13, color: MUTED, textAlign: 'center' },
 

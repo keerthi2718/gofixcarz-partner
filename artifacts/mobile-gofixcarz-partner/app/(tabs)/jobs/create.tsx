@@ -53,7 +53,15 @@ const FUEL_LEVELS = ['E', '1/4', '1/2', '3/4', 'F'];
 const FUEL_TYPES = ['Petrol', 'Diesel', 'CNG', 'Electric', 'Hybrid'];
 
 type ServiceItem = { name: string; price: number; qty: number };
-type PhotoItem = { uri: string; name?: string };
+type PhotoItem = {
+  id: string;
+  uri: string;
+  name?: string;
+  objectKey?: string;
+  status: 'idle' | 'uploading' | 'success' | 'error';
+  progress: number;
+  errorMsg?: string;
+};
 type DocItem = { uri: string; name: string; mimeType?: string };
 
 /* ─────────────────────────── InlineInput ────────────────────── */
@@ -301,6 +309,21 @@ export default function CreateJobScreen() {
 
   /* Step 4/5 */
   const [createdJobId, setCreatedJobId] = useState<string | null>(null);
+
+  const jobCreatedRef = useRef(false);
+  const uncommittedKeysRef = useRef<Set<string>>(new Set());
+
+  React.useEffect(() => {
+    return () => {
+      if (!jobCreatedRef.current && uncommittedKeysRef.current.size > 0) {
+        console.log('[CreateJob] Cleaning up uncommitted S3 objects on exit...');
+        uncommittedKeysRef.current.forEach(key => {
+          ImageService.deleteObjectKey(key);
+        });
+        uncommittedKeysRef.current.clear();
+      }
+    };
+  }, []);
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -632,22 +655,27 @@ export default function CreateJobScreen() {
   /* ── Mutation ── */
   const { mutate: saveJobCard, isPending } = useMutation({
     mutationFn: async () => {
-      // Step 0: Upload before-service photos & documents to S3
-      let photoKeys: string[] = [];
-      const allMedia = [...beforePhotos, ...documents];
-      if (allMedia.length > 0) {
-        photoKeys = await Promise.all(
-          allMedia.map(async p => {
+      // Collect successful S3 object keys from beforePhotos
+      const beforeServiceKeys = beforePhotos
+        .filter(p => p.status === 'success' && p.objectKey)
+        .map(p => p.objectKey!);
+
+      let docKeys: string[] = [];
+      if (documents.length > 0) {
+        docKeys = await Promise.all(
+          documents.map(async d => {
             try {
-              return await ImageService.uploadToS3(p.uri, 'before_service');
+              return await ImageService.uploadToS3(d.uri, 'doc');
             } catch (uploadErr) {
-              console.warn('[JobCreate] S3 photo upload failed:', uploadErr);
-              const fileName = p.uri.split('/').pop() || `before_service_${Date.now()}.jpg`;
-              return `jobs/before_service/${fileName}`;
+              console.warn('[JobCreate] S3 document upload failed:', uploadErr);
+              const fileName = d.uri.split('/').pop() || `doc_${Date.now()}.jpg`;
+              return `jobs/doc/${fileName}`;
             }
           })
         );
       }
+
+      const photoKeys = [...beforeServiceKeys, ...docKeys];
 
       const hasServices = services.length > 0;
       const hasLabour = parseFloat(labourCharge) > 0;
@@ -693,6 +721,8 @@ export default function CreateJobScreen() {
       return job;
     },
     onSuccess: (job) => {
+      jobCreatedRef.current = true;
+      uncommittedKeysRef.current.clear();
       setCreateError(null);
       if (job?.id) setCreatedJobId(job.id);
       // Invalidate list & dashboard so the new job shows immediately in jobs list & analytics
@@ -784,26 +814,85 @@ export default function CreateJobScreen() {
     setServices(s => s.filter((_, idx) => idx !== i));
   }
 
-  /* ── Camera / Gallery ── */
+  /* ── Camera / Gallery & S3 Upload ── */
+  const isAnyPhotoUploading = beforePhotos.some(p => p.status === 'uploading');
+
+  async function uploadSinglePhoto(id: string, uri: string) {
+    setBeforePhotos(prev =>
+      prev.map(p => (p.id === id ? { ...p, status: 'uploading', errorMsg: undefined, progress: 30 } : p))
+    );
+
+    try {
+      const objectKey = await ImageService.uploadToS3(uri, 'before-service');
+      if (objectKey) {
+        uncommittedKeysRef.current.add(objectKey);
+      }
+      setBeforePhotos(prev =>
+        prev.map(p => (p.id === id ? { ...p, status: 'success', objectKey, progress: 100 } : p))
+      );
+    } catch (err: any) {
+      console.warn('[CreateJob] S3 photo upload failed:', err);
+      setBeforePhotos(prev =>
+        prev.map(p =>
+          p.id === id ? { ...p, status: 'error', errorMsg: err?.message || 'Upload failed' } : p
+        )
+      );
+    }
+  }
+
+  async function addPhotoUris(uris: string[]) {
+    const existingUris = new Set(beforePhotos.map(p => p.uri));
+    const newUris = uris.filter(u => !existingUris.has(u));
+
+    if (newUris.length === 0) {
+      if (uris.length > 0) {
+        Alert.alert('Duplicate Photo', 'This image has already been added.');
+      }
+      return;
+    }
+
+    const newItems: PhotoItem[] = [];
+    for (const uri of newUris) {
+      try {
+        await ImageService.validateImageFile(uri);
+        const item: PhotoItem = {
+          id: 'photo_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+          uri,
+          status: 'uploading',
+          progress: 20,
+        };
+        newItems.push(item);
+      } catch (valErr: any) {
+        Alert.alert('Invalid Image', valErr?.message || 'Selected file is invalid.');
+      }
+    }
+
+    if (newItems.length === 0) return;
+
+    setBeforePhotos(prev => [...prev, ...newItems]);
+
+    // Trigger async S3 uploads for each valid photo
+    newItems.forEach(item => {
+      uploadSinglePhoto(item.id, item.uri);
+    });
+  }
+
   async function pickFromCamera() {
+    if (isAnyPhotoUploading) return;
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission Required', 'Camera access is needed to take photos.'); return; }
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: 'images',
-      quality: 0.7,
-      base64: true,
+      quality: 0.8,
       allowsEditing: false,
     });
     if (!result.canceled && result.assets.length > 0) {
-      const asset = result.assets[0];
-      const uri = asset.base64
-        ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`
-        : asset.uri;
-      setBeforePhotos(prev => [...prev, { uri, name: `photo_${Date.now()}.jpg` }]);
+      await addPhotoUris([result.assets[0].uri]);
     }
   }
 
   async function pickFromGallery() {
+    if (isAnyPhotoUploading) return;
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission Required', 'Photo library access is needed.'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -812,16 +901,27 @@ export default function CreateJobScreen() {
       allowsMultipleSelection: true,
       selectionLimit: 10,
     });
-    if (!result.canceled) {
-      const newPhotos = result.assets.map(a => ({
-        uri: a.uri,
-        name: a.fileName ?? `photo_${Date.now()}.jpg`,
-      }));
-      setBeforePhotos(prev => [...prev, ...newPhotos]);
+    if (!result.canceled && result.assets.length > 0) {
+      await addPhotoUris(result.assets.map(a => a.uri));
     }
   }
 
-  function removePhoto(idx: number) { setBeforePhotos(prev => prev.filter((_, i) => i !== idx)); }
+  async function removePhoto(id: string) {
+    const target = beforePhotos.find(p => p.id === id);
+    if (target?.objectKey) {
+      uncommittedKeysRef.current.delete(target.objectKey);
+      // Clean up S3 object key on backend
+      ImageService.deleteObjectKey(target.objectKey);
+    }
+    setBeforePhotos(prev => prev.filter(p => p.id !== id));
+  }
+
+  function retryPhotoUpload(id: string) {
+    const target = beforePhotos.find(p => p.id === id);
+    if (target) {
+      uploadSinglePhoto(target.id, target.uri);
+    }
+  }
 
   async function pickDocumentFromCamera() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -1096,33 +1196,75 @@ export default function CreateJobScreen() {
 
               <SectionCard title="Before Service Photos" iconBg="#F0FDF4" Icon={Camera} iconColor={SUCCESS}>
                 <View style={s.photoActionsRow}>
-                  <TouchableOpacity style={s.photoBtn} onPress={pickFromCamera} activeOpacity={0.85}>
+                  <TouchableOpacity
+                    style={[s.photoBtn, isAnyPhotoUploading && { opacity: 0.5 }]}
+                    onPress={pickFromCamera}
+                    disabled={isAnyPhotoUploading}
+                    activeOpacity={0.85}
+                  >
                     <Camera size={16} color={PRIMARY} strokeWidth={2} />
                     <Text style={s.photoBtnText}>Take Photo</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={s.photoBtn} onPress={pickFromGallery} activeOpacity={0.85}>
+                  <TouchableOpacity
+                    style={[s.photoBtn, isAnyPhotoUploading && { opacity: 0.5 }]}
+                    onPress={pickFromGallery}
+                    disabled={isAnyPhotoUploading}
+                    activeOpacity={0.85}
+                  >
                     <ImageIcon size={16} color={PRIMARY} strokeWidth={2} />
                     <Text style={s.photoBtnText}>From Gallery</Text>
                   </TouchableOpacity>
                 </View>
+
                 {beforePhotos.length > 0 ? (
                   <>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.thumbRow}>
-                      {beforePhotos.map((p, i) => (
-                        <View key={i} style={s.thumbWrap}>
+                      {beforePhotos.map((p) => (
+                        <View key={p.id} style={s.thumbWrap}>
                           <Image source={{ uri: p.uri }} style={s.thumb} />
-                          <TouchableOpacity style={s.thumbDel} onPress={() => removePhoto(i)} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+
+                          {p.status === 'uploading' && (
+                            <View style={s.thumbOverlayUploading}>
+                              <ActivityIndicator size="small" color="#FFFFFF" />
+                            </View>
+                          )}
+
+                          {p.status === 'success' && (
+                            <View style={s.thumbBadgeSuccess}>
+                              <Check size={9} color="#FFFFFF" strokeWidth={3} />
+                            </View>
+                          )}
+
+                          {p.status === 'error' && (
+                            <TouchableOpacity
+                              style={s.thumbOverlayError}
+                              onPress={() => retryPhotoUpload(p.id)}
+                              activeOpacity={0.8}
+                            >
+                              <RotateCcw size={14} color="#FFFFFF" strokeWidth={2.5} />
+                              <Text style={s.thumbRetryText}>Retry</Text>
+                            </TouchableOpacity>
+                          )}
+
+                          <TouchableOpacity
+                            style={s.thumbDel}
+                            onPress={() => removePhoto(p.id)}
+                            disabled={p.status === 'uploading'}
+                            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                          >
                             <X size={10} color="#fff" strokeWidth={3} />
                           </TouchableOpacity>
                         </View>
                       ))}
                     </ScrollView>
-                    <Text style={s.photoCount}>{beforePhotos.length} photo{beforePhotos.length > 1 ? 's' : ''} added</Text>
+                    <Text style={s.photoCount}>
+                      {beforePhotos.filter(p => p.status === 'success').length} of {beforePhotos.length} photo{beforePhotos.length > 1 ? 's' : ''} ready
+                    </Text>
                   </>
                 ) : (
                   <View style={s.photoEmpty}>
                     <ImageIcon size={24} color="#D1D5DB" strokeWidth={1.5} />
-                    <Text style={s.photoEmptyText}>No photos added yet</Text>
+                    <Text style={s.photoEmptyText}>No photos added yet (JPEG, PNG, WebP ≤ 5MB)</Text>
                   </View>
                 )}
               </SectionCard>
@@ -2387,7 +2529,42 @@ const s = StyleSheet.create({
   thumb: { width: 90, height: 90, borderRadius: 12 },
   thumbDel: {
     position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: 11,
-    backgroundColor: DANGER, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: DANGER, alignItems: 'center', justifyContent: 'center', zIndex: 10,
+  },
+  thumbOverlayUploading: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbBadgeSuccess: {
+    position: 'absolute',
+    bottom: 5,
+    right: 5,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: SUCCESS,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  thumbOverlayError: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 12,
+    backgroundColor: 'rgba(239, 68, 68, 0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    padding: 4,
+  },
+  thumbRetryText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
   },
   photoEmpty: {
     alignItems: 'center', paddingVertical: 24, gap: 8,

@@ -33,6 +33,7 @@ export const ENDPOINTS = {
 
   IMAGES: {
     UPLOAD_URL: '/images/upload-url',
+    DELETE_IMAGE: (encodedKey: string) => `/images/${encodedKey}`,
   },
 
   BOOKINGS: {

@@ -17,6 +17,7 @@ import StorageService from '@/src/services/storage.service';
 import { useLogoStore } from '@/src/store/logo.store';
 import ProfileService from '@/src/services/profile.service';
 import GarageService from '@/src/services/garage.service';
+import ImageService from '@/src/services/image.service';
 import { cleanMobileNumber } from '@/src/utils/validators';
 import type { WorkingHours } from '@/src/types';
 import * as Location from 'expo-location';
@@ -621,6 +622,14 @@ export default function ProfileScreen() {
     if (res.canceled || !res.assets[0]) return;
 
     const picked = res.assets[0].uri;
+
+    try {
+      await ImageService.validateImageFile(picked);
+    } catch (valErr: any) {
+      Alert.alert('Invalid Logo', valErr?.message || 'Selected image is invalid.');
+      return;
+    }
+
     // Timestamp used for both filename uniqueness and HTTP cache-busting
     const ts = Date.now();
 

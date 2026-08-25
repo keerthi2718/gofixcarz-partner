@@ -200,4 +200,40 @@ router.post("/jobs", async (req, res) => {
   });
 });
 
+/**
+ * POST /api/images/upload-url
+ * Generates pre-signed S3 upload URL and object key.
+ */
+router.post("/images/upload-url", (req, res) => {
+  const { file_name } = req.body || {};
+  const safeName = (file_name || "photo.jpg").replace(/[^a-zA-Z0-9_.-]/g, "_");
+  const objectKey = `jobs/before-service/${Date.now()}_${safeName}`;
+  const uploadUrl = `https://gofixcarz-uploads.s3.ap-south-1.amazonaws.com/${objectKey}?mock_signature=true`;
+
+  res.status(200).json({
+    success: true,
+    data: {
+      upload_url: uploadUrl,
+      object_key: objectKey,
+      expires_in: 900,
+    },
+  });
+});
+
+/**
+ * DELETE /api/images/:objectKey
+ * Cleans up uncommitted S3 object key.
+ */
+router.delete("/images/:objectKey", (req, res) => {
+  const { objectKey } = req.params;
+  const decodedKey = decodeURIComponent(objectKey);
+  logger.info({ objectKey: decodedKey }, "Cleaning up S3 object key");
+
+  res.status(200).json({
+    success: true,
+    message: "Object key deleted successfully",
+    object_key: decodedKey,
+  });
+});
+
 export default router;

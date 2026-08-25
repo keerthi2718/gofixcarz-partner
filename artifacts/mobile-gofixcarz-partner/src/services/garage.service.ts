@@ -29,11 +29,17 @@ const GarageService = {
   async uploadLogo(fileUri: string): Promise<GarageResponse | null> {
     const object_key = await ImageService.uploadToS3(fileUri, 'logo');
 
-    const { data } = await apiClient.post<APIResponse<GarageResponse>>(
-      ENDPOINTS.GARAGE_LOGO,
-      { object_key }
-    );
-    return data.data ?? null;
+    try {
+      const { data } = await apiClient.post<APIResponse<GarageResponse>>(
+        ENDPOINTS.GARAGE_LOGO,
+        { object_key }
+      );
+      return data.data ?? null;
+    } catch (err) {
+      // Clean up uploaded S3 object if registering with backend fails
+      await ImageService.deleteObjectKey(object_key);
+      throw err;
+    }
   },
 };
 
