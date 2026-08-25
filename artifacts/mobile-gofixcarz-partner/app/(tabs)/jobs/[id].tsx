@@ -363,6 +363,11 @@ export default function JobDetailScreen() {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   async function handleAddPhoto() {
+    if (photosList.length >= 4) {
+      Alert.alert('Photo Limit Reached', 'A maximum of 4 before service photos can be uploaded for a job card.');
+      return;
+    }
+
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission needed', 'Allow photo library access to add photos.');
@@ -515,21 +520,23 @@ export default function JobDetailScreen() {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <Text style={styles.photoSubText}>
                 {photosList && photosList.length > 0
-                  ? `${photosList.length} photo${photosList.length > 1 ? 's' : ''} captured:`
-                  : 'Add vehicle photos'}
+                  ? `${photosList.length} photo${photosList.length > 1 ? 's' : ''} captured (Max 4):`
+                  : 'Add vehicle photos (Max 4)'}
               </Text>
               <TouchableOpacity
-                style={[styles.addPhotoBtn, isUploadingPhoto && { opacity: 0.5 }]}
+                style={[styles.addPhotoBtn, (isUploadingPhoto || photosList.length >= 4) && { opacity: 0.5 }]}
                 onPress={handleAddPhoto}
-                disabled={isUploadingPhoto}
+                disabled={isUploadingPhoto || photosList.length >= 4}
                 activeOpacity={0.8}
               >
                 {isUploadingPhoto ? (
                   <ActivityIndicator size="small" color={PRIMARY} />
                 ) : (
                   <>
-                    <Feather name="plus" size={13} color={PRIMARY} />
-                    <Text style={styles.addPhotoBtnText}>Add Photo</Text>
+                    <Feather name="plus" size={13} color={photosList.length >= 4 ? "#94A3B8" : PRIMARY} />
+                    <Text style={[styles.addPhotoBtnText, photosList.length >= 4 && { color: "#94A3B8" }]}>
+                      {photosList.length >= 4 ? 'Limit Reached' : 'Add Photo'}
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>

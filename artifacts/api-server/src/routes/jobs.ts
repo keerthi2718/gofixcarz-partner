@@ -240,7 +240,7 @@ const createJobPayloadSchema = z.object({
   description: z.string().optional().nullable(),
   estimated_amount: z.number().optional().nullable(),
   estimated_hours: z.number().optional().nullable(),
-  photos: z.array(z.string()).optional().nullable(),
+  photos: z.array(z.string()).max(4, "Maximum 4 before service photos allowed").optional().nullable(),
   delivery_date: z.string().optional().nullable(),
   delivery_time: z.string().optional().nullable(),
 });

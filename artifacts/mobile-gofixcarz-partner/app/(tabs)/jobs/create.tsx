@@ -841,6 +841,12 @@ export default function CreateJobScreen() {
   }
 
   async function addPhotoUris(uris: string[]) {
+    const MAX_BEFORE_PHOTOS = 4;
+    if (beforePhotos.length >= MAX_BEFORE_PHOTOS) {
+      Alert.alert('Photo Limit Reached', 'You can upload a maximum of 4 before service photos.');
+      return;
+    }
+
     const existingUris = new Set(beforePhotos.map(p => p.uri));
     const newUris = uris.filter(u => !existingUris.has(u));
 
@@ -851,8 +857,18 @@ export default function CreateJobScreen() {
       return;
     }
 
+    const availableSlots = MAX_BEFORE_PHOTOS - beforePhotos.length;
+    let allowedUris = newUris;
+    if (newUris.length > availableSlots) {
+      Alert.alert(
+        'Maximum 4 Photos Allowed',
+        `You can only upload up to 4 before service photos. Only the first ${availableSlots} selected photo${availableSlots > 1 ? 's' : ''} will be added.`
+      );
+      allowedUris = newUris.slice(0, availableSlots);
+    }
+
     const newItems: PhotoItem[] = [];
-    for (const uri of newUris) {
+    for (const uri of allowedUris) {
       try {
         await ImageService.validateImageFile(uri);
         const item: PhotoItem = {
@@ -879,6 +895,10 @@ export default function CreateJobScreen() {
 
   async function pickFromCamera() {
     if (isAnyPhotoUploading) return;
+    if (beforePhotos.length >= 4) {
+      Alert.alert('Photo Limit Reached', 'You can upload a maximum of 4 before service photos.');
+      return;
+    }
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission Required', 'Camera access is needed to take photos.'); return; }
     const result = await ImagePicker.launchCameraAsync({
@@ -893,13 +913,18 @@ export default function CreateJobScreen() {
 
   async function pickFromGallery() {
     if (isAnyPhotoUploading) return;
+    if (beforePhotos.length >= 4) {
+      Alert.alert('Photo Limit Reached', 'You can upload a maximum of 4 before service photos.');
+      return;
+    }
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission Required', 'Photo library access is needed.'); return; }
+    const remainingSlots = Math.max(1, 4 - beforePhotos.length);
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: 'images',
       quality: 0.8,
       allowsMultipleSelection: true,
-      selectionLimit: 10,
+      selectionLimit: remainingSlots,
     });
     if (!result.canceled && result.assets.length > 0) {
       await addPhotoUris(result.assets.map(a => a.uri));
@@ -1197,24 +1222,33 @@ export default function CreateJobScreen() {
               <SectionCard title="Before Service Photos" iconBg="#F0FDF4" Icon={Camera} iconColor={SUCCESS}>
                 <View style={s.photoActionsRow}>
                   <TouchableOpacity
-                    style={[s.photoBtn, isAnyPhotoUploading && { opacity: 0.5 }]}
+                    style={[s.photoBtn, (isAnyPhotoUploading || beforePhotos.length >= 4) && { opacity: 0.5 }]}
                     onPress={pickFromCamera}
-                    disabled={isAnyPhotoUploading}
+                    disabled={isAnyPhotoUploading || beforePhotos.length >= 4}
                     activeOpacity={0.85}
                   >
-                    <Camera size={16} color={PRIMARY} strokeWidth={2} />
-                    <Text style={s.photoBtnText}>Take Photo</Text>
+                    <Camera size={16} color={beforePhotos.length >= 4 ? "#9CA3AF" : PRIMARY} strokeWidth={2} />
+                    <Text style={[s.photoBtnText, beforePhotos.length >= 4 && { color: "#9CA3AF" }]}>Take Photo</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[s.photoBtn, isAnyPhotoUploading && { opacity: 0.5 }]}
+                    style={[s.photoBtn, (isAnyPhotoUploading || beforePhotos.length >= 4) && { opacity: 0.5 }]}
                     onPress={pickFromGallery}
-                    disabled={isAnyPhotoUploading}
+                    disabled={isAnyPhotoUploading || beforePhotos.length >= 4}
                     activeOpacity={0.85}
                   >
-                    <ImageIcon size={16} color={PRIMARY} strokeWidth={2} />
-                    <Text style={s.photoBtnText}>From Gallery</Text>
+                    <ImageIcon size={16} color={beforePhotos.length >= 4 ? "#9CA3AF" : PRIMARY} strokeWidth={2} />
+                    <Text style={[s.photoBtnText, beforePhotos.length >= 4 && { color: "#9CA3AF" }]}>From Gallery</Text>
                   </TouchableOpacity>
                 </View>
+
+                {beforePhotos.length >= 4 && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: '#FEF3C7', marginBottom: 12, borderWidth: 1, borderColor: '#FCD34D' }}>
+                    <AlertCircle size={14} color="#D97706" strokeWidth={2} />
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#92400E', flex: 1 }}>
+                      Maximum 4 before service photos reached (4/4). Remove a photo to upload another.
+                    </Text>
+                  </View>
+                )}
 
                 {beforePhotos.length > 0 ? (
                   <>
@@ -1258,13 +1292,13 @@ export default function CreateJobScreen() {
                       ))}
                     </ScrollView>
                     <Text style={s.photoCount}>
-                      {beforePhotos.filter(p => p.status === 'success').length} of {beforePhotos.length} photo{beforePhotos.length > 1 ? 's' : ''} ready
+                      {beforePhotos.filter(p => p.status === 'success').length} of {beforePhotos.length} photo{beforePhotos.length > 1 ? 's' : ''} ready (Max 4 photos)
                     </Text>
                   </>
                 ) : (
                   <View style={s.photoEmpty}>
                     <ImageIcon size={24} color="#D1D5DB" strokeWidth={1.5} />
-                    <Text style={s.photoEmptyText}>No photos added yet (JPEG, PNG, WebP ≤ 5MB)</Text>
+                    <Text style={s.photoEmptyText}>No photos added yet (Max 4 photos, JPEG/PNG ≤ 5MB)</Text>
                   </View>
                 )}
               </SectionCard>
