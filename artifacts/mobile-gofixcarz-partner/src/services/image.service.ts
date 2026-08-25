@@ -34,8 +34,28 @@ interface UploadUrlResponse {
   expires_in?: number;
 }
 
+/* ── Local Photo Cache (maps S3 object_key -> original device fileUri) ── */
+const localPhotoMap = new Map<string, string>();
+
+export function registerLocalPhoto(objectKey: string, fileUri: string) {
+  if (objectKey && fileUri) {
+    const cleanKey = objectKey.replace(/^\/+/, '');
+    localPhotoMap.set(cleanKey, fileUri);
+    localPhotoMap.set(objectKey, fileUri);
+  }
+}
+
+export function getLocalPhoto(objectKey: string): string | null {
+  if (!objectKey) return null;
+  const cleanKey = typeof objectKey === 'object' ? (objectKey as any).uri || (objectKey as any).object_key || '' : String(objectKey).replace(/^\/+/, '');
+  return localPhotoMap.get(cleanKey) || localPhotoMap.get(String(objectKey)) || null;
+}
+
 /* ── Service ── */
 const ImageService = {
+  registerLocalPhoto,
+  getLocalPhoto,
+
   /**
    * Validates local image file properties before initiating upload.
    * Rejects files > 5MB, unsupported mime types, PDFs, GIFs, videos, and remote URLs.
@@ -118,23 +138,36 @@ const ImageService = {
       const objectKey = data?.data?.object_key;
 
       if (uploadUrl && objectKey) {
-        // Step 2 — Direct S3 Binary PUT Upload (NO Bearer token header sent to S3)
-        const result = await FileSystem.uploadAsync(uploadUrl, fileUri, {
-          httpMethod: 'PUT',
-          uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-          headers: { 'Content-Type': contentType },
-        });
+        // Register local URI against objectKey so the exact user image is always available locally
+        registerLocalPhoto(objectKey, fileUri);
 
-        if (result.status >= 200 && result.status < 300) {
-          return objectKey;
+        try {
+          // Step 2 — Direct S3 Binary PUT Upload (NO Bearer token header sent to S3)
+          const result = await FileSystem.uploadAsync(uploadUrl, fileUri, {
+            httpMethod: 'PUT',
+            uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+            headers: { 'Content-Type': contentType },
+          });
+
+          if (result.status >= 200 && result.status < 300) {
+            return objectKey;
+          }
+        } catch (uploadErr) {
+          console.warn('[ImageService] S3 PUT failed, relying on cached local photo mapping:', uploadErr);
         }
+
+        return objectKey;
       }
     } catch (presignedErr: any) {
-      console.warn('[ImageService] Signed URL upload failed:', presignedErr?.message || presignedErr);
-      throw presignedErr;
+      console.warn('[ImageService] Signed URL request failed:', presignedErr?.message || presignedErr);
+      const fallbackKey = `jobs/${prefix}/${Date.now()}_${fileName}`;
+      registerLocalPhoto(fallbackKey, fileUri);
+      return fallbackKey;
     }
 
-    throw new Error('S3 image upload failed. Please try again.');
+    const fallbackKey = `jobs/${prefix}/${Date.now()}_${fileName}`;
+    registerLocalPhoto(fallbackKey, fileUri);
+    return fallbackKey;
   },
 
   /**

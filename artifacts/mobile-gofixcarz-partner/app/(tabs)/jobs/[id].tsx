@@ -34,11 +34,15 @@ function resolveImageCandidates(raw: any): string[] {
   const str = typeof raw === 'object' ? (raw.uri || raw.url || raw.path || raw.object_key || '') : String(raw);
   if (!str) return [];
 
-  // Local device URIs
+  // Check if original uploaded local device URI is cached
+  const cachedLocalUri = ImageService.getLocalPhoto(str);
+  if (cachedLocalUri) {
+    return [cachedLocalUri];
+  }
+
+  // Local device URIs (file://, content://, ph://)
   if (str.startsWith('file://') || str.startsWith('content://') || str.startsWith('ph://')) {
-    const cleanKey = str.replace(/^(file:\/\/|content:\/\/|ph:\/\/)/, '').replace(/^\/+/, '');
-    const s3Candidate = `https://gofixcarz-uploads.s3.ap-south-1.amazonaws.com/${cleanKey}`;
-    return [str, s3Candidate];
+    return [str];
   }
 
   // Full HTTP/HTTPS / Data URIs
@@ -315,13 +319,39 @@ export default function JobDetailScreen() {
   const qc = useQueryClient();
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
-  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: QUERY_KEYS.JOB(id),
     queryFn: () => JobService.getById(id),
   });
+
+  const photosList = useMemo<any[]>(() => {
+    if (!data) return [];
+    const raw =
+      data.photos ||
+      (data as any).before_service_photos ||
+      (data as any).beforePhotos ||
+      (data as any).images ||
+      (data as any).inspection?.photos ||
+      (data as any).evidence ||
+      [];
+    return Array.isArray(raw) ? raw : [];
+  }, [data]);
+
+  const activePhotoUri = useMemo(() => {
+    if (selectedPhotoIndex === null || !photosList[selectedPhotoIndex]) return null;
+    const raw = photosList[selectedPhotoIndex];
+    const candidates = resolveImageCandidates(raw);
+    return candidates[0] || '';
+  }, [selectedPhotoIndex, photosList]);
+
+  const activePhotoRawKey = useMemo(() => {
+    if (selectedPhotoIndex === null || !photosList[selectedPhotoIndex]) return '';
+    const raw = photosList[selectedPhotoIndex] as any;
+    return typeof raw === 'object' && raw ? (raw.uri || raw.object_key || raw.url || '') : String(raw);
+  }, [selectedPhotoIndex, photosList]);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: QUERY_KEYS.JOB(id) });
@@ -384,6 +414,11 @@ export default function JobDetailScreen() {
           try {
             await JobService.update(id as string, { photos: remaining });
             invalidate();
+            if (selectedPhotoIndex === index) {
+              setSelectedPhotoIndex(null);
+            } else if (selectedPhotoIndex !== null && selectedPhotoIndex > index) {
+              setSelectedPhotoIndex(selectedPhotoIndex - 1);
+            }
             if (typeof targetKey === 'string' && !targetKey.startsWith('file://')) {
               ImageService.deleteObjectKey(targetKey);
             }
@@ -479,8 +514,8 @@ export default function JobDetailScreen() {
           <SectionCard icon="camera" title="Before Service Photos">
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <Text style={styles.photoSubText}>
-                {data.photos && data.photos.length > 0
-                  ? `${data.photos.length} photo${data.photos.length > 1 ? 's' : ''} captured:`
+                {photosList && photosList.length > 0
+                  ? `${photosList.length} photo${photosList.length > 1 ? 's' : ''} captured:`
                   : 'Add vehicle photos'}
               </Text>
               <TouchableOpacity
@@ -500,15 +535,14 @@ export default function JobDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {data.photos && data.photos.length > 0 ? (
+            {photosList && photosList.length > 0 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoGrid}>
-                {data.photos.map((item, index) => (
+                {photosList.map((item, index) => (
                   <SmartPhotoThumb
                     key={index}
                     item={item}
                     index={index}
-                    onSelect={(selectedUri) => setSelectedImageUri(selectedUri)}
-                    onRemove={() => handleRemovePhoto(index)}
+                    onSelect={() => setSelectedPhotoIndex(index)}
                   />
                 ))}
               </ScrollView>
@@ -627,34 +661,84 @@ export default function JobDetailScreen() {
         onCancel={() => setShowComplete(false)}
       />
 
-      {/* Full-Screen Image Preview Modal */}
-      {selectedImageUri && (
+      {/* Interactive Full-Screen Photo Detail Viewer Modal */}
+      {selectedPhotoIndex !== null && (
         <Modal
-          visible={!!selectedImageUri}
+          visible={selectedPhotoIndex !== null}
           transparent
           animationType="fade"
-          onRequestClose={() => setSelectedImageUri(null)}
+          onRequestClose={() => setSelectedPhotoIndex(null)}
         >
           <View style={styles.imageModalOverlay}>
             <TouchableOpacity
               style={StyleSheet.absoluteFill}
               activeOpacity={1}
-              onPress={() => setSelectedImageUri(null)}
+              onPress={() => setSelectedPhotoIndex(null)}
             />
             <View style={styles.imageModalContent} pointerEvents="box-none">
-              <TouchableOpacity
-                style={styles.imageModalCloseBtn}
-                onPress={() => setSelectedImageUri(null)}
-                activeOpacity={0.8}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <Feather name="x" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Image
-                source={{ uri: selectedImageUri }}
-                style={styles.fullImage}
-                resizeMode="contain"
-              />
+              {/* Header Bar */}
+              <View style={styles.modalHeaderBar}>
+                <View style={styles.modalBadge}>
+                  <Feather name="camera" size={12} color="#60A5FA" />
+                  <Text style={styles.modalBadgeText}>
+                    Before Service • Photo {selectedPhotoIndex + 1} of {photosList.length}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.imageModalCloseBtn}
+                  onPress={() => setSelectedPhotoIndex(null)}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <Feather name="x" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Main Image View with Side Navigation Controls */}
+              <View style={styles.modalBodyRow}>
+                {photosList.length > 1 && (
+                  <TouchableOpacity
+                    style={[styles.navArrowBtn, styles.navArrowLeft, selectedPhotoIndex === 0 && { opacity: 0.3 }]}
+                    disabled={selectedPhotoIndex === 0}
+                    onPress={() => setSelectedPhotoIndex(prev => (prev !== null && prev > 0 ? prev - 1 : prev))}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name="chevron-left" size={26} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
+
+                {activePhotoUri ? (
+                  <Image
+                    source={{ uri: activePhotoUri }}
+                    style={styles.fullImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={styles.modalFallbackBox}>
+                    <Feather name="alert-triangle" size={32} color="#F59E0B" />
+                    <Text style={styles.modalFallbackText}>Unable to load full resolution photo.</Text>
+                  </View>
+                )}
+
+                {photosList.length > 1 && (
+                  <TouchableOpacity
+                    style={[styles.navArrowBtn, styles.navArrowRight, selectedPhotoIndex === photosList.length - 1 && { opacity: 0.3 }]}
+                    disabled={selectedPhotoIndex === photosList.length - 1}
+                    onPress={() => setSelectedPhotoIndex(prev => (prev !== null && prev < photosList.length - 1 ? prev + 1 : prev))}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name="chevron-right" size={26} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Footer Info Overlay */}
+              <View style={styles.modalFooterInfo}>
+                <Text style={styles.modalFooterText} numberOfLines={1} ellipsizeMode="middle">
+                  {activePhotoRawKey ? `S3 Key: ${activePhotoRawKey}` : `Photo #${selectedPhotoIndex + 1}`}
+                </Text>
+              </View>
             </View>
           </View>
         </Modal>
@@ -835,13 +919,50 @@ const styles = StyleSheet.create({
   },
   imageModalContent: {
     width: '100%', height: '100%',
-    justifyContent: 'center', alignItems: 'center',
+    justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: Platform.OS === 'ios' ? 50 : 30,
   },
+  modalHeaderBar: {
+    width: '100%', flexDirection: 'row',
+    alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, zIndex: 30,
+  },
+  modalBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  modalBadgeText: { fontSize: 12, fontWeight: '600', color: '#F8FAFC' },
   imageModalCloseBtn: {
-    position: 'absolute', top: Platform.OS === 'ios' ? 54 : 24, right: 20,
-    zIndex: 20, width: 42, height: 42, borderRadius: 21,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
-  fullImage: { width: '92%', height: '75%' },
+  modalBodyRow: {
+    width: '100%', flex: 1, flexDirection: 'row',
+    alignItems: 'center', justifyContent: 'center',
+    position: 'relative',
+  },
+  fullImage: { width: '85%', height: '80%' },
+  navArrowBtn: {
+    position: 'absolute', top: '45%',
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center', justifyContent: 'center',
+    zIndex: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+  },
+  navArrowLeft: { left: 16 },
+  navArrowRight: { right: 16 },
+  modalFallbackBox: {
+    alignItems: 'center', justifyContent: 'center', gap: 10,
+    padding: 24, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 16,
+  },
+  modalFallbackText: { color: '#CBD5E1', fontSize: 13, textAlign: 'center' },
+  modalFooterInfo: {
+    paddingHorizontal: 16, paddingVertical: 8,
+    borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.6)',
+    marginBottom: 10, maxWidth: '90%',
+  },
+  modalFooterText: { fontSize: 11, color: '#94A3B8', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
 });
+

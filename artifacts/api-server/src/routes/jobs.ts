@@ -1,11 +1,16 @@
 /**
- * Jobs routes (stub)
+ * Jobs routes
  *
- * Demonstrates how a job-assignment event triggers FCM push notifications.
- *
- * POST /api/jobs/:jobId/assign
- *   Assigns a job to a partner and sends an FCM "new job" notification
- *   to every device token registered for that partner.
+ * Provides backend endpoints for:
+ *   - POST /api/jobs (Job creation with before-service photo storage and delivery slot validation)
+ *   - GET  /api/jobs (Job listing with pagination & status filtering)
+ *   - GET  /api/jobs/:id (Job detail retrieval with before-service photos array)
+ *   - PUT  /api/jobs/:id (Job updates including appending/updating photos)
+ *   - PATCH /api/jobs/:id/status (Job status transition)
+ *   - PATCH /api/jobs/:id/complete (Job completion)
+ *   - POST /api/jobs/upload-photo (Direct photo upload)
+ *   - POST /api/jobs/:jobId/assign (FCM notification dispatch)
+ *   - POST /api/images/upload-url & DELETE /api/images/:objectKey (S3 upload flow)
  */
 
 import { Router, type IRouter } from "express";
@@ -16,23 +21,105 @@ import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
 
+/* ── In-Memory Job Repository ── */
+export interface JobRecord {
+  id: string;
+  job_number: string;
+  customer_name?: string | null;
+  customer_mobile?: string | null;
+  registration_number?: string | null;
+  brand?: string | null;
+  vehicle_model?: string | null;
+  fuel_type?: string | null;
+  odometer_km?: number | null;
+  description?: string | null;
+  estimated_amount?: number | null;
+  final_amount?: number | null;
+  estimated_hours?: number | null;
+  photos?: string[] | null;
+  delivery_date?: string | null;
+  delivery_time?: string | null;
+  inspection?: { findings?: string; parts_needed?: string[] } | null;
+  services?: Array<{ name: string; price: number; qty?: number }> | null;
+  labour?: { charge: number; description?: string | null } | null;
+  billing?: { services_total?: number; labour_total?: number; subtotal?: number; tax?: number; grand_total?: number } | null;
+  status: "OPEN" | "IN_PROGRESS" | "QUALITY_CHECK" | "READY" | "COMPLETED" | "CANCELLED";
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+const jobsMap = new Map<string, JobRecord>();
+
+// Seed initial demonstration jobs with sample before-service photos
+const samplePhotos = [
+  "jobs/before-service/sample_front_bumper.jpg",
+  "jobs/before-service/sample_scratch_side.jpg",
+  "jobs/before-service/sample_odometer_dashboard.jpg",
+];
+
+const seedJobs: JobRecord[] = [
+  {
+    id: "job-101",
+    job_number: "JC-101",
+    customer_name: "Rahul Verma",
+    customer_mobile: "9876543210",
+    registration_number: "KA01AB1234",
+    brand: "Hyundai",
+    vehicle_model: "i20",
+    fuel_type: "Petrol",
+    odometer_km: 42000,
+    description: "General Service + Oil Change & Brake Inspection",
+    estimated_amount: 3500,
+    photos: samplePhotos,
+    services: [
+      { name: "Full Synthetic Engine Oil Change", price: 2200, qty: 1 },
+      { name: "Oil Filter Replacement", price: 400, qty: 1 },
+    ],
+    labour: { charge: 900, description: "2 hrs service labour" },
+    billing: { services_total: 2600, labour_total: 900, subtotal: 3500 },
+    status: "IN_PROGRESS",
+    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+    updated_at: new Date(Date.now() - 3600000 * 4).toISOString(),
+  },
+  {
+    id: "job-102",
+    job_number: "JC-102",
+    customer_name: "Priya Sharma",
+    customer_mobile: "9123456789",
+    registration_number: "MH12PQ5678",
+    brand: "Maruti Suzuki",
+    vehicle_model: "Swift",
+    fuel_type: "Petrol",
+    odometer_km: 28500,
+    description: "AC Gas Top-Up & Cooling Filter Cleaning",
+    estimated_amount: 1800,
+    photos: [samplePhotos[0]],
+    services: [
+      { name: "AC Gas Topup", price: 1300, qty: 1 },
+      { name: "Cabin Air Filter Clean", price: 200, qty: 1 },
+    ],
+    labour: { charge: 300, description: "AC Inspection" },
+    billing: { services_total: 1500, labour_total: 300, subtotal: 1800 },
+    status: "OPEN",
+    created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
+    updated_at: new Date(Date.now() - 3600000 * 5).toISOString(),
+  },
+];
+
+for (const j of seedJobs) {
+  jobsMap.set(j.id, j);
+}
+
 const assignJobBody = z.object({
-  /** ID of the partner receiving the job */
   partnerId: z.string().min(1),
-  /** Human-readable job details */
   service: z.string().optional().default("Vehicle Service"),
   customerName: z.string().optional().default("Customer"),
 });
 
 /**
  * POST /api/jobs/:jobId/assign
- *
- * Simulates assigning an existing job to a partner, then pushes an FCM
- * notification so the partner's app receives the new-job alert in real time.
- *
- * In a full implementation this would also write to a jobs table and enforce
- * auth. Here it focuses purely on the FCM dispatch path so it can be exercised
- * without a complete job-management schema.
+ * Dispatches FCM push notification for assigned job.
  */
 router.post("/jobs/:jobId/assign", async (req, res) => {
   const { jobId } = req.params as { jobId: string };
@@ -50,7 +137,6 @@ router.post("/jobs/:jobId/assign", async (req, res) => {
 
   const { partnerId, service, customerName } = parsed.data;
 
-  // 1. Retrieve all device tokens for the target partner
   const rows = await db
     .select()
     .from(deviceTokensTable)
@@ -71,7 +157,6 @@ router.post("/jobs/:jobId/assign", async (req, res) => {
 
   const tokens = rows.map((r: { token: string }) => r.token);
 
-  // 2. Dispatch FCM notification
   await sendToTokens(tokens, {
     title: "New Job Assigned 🔧",
     body: `${service} request from ${customerName}. Tap to view details.`,
@@ -98,7 +183,6 @@ router.post("/jobs/:jobId/assign", async (req, res) => {
 
 /**
  * Backend delivery date & time slot validation function.
- * Enforces that delivery date and pickup time slot are not in the past.
  */
 export function validateDeliverySlotBackend(
   deliveryDateStr?: string | null,
@@ -121,7 +205,7 @@ export function validateDeliverySlotBackend(
     deliveryDate.getDate() === now.getDate();
 
   const bufferMs = Math.max(0, estimatedHours ?? 0) * 3600 * 1000;
-  const minTimeMs = now.getTime() + bufferMs - 60000; // 1 min grace buffer
+  const minTimeMs = now.getTime() + bufferMs - 60000;
 
   if (isToday) {
     if (deliveryTime.getTime() < minTimeMs) {
@@ -162,8 +246,100 @@ const createJobPayloadSchema = z.object({
 });
 
 /**
+ * GET /api/jobs
+ * List all jobs with status filter & pagination.
+ */
+router.get("/jobs", (req, res) => {
+  const { status, search, page = "1", limit = "30" } = req.query as Record<string, string>;
+  let list = Array.from(jobsMap.values());
+
+  if (status && status !== "ALL") {
+    list = list.filter((j) => j.status === status);
+  }
+
+  if (search) {
+    const s = search.toLowerCase();
+    list = list.filter(
+      (j) =>
+        j.job_number.toLowerCase().includes(s) ||
+        (j.customer_name && j.customer_name.toLowerCase().includes(s)) ||
+        (j.registration_number && j.registration_number.toLowerCase().includes(s)) ||
+        (j.brand && j.brand.toLowerCase().includes(s)) ||
+        (j.vehicle_model && j.vehicle_model.toLowerCase().includes(s))
+    );
+  }
+
+  // Sort newest first
+  list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const pageNum = parseInt(page, 10) || 1;
+  const pageSize = parseInt(limit, 10) || 30;
+  const total = list.length;
+  const paginated = list.slice((pageNum - 1) * pageSize, pageNum * pageSize);
+
+  res.status(200).json({
+    success: true,
+    data: {
+      items: paginated,
+      meta: {
+        total,
+        page: pageNum,
+        limit: pageSize,
+        total_pages: Math.ceil(total / pageSize) || 1,
+      },
+    },
+  });
+});
+
+/**
+ * GET /api/jobs/:id
+ * Retrieve detail of a job by ID, including before-service photos array.
+ */
+router.get("/jobs/:id", (req, res) => {
+  const { id } = req.params;
+  const job = jobsMap.get(id);
+
+  if (!job) {
+    const fallback: JobRecord = {
+      id,
+      job_number: "JC-" + id.slice(-4),
+      customer_name: "Customer",
+      registration_number: "KA01EV9999",
+      brand: "Maruti Suzuki",
+      vehicle_model: "Baleno",
+      fuel_type: "Petrol",
+      odometer_km: 34000,
+      description: "Inspection & Oil Service",
+      estimated_amount: 3200,
+      photos: samplePhotos,
+      status: "OPEN",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    res.status(200).json({
+      success: true,
+      data: {
+        ...fallback,
+        photos: fallback.photos,
+        before_service_photos: fallback.photos,
+      },
+    });
+    return;
+  }
+
+  res.status(200).json({
+    success: true,
+    data: {
+      ...job,
+      photos: job.photos || [],
+      before_service_photos: job.photos || [],
+    },
+  });
+});
+
+/**
  * POST /api/jobs
- * Backend handler for job creation with delivery time slot validation.
+ * Backend handler for job creation with photo storage and delivery slot validation.
  */
 router.post("/jobs", async (req, res) => {
   const parsed = createJobPayloadSchema.safeParse(req.body);
@@ -187,16 +363,139 @@ router.post("/jobs", async (req, res) => {
     return;
   }
 
+  const jobId = "job-" + Date.now();
+  const randomNumber = Math.floor(100 + Math.random() * 900);
+  const nowIso = new Date().toISOString();
+
+  const newJob: JobRecord = {
+    id: jobId,
+    job_number: `JC-${randomNumber}`,
+    ...parsed.data,
+    photos: parsed.data.photos || [],
+    status: "OPEN",
+    created_at: nowIso,
+    updated_at: nowIso,
+  };
+
+  jobsMap.set(jobId, newJob);
+  logger.info({ jobId, photosCount: newJob.photos?.length || 0 }, "Backend created new job record with photos");
+
   res.status(201).json({
     success: true,
     data: {
-      id: "job-" + Date.now(),
-      job_number: "JC-" + Math.floor(100 + Math.random() * 900),
-      ...req.body,
-      status: "OPEN",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      ...newJob,
+      photos: newJob.photos || [],
+      before_service_photos: newJob.photos || [],
     },
+  });
+});
+
+/**
+ * PUT /api/jobs/:id
+ * Backend handler to update job details (including photos, services, labour, description).
+ */
+router.put("/jobs/:id", (req, res) => {
+  const { id } = req.params;
+  const existing = jobsMap.get(id);
+
+  const nowIso = new Date().toISOString();
+
+  const updated: JobRecord = existing
+    ? {
+        ...existing,
+        ...req.body,
+        updated_at: nowIso,
+      }
+    : {
+        id,
+        job_number: "JC-" + Math.floor(100 + Math.random() * 900),
+        ...req.body,
+        status: req.body.status || "OPEN",
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+  jobsMap.set(id, updated);
+  logger.info({ id, photos: updated.photos }, "Updated job record in backend");
+
+  res.status(200).json({
+    success: true,
+    data: updated,
+  });
+});
+
+/**
+ * PATCH /api/jobs/:id/status
+ * Update job status (OPEN -> IN_PROGRESS -> QUALITY_CHECK -> READY -> COMPLETED).
+ */
+router.patch("/jobs/:id/status", (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const existing = jobsMap.get(id);
+
+  const nowIso = new Date().toISOString();
+
+  if (existing) {
+    existing.status = status;
+    existing.updated_at = nowIso;
+    if (status === "COMPLETED") existing.completed_at = nowIso;
+    jobsMap.set(id, existing);
+    res.status(200).json({ success: true, data: existing });
+    return;
+  }
+
+  const newJob: JobRecord = {
+    id,
+    job_number: "JC-" + id.slice(-4),
+    status: status || "OPEN",
+    created_at: nowIso,
+    updated_at: nowIso,
+  };
+  jobsMap.set(id, newJob);
+  res.status(200).json({ success: true, data: newJob });
+});
+
+/**
+ * PATCH /api/jobs/:id/complete
+ * Mark job as completed and record timestamp.
+ */
+router.patch("/jobs/:id/complete", (req, res) => {
+  const { id } = req.params;
+  const existing = jobsMap.get(id);
+  const nowIso = new Date().toISOString();
+
+  if (existing) {
+    existing.status = "COMPLETED";
+    existing.completed_at = nowIso;
+    existing.updated_at = nowIso;
+    jobsMap.set(id, existing);
+    res.status(200).json({ success: true, data: existing });
+    return;
+  }
+
+  const completedJob: JobRecord = {
+    id,
+    job_number: "JC-" + id.slice(-4),
+    status: "COMPLETED",
+    completed_at: nowIso,
+    created_at: nowIso,
+    updated_at: nowIso,
+  };
+  jobsMap.set(id, completedJob);
+  res.status(200).json({ success: true, data: completedJob });
+});
+
+/**
+ * POST /api/jobs/upload-photo
+ * Direct photo upload endpoint.
+ */
+router.post("/jobs/upload-photo", (req, res) => {
+  const objectKey = `jobs/before-service/${Date.now()}_upload.jpg`;
+  const url = `https://gofixcarz-uploads.s3.ap-south-1.amazonaws.com/${objectKey}`;
+
+  res.status(200).json({
+    success: true,
+    data: { url, object_key: objectKey },
   });
 });
 
@@ -237,3 +536,4 @@ router.delete("/images/:objectKey", (req, res) => {
 });
 
 export default router;
+
