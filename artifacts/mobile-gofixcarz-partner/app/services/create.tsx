@@ -104,21 +104,7 @@ export default function CreateServiceScreen() {
       const addedName = newPkg?.name || name.trim();
       Alert.alert(
         'Success',
-        `New service "${addedName}" added successfully!`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              if (from === 'dashboard') {
-                router.replace('/(tabs)' as never);
-              } else if (from === 'job_create') {
-                router.push('/(tabs)/jobs/create' as never);
-              } else {
-                router.push('/(tabs)/services' as never);
-              }
-            },
-          },
-        ]
+        `New service "${addedName}" added successfully!`
       );
       setName('');
       setPrice('');
@@ -134,6 +120,9 @@ export default function CreateServiceScreen() {
     },
   });
 
+  const MAX_DURATION_MINS = 1440;
+  const MAX_PRICE = 1000000;
+
   function validate(): boolean {
     const errs: Record<string, string> = {};
     if (!name.trim()) {
@@ -143,15 +132,42 @@ export default function CreateServiceScreen() {
     }
     if (!price.trim()) {
       errs.price = 'Service price is required.';
-    } else if (isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
-      errs.price = 'Price must be a valid positive amount.';
+    } else {
+      const p = parseFloat(price);
+      if (isNaN(p) || p <= 0) {
+        errs.price = 'Price must be a valid positive amount.';
+      } else if (p > MAX_PRICE) {
+        errs.price = 'Price cannot exceed ₹10,00,000.';
+      }
     }
-    if (duration && (isNaN(parseInt(duration, 10)) || parseInt(duration, 10) <= 0)) {
-      errs.duration = 'Duration must be a positive number of minutes.';
+    if (duration.trim()) {
+      if (!/^\d+$/.test(duration.trim())) {
+        errs.duration = 'Accepts positive whole minutes only.';
+      } else {
+        const d = parseInt(duration, 10);
+        if (d <= 0) {
+          errs.duration = 'Duration must be greater than 0 mins.';
+        } else if (d > MAX_DURATION_MINS) {
+          errs.duration = 'Max duration is 1,440 mins (24 hrs).';
+        }
+      }
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
+
+  const isFormInvalid = React.useMemo(() => {
+    if (!name.trim() || isDuplicateName) return true;
+    if (!price.trim()) return true;
+    const p = parseFloat(price);
+    if (isNaN(p) || p <= 0 || p > MAX_PRICE) return true;
+    if (duration.trim()) {
+      if (!/^\d+$/.test(duration.trim())) return true;
+      const d = parseInt(duration, 10);
+      if (d <= 0 || d > MAX_DURATION_MINS) return true;
+    }
+    return Object.values(errors).some(msg => !!msg);
+  }, [name, isDuplicateName, price, duration, errors]);
 
   function handleSubmit() {
     if (validate()) {
@@ -244,6 +260,7 @@ export default function CreateServiceScreen() {
                   placeholder="e.g. 1499"
                   placeholderTextColor="#94A3B8"
                   keyboardType="number-pad"
+                  maxLength={7}
                 />
               </View>
               {!!errors.price && (
@@ -265,12 +282,14 @@ export default function CreateServiceScreen() {
                   style={s.field}
                   value={duration}
                   onChangeText={v => {
-                    setDuration(v);
+                    const clean = v.replace(/[^0-9]/g, '');
+                    setDuration(clean);
                     if (errors.duration) setErrors(e => ({ ...e, duration: '' }));
                   }}
                   placeholder="e.g. 60"
                   placeholderTextColor="#94A3B8"
                   keyboardType="number-pad"
+                  maxLength={4}
                 />
               </View>
               {!!errors.duration && (
@@ -304,9 +323,9 @@ export default function CreateServiceScreen() {
 
           {/* Submit Button */}
           <TouchableOpacity
-            style={[s.submitBtn, createMut.isPending && { opacity: 0.7 }]}
+            style={[s.submitBtn, (createMut.isPending || isFormInvalid) && { opacity: 0.5 }]}
             onPress={handleSubmit}
-            disabled={createMut.isPending}
+            disabled={createMut.isPending || isFormInvalid}
             activeOpacity={0.85}
           >
             {createMut.isPending ? (

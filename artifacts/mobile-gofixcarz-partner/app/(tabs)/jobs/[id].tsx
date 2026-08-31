@@ -327,7 +327,7 @@ export default function JobDetailScreen() {
     queryFn: () => JobService.getById(id),
   });
 
-  const photosList = useMemo<any[]>(() => {
+  const beforeServicePhotos = useMemo<any[]>(() => {
     if (!data) return [];
     const raw =
       data.photos ||
@@ -337,8 +337,32 @@ export default function JobDetailScreen() {
       (data as any).inspection?.photos ||
       (data as any).evidence ||
       [];
-    return Array.isArray(raw) ? raw : [];
+    const list = Array.isArray(raw) ? raw : [];
+    return list.filter((item: any) => {
+      const str = typeof item === 'object' ? (item.object_key || item.uri || item.url || '') : String(item);
+      const lower = str.toLowerCase();
+      return !lower.includes('doc_') && !lower.includes('document') && !lower.includes('/doc');
+    });
   }, [data]);
+
+  const attachedDocuments = useMemo<any[]>(() => {
+    if (!data) return [];
+    const docRaw = (data as any).documents || (data as any).attached_documents || (data as any).docs || [];
+    const docList = Array.isArray(docRaw) ? docRaw : [];
+    const rawPhotos = data.photos || (data as any).before_service_photos || [];
+    const legacyDocPhotos = Array.isArray(rawPhotos)
+      ? rawPhotos.filter((item: any) => {
+          const str = typeof item === 'object' ? (item.object_key || item.uri || item.url || '') : String(item);
+          const lower = str.toLowerCase();
+          return lower.includes('doc_') || lower.includes('document') || lower.includes('/doc');
+        })
+      : [];
+    return [...docList, ...legacyDocPhotos];
+  }, [data]);
+
+  const photosList = useMemo<any[]>(() => {
+    return [...beforeServicePhotos, ...attachedDocuments];
+  }, [beforeServicePhotos, attachedDocuments]);
 
   const activePhotoUri = useMemo(() => {
     if (selectedPhotoIndex === null || !photosList[selectedPhotoIndex]) return null;
@@ -361,22 +385,24 @@ export default function JobDetailScreen() {
   };
 
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
 
   async function handleAddPhoto() {
-    if (photosList.length >= 4) {
+    if (beforeServicePhotos.length >= 4) {
       Alert.alert('Photo Limit Reached', 'A maximum of 4 before service photos can be uploaded for a job card.');
       return;
     }
 
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Allow photo library access to add photos.');
+      Alert.alert('Permission needed', 'Camera access is needed to capture before service photos.');
       return;
     }
 
-    const res = await ImagePicker.launchImageLibraryAsync({
+    const res = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
       quality: 0.8,
+      allowsEditing: false,
     });
 
     if (res.canceled || !res.assets[0]?.uri) return;
@@ -396,11 +422,74 @@ export default function JobDetailScreen() {
       const existingPhotos = data?.photos || [];
       await JobService.update(id as string, { photos: [...existingPhotos, objectKey] });
       invalidate();
-      Alert.alert('Success', 'Photo uploaded successfully.');
+      Alert.alert('Success', 'Before service photo uploaded successfully.');
     } catch (err: any) {
       Alert.alert('Upload Failed', err?.message || 'Failed to upload photo.');
     } finally {
       setIsUploadingPhoto(false);
+    }
+  }
+
+  async function handleAddDocument() {
+    Alert.alert('Attach Document', 'Select document source:', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Take Photo (Camera)',
+        onPress: async () => {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync();
+          if (status !== 'granted') {
+            Alert.alert('Permission Needed', 'Camera access is required to take document photos.');
+            return;
+          }
+          const res = await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            quality: 0.8,
+            allowsEditing: false,
+          });
+          if (!res.canceled && res.assets[0]?.uri) {
+            uploadDocUri(res.assets[0].uri);
+          }
+        },
+      },
+      {
+        text: 'From Gallery',
+        onPress: async () => {
+          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (status !== 'granted') {
+            Alert.alert('Permission Needed', 'Gallery access is required to pick documents.');
+            return;
+          }
+          const res = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            quality: 0.8,
+          });
+          if (!res.canceled && res.assets[0]?.uri) {
+            uploadDocUri(res.assets[0].uri);
+          }
+        },
+      },
+    ]);
+  }
+
+  async function uploadDocUri(pickedUri: string) {
+    try {
+      await ImageService.validateImageFile(pickedUri);
+    } catch (valErr: any) {
+      Alert.alert('Invalid Document', valErr?.message || 'Selected file is invalid.');
+      return;
+    }
+
+    setIsUploadingDoc(true);
+    try {
+      const objectKey = await ImageService.uploadToS3(pickedUri, 'doc');
+      const existingDocs = (data as any)?.documents || [];
+      await JobService.update(id as string, { documents: [...existingDocs, objectKey] } as any);
+      invalidate();
+      Alert.alert('Success', 'Document attached successfully.');
+    } catch (err: any) {
+      Alert.alert('Upload Failed', err?.message || 'Failed to attach document.');
+    } finally {
+      setIsUploadingDoc(false);
     }
   }
 
@@ -519,37 +608,40 @@ export default function JobDetailScreen() {
           <SectionCard icon="camera" title="Before Service Photos">
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <Text style={styles.photoSubText}>
-                {photosList && photosList.length > 0
-                  ? `${photosList.length} photo${photosList.length > 1 ? 's' : ''} captured (Max 4):`
+                {beforeServicePhotos && beforeServicePhotos.length > 0
+                  ? `${beforeServicePhotos.length} photo${beforeServicePhotos.length > 1 ? 's' : ''} captured (Max 4):`
                   : 'Add vehicle photos (Max 4)'}
               </Text>
               <TouchableOpacity
-                style={[styles.addPhotoBtn, (isUploadingPhoto || photosList.length >= 4) && { opacity: 0.5 }]}
+                style={[styles.addPhotoBtn, (isUploadingPhoto || beforeServicePhotos.length >= 4) && { opacity: 0.5 }]}
                 onPress={handleAddPhoto}
-                disabled={isUploadingPhoto || photosList.length >= 4}
+                disabled={isUploadingPhoto || beforeServicePhotos.length >= 4}
                 activeOpacity={0.8}
               >
                 {isUploadingPhoto ? (
                   <ActivityIndicator size="small" color={PRIMARY} />
                 ) : (
                   <>
-                    <Feather name="plus" size={13} color={photosList.length >= 4 ? "#94A3B8" : PRIMARY} />
-                    <Text style={[styles.addPhotoBtnText, photosList.length >= 4 && { color: "#94A3B8" }]}>
-                      {photosList.length >= 4 ? 'Limit Reached' : 'Add Photo'}
+                    <Feather name="plus" size={13} color={beforeServicePhotos.length >= 4 ? "#94A3B8" : PRIMARY} />
+                    <Text style={[styles.addPhotoBtnText, beforeServicePhotos.length >= 4 && { color: "#94A3B8" }]}>
+                      {beforeServicePhotos.length >= 4 ? 'Limit Reached' : 'Add Photo'}
                     </Text>
                   </>
                 )}
               </TouchableOpacity>
             </View>
 
-            {photosList && photosList.length > 0 ? (
+            {beforeServicePhotos && beforeServicePhotos.length > 0 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoGrid}>
-                {photosList.map((item, index) => (
+                {beforeServicePhotos.map((item, index) => (
                   <SmartPhotoThumb
                     key={index}
                     item={item}
                     index={index}
-                    onSelect={() => setSelectedPhotoIndex(index)}
+                    onSelect={() => {
+                      const idx = photosList.indexOf(item);
+                      setSelectedPhotoIndex(idx >= 0 ? idx : index);
+                    }}
                   />
                 ))}
               </ScrollView>
@@ -557,6 +649,53 @@ export default function JobDetailScreen() {
               <View style={styles.noPhotoBox}>
                 <Feather name="camera-off" size={20} color="#94A3B8" />
                 <Text style={styles.noPhotoText}>No photos available.</Text>
+              </View>
+            )}
+          </SectionCard>
+
+          {/* Attached Documents */}
+          <SectionCard icon="file-text" title="Attached Documents">
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={styles.photoSubText}>
+                {attachedDocuments && attachedDocuments.length > 0
+                  ? `${attachedDocuments.length} document${attachedDocuments.length > 1 ? 's' : ''} attached:`
+                  : 'Attach RC, DL, or Insurance documents'}
+              </Text>
+              <TouchableOpacity
+                style={[styles.addPhotoBtn, isUploadingDoc && { opacity: 0.5 }]}
+                onPress={handleAddDocument}
+                disabled={isUploadingDoc}
+                activeOpacity={0.8}
+              >
+                {isUploadingDoc ? (
+                  <ActivityIndicator size="small" color={PRIMARY} />
+                ) : (
+                  <>
+                    <Feather name="plus" size={13} color={PRIMARY} />
+                    <Text style={styles.addPhotoBtnText}>Add Document</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {attachedDocuments && attachedDocuments.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoGrid}>
+                {attachedDocuments.map((item, index) => (
+                  <SmartPhotoThumb
+                    key={index}
+                    item={item}
+                    index={index}
+                    onSelect={() => {
+                      const idx = photosList.indexOf(item);
+                      setSelectedPhotoIndex(idx >= 0 ? idx : index);
+                    }}
+                  />
+                ))}
+              </ScrollView>
+            ) : (
+              <View style={styles.noPhotoBox}>
+                <Feather name="file-minus" size={20} color="#94A3B8" />
+                <Text style={styles.noPhotoText}>No attached documents available.</Text>
               </View>
             )}
           </SectionCard>
@@ -686,9 +825,23 @@ export default function JobDetailScreen() {
               {/* Header Bar */}
               <View style={styles.modalHeaderBar}>
                 <View style={styles.modalBadge}>
-                  <Feather name="camera" size={12} color="#60A5FA" />
+                  <Feather
+                    name={
+                      (() => {
+                        const rawItem = photosList[selectedPhotoIndex];
+                        const str = typeof rawItem === 'object' ? (rawItem?.object_key || rawItem?.uri || rawItem?.url || '') : String(rawItem || '');
+                        return str.toLowerCase().includes('doc') ? 'file-text' : 'camera';
+                      })()
+                    }
+                    size={12}
+                    color="#60A5FA"
+                  />
                   <Text style={styles.modalBadgeText}>
-                    Before Service • Photo {selectedPhotoIndex + 1} of {photosList.length}
+                    {(() => {
+                      const rawItem = photosList[selectedPhotoIndex];
+                      const str = typeof rawItem === 'object' ? (rawItem?.object_key || rawItem?.uri || rawItem?.url || '') : String(rawItem || '');
+                      return str.toLowerCase().includes('doc') ? 'Attached Document' : 'Before Service Photo';
+                    })()} • {selectedPhotoIndex + 1} of {photosList.length}
                   </Text>
                 </View>
 

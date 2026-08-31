@@ -53,6 +53,7 @@ export interface JobResponse {
   fuel_type: string | null;
   odometer_km: number | null;
   photos: string[] | null;
+  documents?: string[] | null;
   inspection: InspectionData | null;
   services: ServiceItem[] | null;
   labour: LabourData | null;
@@ -81,6 +82,7 @@ export interface JobCreate {
   fuel_type?: string | null;
   odometer_km?: number | null;
   photos?: string[] | null;
+  documents?: string[] | null;
   customer_id?: string | null;
   vehicle_id?: string | null;
   booking_id?: string | null;
@@ -92,6 +94,7 @@ export interface JobUpdate {
   description?: string | null;
   estimated_amount?: number | null;
   photos?: string[] | null;
+  documents?: string[] | null;
   inspection?: InspectionData | null;
   services?: ServiceItem[] | null;
   labour?: LabourData | null;

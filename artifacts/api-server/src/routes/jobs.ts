@@ -241,6 +241,7 @@ const createJobPayloadSchema = z.object({
   estimated_amount: z.number().optional().nullable(),
   estimated_hours: z.number().optional().nullable(),
   photos: z.array(z.string()).max(4, "Maximum 4 before service photos allowed").optional().nullable(),
+  documents: z.array(z.string()).optional().nullable(),
   delivery_date: z.string().optional().nullable(),
   delivery_time: z.string().optional().nullable(),
 });
@@ -322,6 +323,7 @@ router.get("/jobs/:id", (req, res) => {
         ...fallback,
         photos: fallback.photos,
         before_service_photos: fallback.photos,
+        documents: fallback.documents || [],
       },
     });
     return;
@@ -333,6 +335,7 @@ router.get("/jobs/:id", (req, res) => {
       ...job,
       photos: job.photos || [],
       before_service_photos: job.photos || [],
+      documents: job.documents || [],
     },
   });
 });
@@ -372,13 +375,14 @@ router.post("/jobs", async (req, res) => {
     job_number: `JC-${randomNumber}`,
     ...parsed.data,
     photos: parsed.data.photos || [],
+    documents: parsed.data.documents || [],
     status: "OPEN",
     created_at: nowIso,
     updated_at: nowIso,
   };
 
   jobsMap.set(jobId, newJob);
-  logger.info({ jobId, photosCount: newJob.photos?.length || 0 }, "Backend created new job record with photos");
+  logger.info({ jobId, photosCount: newJob.photos?.length || 0, docsCount: newJob.documents?.length || 0 }, "Backend created new job record with photos and documents");
 
   res.status(201).json({
     success: true,
@@ -386,6 +390,7 @@ router.post("/jobs", async (req, res) => {
       ...newJob,
       photos: newJob.photos || [],
       before_service_photos: newJob.photos || [],
+      documents: newJob.documents || [],
     },
   });
 });

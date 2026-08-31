@@ -675,7 +675,8 @@ export default function CreateJobScreen() {
         );
       }
 
-      const photoKeys = [...beforeServiceKeys, ...docKeys];
+      const photoKeys = beforeServiceKeys;
+      const documentKeys = docKeys;
 
       const hasServices = services.length > 0;
       const hasLabour = parseFloat(labourCharge) > 0;
@@ -687,6 +688,7 @@ export default function CreateJobScreen() {
           description: additionalNotes || null,
           estimated_amount: grandTotal || null,
           ...(photoKeys.length > 0 && { photos: photoKeys }),
+          ...(documentKeys.length > 0 && { documents: documentKeys }),
           ...(hasInspect && { inspection: { findings: [complaint, inspectionNotes].filter(Boolean).join('\n') } }),
           ...(hasServices && { services: services.map(s => ({ name: s.name, price: s.price, qty: s.qty })) }),
           ...(hasLabour && { labour: { charge: parseFloat(labourCharge), description: estHours ? `${estHours} hrs` : null } }),
@@ -706,12 +708,14 @@ export default function CreateJobScreen() {
         description: additionalNotes || null,
         estimated_amount: grandTotal || null,
         photos: photoKeys.length > 0 ? photoKeys : null,
+        documents: documentKeys.length > 0 ? documentKeys : null,
       });
 
       // Step 2: enrich the job with services, labour, and inspection data
       if (job?.id && (hasServices || hasLabour || hasInspect)) {
         await JobService.update(job.id, {
           ...(photoKeys.length > 0 && { photos: photoKeys }),
+          ...(documentKeys.length > 0 && { documents: documentKeys }),
           ...(hasInspect && { inspection: { findings: [complaint, inspectionNotes].filter(Boolean).join('\n') } }),
           ...(hasServices && { services: services.map(s => ({ name: s.name, price: s.price, qty: s.qty })) }),
           ...(hasLabour && { labour: { charge: parseFloat(labourCharge), description: estHours ? `${estHours} hrs` : null } }),
@@ -1222,22 +1226,13 @@ export default function CreateJobScreen() {
               <SectionCard title="Before Service Photos" iconBg="#F0FDF4" Icon={Camera} iconColor={SUCCESS}>
                 <View style={s.photoActionsRow}>
                   <TouchableOpacity
-                    style={[s.photoBtn, (isAnyPhotoUploading || beforePhotos.length >= 4) && { opacity: 0.5 }]}
+                    style={[s.photoBtn, { flex: 1 }, (isAnyPhotoUploading || beforePhotos.length >= 4) && { opacity: 0.5 }]}
                     onPress={pickFromCamera}
                     disabled={isAnyPhotoUploading || beforePhotos.length >= 4}
                     activeOpacity={0.85}
                   >
-                    <Camera size={16} color={beforePhotos.length >= 4 ? "#9CA3AF" : PRIMARY} strokeWidth={2} />
-                    <Text style={[s.photoBtnText, beforePhotos.length >= 4 && { color: "#9CA3AF" }]}>Take Photo</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[s.photoBtn, (isAnyPhotoUploading || beforePhotos.length >= 4) && { opacity: 0.5 }]}
-                    onPress={pickFromGallery}
-                    disabled={isAnyPhotoUploading || beforePhotos.length >= 4}
-                    activeOpacity={0.85}
-                  >
-                    <ImageIcon size={16} color={beforePhotos.length >= 4 ? "#9CA3AF" : PRIMARY} strokeWidth={2} />
-                    <Text style={[s.photoBtnText, beforePhotos.length >= 4 && { color: "#9CA3AF" }]}>From Gallery</Text>
+                    <Camera size={18} color={beforePhotos.length >= 4 ? "#9CA3AF" : PRIMARY} strokeWidth={2} />
+                    <Text style={[s.photoBtnText, beforePhotos.length >= 4 && { color: "#9CA3AF" }]}>Take Photo (Camera Only)</Text>
                   </TouchableOpacity>
                 </View>
 

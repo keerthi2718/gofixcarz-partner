@@ -42,12 +42,13 @@ export default function EditServiceScreen() {
   const qc     = useQueryClient();
   const [showDelete, setShowDelete] = useState(false);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: QUERY_KEYS.SERVICE_PACKAGE(id),
     queryFn:  () => ServicePackageService.getById(id),
   });
 
-  const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormData>({
+  const { control, handleSubmit, reset, watch, setValue, formState: { errors, isValid } } = useForm<FormData>({
+    mode: 'onChange',
     defaultValues: { name: '', description: '', price: '', duration_minutes: '', is_active: true },
   });
   const isActive = watch('is_active');
@@ -124,7 +125,18 @@ export default function EditServiceScreen() {
         </TouchableOpacity>
       </View>
 
-      {isLoading ? <LoadingState /> : error ? <ErrorState /> : (
+      {isLoading ? (
+        <LoadingState />
+      ) : error ? (
+        <ErrorState
+          message={
+            (error as any)?.response?.data?.message ||
+            (error as any)?.message ||
+            'Failed to load service package. Please check your connection and try again.'
+          }
+          onRetry={() => refetch()}
+        />
+      ) : (
         <ScrollView
           contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 80 }]}
           keyboardShouldPersistTaps="handled"
@@ -197,7 +209,16 @@ export default function EditServiceScreen() {
                   <Controller
                     control={control}
                     name="price"
-                    rules={{ required: 'Price is required.' }}
+                    rules={{
+                      required: 'Price is required.',
+                      validate: (val) => {
+                        if (!val || val.trim() === '') return 'Price is required.';
+                        const num = Number(val);
+                        if (isNaN(num) || num <= 0) return 'Price must be greater than ₹0.';
+                        if (num > 1000000) return 'Price cannot exceed ₹10,00,000.';
+                        return true;
+                      },
+                    }}
                     render={({ field: { value, onChange } }) => (
                       <InputField
                         label="Price (₹) *"
@@ -207,6 +228,7 @@ export default function EditServiceScreen() {
                         keyboardType="decimal-pad"
                         leadingIcon="credit-card"
                         prefix="₹"
+                        maxLength={7}
                         error={errors.price?.message}
                       />
                     )}
@@ -216,14 +238,33 @@ export default function EditServiceScreen() {
                   <Controller
                     control={control}
                     name="duration_minutes"
+                    rules={{
+                      validate: (val) => {
+                        if (!val || val.trim() === '') return true;
+                        const trimmed = val.trim();
+                        if (!/^\d+$/.test(trimmed)) {
+                          return 'Accepts positive whole minutes only.';
+                        }
+                        const num = Number(trimmed);
+                        if (num <= 0) {
+                          return 'Duration must be greater than 0 mins.';
+                        }
+                        if (num > 1440) {
+                          return 'Max duration is 1,440 mins (24 hrs).';
+                        }
+                        return true;
+                      },
+                    }}
                     render={({ field: { value, onChange } }) => (
                       <InputField
                         label="Duration (min)"
                         value={value}
-                        onChangeText={onChange}
+                        onChangeText={(txt) => onChange(txt.replace(/[^0-9]/g, ''))}
                         placeholder="60"
                         keyboardType="number-pad"
                         leadingIcon="clock"
+                        maxLength={4}
+                        error={errors.duration_minutes?.message}
                       />
                     )}
                   />
@@ -237,7 +278,7 @@ export default function EditServiceScreen() {
                   <TouchableOpacity
                     key={d}
                     style={styles.durationChip}
-                    onPress={() => setValue('duration_minutes', d)}
+                    onPress={() => setValue('duration_minutes', d, { shouldValidate: true, shouldDirty: true })}
                     activeOpacity={0.8}
                   >
                     <Text style={styles.durationChipText}>{d} mins</Text>
@@ -306,9 +347,9 @@ export default function EditServiceScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.footerSave, isPending && { opacity: 0.6 }]}
+          style={[styles.footerSave, (isPending || !isValid || !!error || !data) && { opacity: 0.5 }]}
           onPress={handleSubmit(onSubmit)}
-          disabled={isPending}
+          disabled={isPending || !isValid || !!error || !data}
           activeOpacity={0.85}
         >
           {updateMut.isPending ? (
