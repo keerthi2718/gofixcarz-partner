@@ -93,6 +93,17 @@ function resolveImageCandidates(raw: any): string[] {
   const cleanKey = str.replace(/(doc_|before-service_|before_service_)/ig, '').replace(/^\/+/, '');
   const originalCleanKey = str.replace(/^\/+/, '');
 
+  // 3. Check if original uploaded local device URI is cached & prioritize it first
+  const cachedLocalUri = ImageService.getLocalPhoto(str) || ImageService.getLocalPhoto(cleanKey);
+  if (cachedLocalUri) {
+    addCandidate(cachedLocalUri);
+  }
+
+  if (str.startsWith('file://') || str.startsWith('content://') || str.startsWith('ph://')) {
+    addCandidate(str);
+  }
+
+  // 4. Remote S3 & API Candidate URLs
   if (!str.startsWith('file://') && !str.startsWith('content://') && !str.startsWith('ph://')) {
     // S3 Bucket candidates
     addCandidate(`https://gofixcarz-uploads.s3.ap-south-1.amazonaws.com/${cleanKey}`);
@@ -109,17 +120,6 @@ function resolveImageCandidates(raw: any): string[] {
     addCandidate(`${API_BASE_URL}/images/${encodeURIComponent(originalCleanKey)}`);
     addCandidate(`https://api.gofixcarz.com/media/${cleanKey}`);
     addCandidate(`https://api.gofixcarz.com/static/${cleanKey}`);
-  }
-
-  // 3. Check if original uploaded local device URI is cached
-  const cachedLocalUri = ImageService.getLocalPhoto(str) || ImageService.getLocalPhoto(cleanKey);
-  if (cachedLocalUri) {
-    addCandidate(cachedLocalUri);
-  }
-
-  // 4. Local device URIs
-  if (str.startsWith('file://') || str.startsWith('content://') || str.startsWith('ph://')) {
-    addCandidate(str);
   }
 
   return candidates;
