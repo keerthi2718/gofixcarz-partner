@@ -34,14 +34,40 @@ interface UploadUrlResponse {
   expires_in?: number;
 }
 
+import StorageService from './storage.service';
+
 /* ── Local Photo Cache (maps S3 object_key -> original device fileUri) ── */
+const LOCAL_PHOTO_KEY = '@gofixcarz_local_photos';
 const localPhotoMap = new Map<string, string>();
+
+// Load persisted local photo map on module init
+(async () => {
+  try {
+    const saved = await StorageService.getJson<Record<string, string>>(LOCAL_PHOTO_KEY);
+    if (saved) {
+      Object.entries(saved).forEach(([k, v]) => {
+        localPhotoMap.set(k, v);
+      });
+    }
+  } catch {}
+})();
+
+async function syncLocalPhotoMap() {
+  try {
+    const obj: Record<string, string> = {};
+    localPhotoMap.forEach((v, k) => {
+      obj[k] = v;
+    });
+    await StorageService.setJson(LOCAL_PHOTO_KEY, obj);
+  } catch {}
+}
 
 export function registerLocalPhoto(objectKey: string, fileUri: string) {
   if (objectKey && fileUri) {
     const cleanKey = objectKey.replace(/^\/+/, '');
     localPhotoMap.set(cleanKey, fileUri);
     localPhotoMap.set(objectKey, fileUri);
+    syncLocalPhotoMap();
   }
 }
 

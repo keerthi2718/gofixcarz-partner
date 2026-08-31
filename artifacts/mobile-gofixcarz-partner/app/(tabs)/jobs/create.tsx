@@ -656,7 +656,7 @@ export default function CreateJobScreen() {
   const { mutate: saveJobCard, isPending } = useMutation({
     mutationFn: async () => {
       // Collect successful S3 object keys from beforePhotos
-      const beforeServiceKeys = beforePhotos
+      const photoKeys = beforePhotos
         .filter(p => p.status === 'success' && p.objectKey)
         .map(p => p.objectKey!);
 
@@ -665,18 +665,24 @@ export default function CreateJobScreen() {
         docKeys = await Promise.all(
           documents.map(async d => {
             try {
-              return await ImageService.uploadToS3(d.uri, 'doc');
+              const rawKey = await ImageService.uploadToS3(d.uri, 'doc');
+              const key = rawKey.toLowerCase().includes('doc') ? rawKey : rawKey.replace(/^([^/]+\/)?/, '$1doc_');
+              ImageService.registerLocalPhoto(key, d.uri);
+              if (rawKey) ImageService.registerLocalPhoto(rawKey, d.uri);
+              return key;
             } catch (uploadErr) {
               console.warn('[JobCreate] S3 document upload failed:', uploadErr);
               const fileName = d.uri.split('/').pop() || `doc_${Date.now()}.jpg`;
-              return `jobs/doc/${fileName}`;
+              const fallbackKey = `jobs/doc/${fileName}`;
+              ImageService.registerLocalPhoto(fallbackKey, d.uri);
+              return fallbackKey;
             }
           })
         );
       }
 
-      const photoKeys = beforeServiceKeys;
       const documentKeys = docKeys;
+      const allPhotoKeys = Array.from(new Set([...photoKeys, ...documentKeys]));
 
       const hasServices = services.length > 0;
       const hasLabour = parseFloat(labourCharge) > 0;
@@ -687,7 +693,7 @@ export default function CreateJobScreen() {
         const updatedJob = await JobService.update(createdJobId, {
           description: additionalNotes || null,
           estimated_amount: grandTotal || null,
-          ...(photoKeys.length > 0 && { photos: photoKeys }),
+          ...(allPhotoKeys.length > 0 && { photos: allPhotoKeys }),
           ...(documentKeys.length > 0 && { documents: documentKeys }),
           ...(hasInspect && { inspection: { findings: [complaint, inspectionNotes].filter(Boolean).join('\n') } }),
           ...(hasServices && { services: services.map(s => ({ name: s.name, price: s.price, qty: s.qty })) }),
@@ -707,14 +713,14 @@ export default function CreateJobScreen() {
         odometer_km: parseFloat(odometer) || null,
         description: additionalNotes || null,
         estimated_amount: grandTotal || null,
-        photos: photoKeys.length > 0 ? photoKeys : null,
+        photos: allPhotoKeys.length > 0 ? allPhotoKeys : null,
         documents: documentKeys.length > 0 ? documentKeys : null,
       });
 
       // Step 2: enrich the job with services, labour, and inspection data
       if (job?.id && (hasServices || hasLabour || hasInspect)) {
         await JobService.update(job.id, {
-          ...(photoKeys.length > 0 && { photos: photoKeys }),
+          ...(allPhotoKeys.length > 0 && { photos: allPhotoKeys }),
           ...(documentKeys.length > 0 && { documents: documentKeys }),
           ...(hasInspect && { inspection: { findings: [complaint, inspectionNotes].filter(Boolean).join('\n') } }),
           ...(hasServices && { services: services.map(s => ({ name: s.name, price: s.price, qty: s.qty })) }),
@@ -829,6 +835,7 @@ export default function CreateJobScreen() {
     try {
       const objectKey = await ImageService.uploadToS3(uri, 'before-service');
       if (objectKey) {
+        ImageService.registerLocalPhoto(objectKey, uri);
         uncommittedKeysRef.current.add(objectKey);
       }
       setBeforePhotos(prev =>

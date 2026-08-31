@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import {
   Bell,
@@ -111,23 +111,35 @@ export default function DashboardScreen() {
     queryKey: QUERY_KEYS.DASHBOARD,
     queryFn:  DashboardService.get,
     retry: 1,
+    refetchOnMount: 'always',
   });
 
   const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useQuery({
     queryKey: QUERY_KEYS.BOOKINGS({ page_size: 50 }),
     queryFn:  () => BookingService.list({ page_size: 50 }),
+    refetchOnMount: 'always',
   });
 
   // Fetch jobs using shared query key so cache is shared with Analytics and Workshop tabs.
   const { data: jobsData, isLoading: jobsLoading, refetch: refetchJobs } = useQuery({
     queryKey: QUERY_KEYS.JOBS({}),
     queryFn:  () => JobService.list({}),
+    refetchOnMount: 'always',
   });
 
   const { data: garage } = useQuery({
     queryKey: QUERY_KEYS.GARAGE,
     queryFn:  GarageService.get,
+    refetchOnMount: 'always',
   });
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refetchDash();
+      refetchBookings();
+      refetchJobs();
+    }, [refetchDash, refetchBookings, refetchJobs])
+  );
 
   const handleRefresh = React.useCallback(async () => {
     setRefreshing(true);

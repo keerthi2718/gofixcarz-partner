@@ -29,43 +29,138 @@ const MUTED = '#64748B';
 const BORDER = 'rgba(226,232,240,0.7)';
 const SUCCESS = '#10B981';
 
+function normalizeArray(raw: any): any[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {}
+    }
+    return [raw];
+  }
+  return [raw];
+}
+
+function isDocItem(item: any): boolean {
+  if (!item) return false;
+  const str = typeof item === 'object'
+    ? (item.object_key || item.key || item.uri || item.url || item.path || item.file_name || item.name || '')
+    : String(item);
+  const lower = str.toLowerCase();
+  return (
+    lower.includes('doc_') ||
+    lower.includes('doc/') ||
+    lower.includes('/doc') ||
+    lower.includes('document') ||
+    lower.includes('rc_') ||
+    lower.includes('dl_') ||
+    lower.includes('insurance') ||
+    lower.endsWith('.pdf')
+  );
+}
+
 function resolveImageCandidates(raw: any): string[] {
   if (!raw) return [];
-  const str = typeof raw === 'object' ? (raw.uri || raw.url || raw.path || raw.object_key || '') : String(raw);
+  const str = typeof raw === 'object'
+    ? (raw.uri || raw.url || raw.path || raw.object_key || raw.key || raw.file_name || '')
+    : String(raw);
   if (!str) return [];
 
-  // Check if original uploaded local device URI is cached
-  const cachedLocalUri = ImageService.getLocalPhoto(str);
-  if (cachedLocalUri) {
-    return [cachedLocalUri];
-  }
+  const candidates: string[] = [];
+  const addCandidate = (url?: string | null) => {
+    if (url && typeof url === 'string' && url.trim() && !candidates.includes(url.trim())) {
+      candidates.push(url.trim());
+    }
+  };
 
-  // Local device URIs (file://, content://, ph://)
-  if (str.startsWith('file://') || str.startsWith('content://') || str.startsWith('ph://')) {
-    return [str];
-  }
-
-  // Full HTTP/HTTPS / Data URIs
+  // 1. If str is already a full HTTP/HTTPS / Data / Blob URL -> use directly
   if (
     str.startsWith('http://') ||
     str.startsWith('https://') ||
     str.startsWith('data:') ||
     str.startsWith('blob:')
   ) {
-    return [str];
+    addCandidate(str);
+    return candidates;
   }
 
-  // S3 object key or relative backend path
-  const cleanKey = str.replace(/^\/+/, '');
-  const s3Candidate = `https://gofixcarz-uploads.s3.ap-south-1.amazonaws.com/${cleanKey}`;
-  const apiCandidate = `https://api.gofixcarz.com/uploads/${cleanKey}`;
-  const localImgCandidate = `${API_BASE_URL}/images/${cleanKey}`;
+  // 2. Clean key (stripping any prepended "doc_" or "before-service_" tags from anywhere in the key)
+  const cleanKey = str.replace(/(doc_|before-service_|before_service_)/ig, '').replace(/^\/+/, '');
+  const originalCleanKey = str.replace(/^\/+/, '');
 
-  return [
-    s3Candidate,
-    apiCandidate,
-    localImgCandidate,
-  ];
+  if (!str.startsWith('file://') && !str.startsWith('content://') && !str.startsWith('ph://')) {
+    // S3 Bucket candidates
+    addCandidate(`https://gofixcarz-uploads.s3.ap-south-1.amazonaws.com/${cleanKey}`);
+    addCandidate(`https://gofixcarz-uploads.s3.ap-south-1.amazonaws.com/${originalCleanKey}`);
+    addCandidate(`https://gofixcarz-uploads.s3.amazonaws.com/${cleanKey}`);
+    addCandidate(`https://gofixcarz.s3.ap-south-1.amazonaws.com/${cleanKey}`);
+
+    // Backend Proxy/Static candidates
+    addCandidate(`https://api.gofixcarz.com/uploads/${cleanKey}`);
+    addCandidate(`https://api.gofixcarz.com/uploads/${originalCleanKey}`);
+    addCandidate(`https://api.gofixcarz.com/${cleanKey}`);
+    addCandidate(`https://api.gofixcarz.com/${originalCleanKey}`);
+    addCandidate(`${API_BASE_URL}/images/${encodeURIComponent(cleanKey)}`);
+    addCandidate(`${API_BASE_URL}/images/${encodeURIComponent(originalCleanKey)}`);
+    addCandidate(`https://api.gofixcarz.com/media/${cleanKey}`);
+    addCandidate(`https://api.gofixcarz.com/static/${cleanKey}`);
+  }
+
+  // 3. Check if original uploaded local device URI is cached
+  const cachedLocalUri = ImageService.getLocalPhoto(str) || ImageService.getLocalPhoto(cleanKey);
+  if (cachedLocalUri) {
+    addCandidate(cachedLocalUri);
+  }
+
+  // 4. Local device URIs
+  if (str.startsWith('file://') || str.startsWith('content://') || str.startsWith('ph://')) {
+    addCandidate(str);
+  }
+
+  return candidates;
+}
+
+function SmartModalImage({ rawItem }: { rawItem: any }) {
+  const itemKey = typeof rawItem === 'object' ? JSON.stringify(rawItem) : String(rawItem);
+  const candidates = useMemo(() => resolveImageCandidates(rawItem), [itemKey]);
+  const [candidateIdx, setCandidateIdx] = useState(0);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setCandidateIdx(0);
+    setHasError(false);
+  }, [itemKey]);
+
+  const currentUri = candidates[candidateIdx] || '';
+
+  if (!currentUri || hasError) {
+    return (
+      <View style={styles.modalFallbackBox}>
+        <Feather name="alert-circle" size={32} color="#F59E0B" />
+        <Text style={styles.modalFallbackText}>Unable to load full resolution photo.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri: currentUri }}
+      style={styles.fullImage}
+      resizeMode="contain"
+      onError={() => {
+        if (candidateIdx < candidates.length - 1) {
+          setCandidateIdx(prev => prev + 1);
+        } else {
+          setHasError(true);
+        }
+      }}
+    />
+  );
 }
 
 function SmartPhotoThumb({
@@ -79,14 +174,15 @@ function SmartPhotoThumb({
   onSelect: (uri: string) => void;
   onRemove?: () => void;
 }) {
-  const candidates = useMemo(() => resolveImageCandidates(item), [item]);
+  const itemKey = typeof item === 'object' ? JSON.stringify(item) : String(item);
+  const candidates = useMemo(() => resolveImageCandidates(item), [itemKey]);
   const [candidateIdx, setCandidateIdx] = useState(0);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     setCandidateIdx(0);
     setHasError(false);
-  }, [item]);
+  }, [itemKey]);
 
   const currentUri = candidates[candidateIdx] || '';
 
@@ -319,7 +415,7 @@ export default function JobDetailScreen() {
   const qc = useQueryClient();
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
-  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
+  const [viewerState, setViewerState] = useState<{ listType: 'photos' | 'docs'; index: number } | null>(null);
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -327,55 +423,75 @@ export default function JobDetailScreen() {
     queryFn: () => JobService.getById(id),
   });
 
-  const beforeServicePhotos = useMemo<any[]>(() => {
+  const attachedDocuments = useMemo<any[]>(() => {
     if (!data) return [];
-    const raw =
-      data.photos ||
-      (data as any).before_service_photos ||
-      (data as any).beforePhotos ||
-      (data as any).images ||
-      (data as any).inspection?.photos ||
-      (data as any).evidence ||
-      [];
-    const list = Array.isArray(raw) ? raw : [];
-    return list.filter((item: any) => {
-      const str = typeof item === 'object' ? (item.object_key || item.uri || item.url || '') : String(item);
+    const directDocs = [
+      ...normalizeArray((data as any).documents),
+      ...normalizeArray((data as any).attached_documents),
+      ...normalizeArray((data as any).docs),
+      ...normalizeArray((data as any).document_urls),
+      ...normalizeArray((data as any).inspection?.documents),
+    ].filter(item => {
+      const str = typeof item === 'object' ? (item.object_key || item.key || item.uri || item.url || '') : String(item);
       const lower = str.toLowerCase();
-      return !lower.includes('doc_') && !lower.includes('document') && !lower.includes('/doc');
+      return !lower.includes('before-service') && !lower.includes('before_service') && !lower.includes('vehicle_photo');
+    });
+
+    const rawPhotos = [
+      ...normalizeArray(data.photos),
+      ...normalizeArray((data as any).before_service_photos),
+      ...normalizeArray((data as any).beforePhotos),
+      ...normalizeArray((data as any).images),
+    ];
+    const docPhotos = rawPhotos.filter(isDocItem);
+
+    const combined = [...directDocs, ...docPhotos];
+    const seen = new Set<string>();
+    return combined.filter(item => {
+      const str = typeof item === 'object' ? (item.object_key || item.key || item.uri || item.url || '') : String(item);
+      if (!str) return false;
+      if (seen.has(str)) return false;
+      seen.add(str);
+      return true;
     });
   }, [data]);
 
-  const attachedDocuments = useMemo<any[]>(() => {
+  const beforeServicePhotos = useMemo<any[]>(() => {
     if (!data) return [];
-    const docRaw = (data as any).documents || (data as any).attached_documents || (data as any).docs || [];
-    const docList = Array.isArray(docRaw) ? docRaw : [];
-    const rawPhotos = data.photos || (data as any).before_service_photos || [];
-    const legacyDocPhotos = Array.isArray(rawPhotos)
-      ? rawPhotos.filter((item: any) => {
-          const str = typeof item === 'object' ? (item.object_key || item.uri || item.url || '') : String(item);
-          const lower = str.toLowerCase();
-          return lower.includes('doc_') || lower.includes('document') || lower.includes('/doc');
-        })
-      : [];
-    return [...docList, ...legacyDocPhotos];
-  }, [data]);
+    const rawPhotos = [
+      ...normalizeArray(data.photos),
+      ...normalizeArray((data as any).before_service_photos),
+      ...normalizeArray((data as any).beforePhotos),
+      ...normalizeArray((data as any).images),
+      ...normalizeArray((data as any).inspection?.photos),
+      ...normalizeArray((data as any).evidence),
+    ];
+
+    const docKeysSet = new Set(attachedDocuments.map(item => {
+      return typeof item === 'object' ? (item.object_key || item.key || item.uri || item.url || '') : String(item);
+    }));
+
+    const photos = rawPhotos.filter(item => {
+      const str = typeof item === 'object' ? (item.object_key || item.key || item.uri || item.url || '') : String(item);
+      if (docKeysSet.has(str)) return false;
+      return !isDocItem(item);
+    });
+
+    const seen = new Set<string>();
+    return photos.filter(item => {
+      const str = typeof item === 'object' ? (item.object_key || item.key || item.uri || item.url || '') : String(item);
+      if (!str) return false;
+      if (seen.has(str)) return false;
+      seen.add(str);
+      return true;
+    });
+  }, [data, attachedDocuments]);
 
   const photosList = useMemo<any[]>(() => {
     return [...beforeServicePhotos, ...attachedDocuments];
   }, [beforeServicePhotos, attachedDocuments]);
 
-  const activePhotoUri = useMemo(() => {
-    if (selectedPhotoIndex === null || !photosList[selectedPhotoIndex]) return null;
-    const raw = photosList[selectedPhotoIndex];
-    const candidates = resolveImageCandidates(raw);
-    return candidates[0] || '';
-  }, [selectedPhotoIndex, photosList]);
 
-  const activePhotoRawKey = useMemo(() => {
-    if (selectedPhotoIndex === null || !photosList[selectedPhotoIndex]) return '';
-    const raw = photosList[selectedPhotoIndex] as any;
-    return typeof raw === 'object' && raw ? (raw.uri || raw.object_key || raw.url || '') : String(raw);
-  }, [selectedPhotoIndex, photosList]);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: QUERY_KEYS.JOB(id) });
@@ -508,11 +624,7 @@ export default function JobDetailScreen() {
           try {
             await JobService.update(id as string, { photos: remaining });
             invalidate();
-            if (selectedPhotoIndex === index) {
-              setSelectedPhotoIndex(null);
-            } else if (selectedPhotoIndex !== null && selectedPhotoIndex > index) {
-              setSelectedPhotoIndex(selectedPhotoIndex - 1);
-            }
+            setViewerState(null);
             if (typeof targetKey === 'string' && !targetKey.startsWith('file://')) {
               ImageService.deleteObjectKey(targetKey);
             }
@@ -606,30 +718,13 @@ export default function JobDetailScreen() {
 
           {/* Before Service Photos */}
           <SectionCard icon="camera" title="Before Service Photos">
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <Text style={styles.photoSubText}>
-                {beforeServicePhotos && beforeServicePhotos.length > 0
-                  ? `${beforeServicePhotos.length} photo${beforeServicePhotos.length > 1 ? 's' : ''} captured (Max 4):`
-                  : 'Add vehicle photos (Max 4)'}
-              </Text>
-              <TouchableOpacity
-                style={[styles.addPhotoBtn, (isUploadingPhoto || beforeServicePhotos.length >= 4) && { opacity: 0.5 }]}
-                onPress={handleAddPhoto}
-                disabled={isUploadingPhoto || beforeServicePhotos.length >= 4}
-                activeOpacity={0.8}
-              >
-                {isUploadingPhoto ? (
-                  <ActivityIndicator size="small" color={PRIMARY} />
-                ) : (
-                  <>
-                    <Feather name="plus" size={13} color={beforeServicePhotos.length >= 4 ? "#94A3B8" : PRIMARY} />
-                    <Text style={[styles.addPhotoBtnText, beforeServicePhotos.length >= 4 && { color: "#94A3B8" }]}>
-                      {beforeServicePhotos.length >= 4 ? 'Limit Reached' : 'Add Photo'}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
+            {beforeServicePhotos && beforeServicePhotos.length > 0 ? (
+              <View style={{ marginBottom: 10 }}>
+                <Text style={styles.photoSubText}>
+                  {`${beforeServicePhotos.length} photo${beforeServicePhotos.length > 1 ? 's' : ''} captured:`}
+                </Text>
+              </View>
+            ) : null}
 
             {beforeServicePhotos && beforeServicePhotos.length > 0 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoGrid}>
@@ -638,10 +733,7 @@ export default function JobDetailScreen() {
                     key={index}
                     item={item}
                     index={index}
-                    onSelect={() => {
-                      const idx = photosList.indexOf(item);
-                      setSelectedPhotoIndex(idx >= 0 ? idx : index);
-                    }}
+                    onSelect={() => setViewerState({ listType: 'photos', index })}
                   />
                 ))}
               </ScrollView>
@@ -655,28 +747,13 @@ export default function JobDetailScreen() {
 
           {/* Attached Documents */}
           <SectionCard icon="file-text" title="Attached Documents">
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <Text style={styles.photoSubText}>
-                {attachedDocuments && attachedDocuments.length > 0
-                  ? `${attachedDocuments.length} document${attachedDocuments.length > 1 ? 's' : ''} attached:`
-                  : 'Attach RC, DL, or Insurance documents'}
-              </Text>
-              <TouchableOpacity
-                style={[styles.addPhotoBtn, isUploadingDoc && { opacity: 0.5 }]}
-                onPress={handleAddDocument}
-                disabled={isUploadingDoc}
-                activeOpacity={0.8}
-              >
-                {isUploadingDoc ? (
-                  <ActivityIndicator size="small" color={PRIMARY} />
-                ) : (
-                  <>
-                    <Feather name="plus" size={13} color={PRIMARY} />
-                    <Text style={styles.addPhotoBtnText}>Add Document</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
+            {attachedDocuments && attachedDocuments.length > 0 ? (
+              <View style={{ marginBottom: 10 }}>
+                <Text style={styles.photoSubText}>
+                  {`${attachedDocuments.length} document${attachedDocuments.length > 1 ? 's' : ''} attached:`}
+                </Text>
+              </View>
+            ) : null}
 
             {attachedDocuments && attachedDocuments.length > 0 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoGrid}>
@@ -685,10 +762,7 @@ export default function JobDetailScreen() {
                     key={index}
                     item={item}
                     index={index}
-                    onSelect={() => {
-                      const idx = photosList.indexOf(item);
-                      setSelectedPhotoIndex(idx >= 0 ? idx : index);
-                    }}
+                    onSelect={() => setViewerState({ listType: 'docs', index })}
                   />
                 ))}
               </ScrollView>
@@ -808,99 +882,99 @@ export default function JobDetailScreen() {
       />
 
       {/* Interactive Full-Screen Photo Detail Viewer Modal */}
-      {selectedPhotoIndex !== null && (
+      {viewerState !== null && (
         <Modal
-          visible={selectedPhotoIndex !== null}
+          visible={viewerState !== null}
           transparent
           animationType="fade"
-          onRequestClose={() => setSelectedPhotoIndex(null)}
+          onRequestClose={() => setViewerState(null)}
         >
-          <View style={styles.imageModalOverlay}>
-            <TouchableOpacity
-              style={StyleSheet.absoluteFill}
-              activeOpacity={1}
-              onPress={() => setSelectedPhotoIndex(null)}
-            />
-            <View style={styles.imageModalContent} pointerEvents="box-none">
-              {/* Header Bar */}
-              <View style={styles.modalHeaderBar}>
-                <View style={styles.modalBadge}>
-                  <Feather
-                    name={
-                      (() => {
-                        const rawItem = photosList[selectedPhotoIndex];
-                        const str = typeof rawItem === 'object' ? (rawItem?.object_key || rawItem?.uri || rawItem?.url || '') : String(rawItem || '');
-                        return str.toLowerCase().includes('doc') ? 'file-text' : 'camera';
-                      })()
-                    }
-                    size={12}
-                    color="#60A5FA"
-                  />
-                  <Text style={styles.modalBadgeText}>
-                    {(() => {
-                      const rawItem = photosList[selectedPhotoIndex];
-                      const str = typeof rawItem === 'object' ? (rawItem?.object_key || rawItem?.uri || rawItem?.url || '') : String(rawItem || '');
-                      return str.toLowerCase().includes('doc') ? 'Attached Document' : 'Before Service Photo';
-                    })()} • {selectedPhotoIndex + 1} of {photosList.length}
-                  </Text>
-                </View>
+          {(() => {
+            const activeList = viewerState.listType === 'docs' ? attachedDocuments : beforeServicePhotos;
+            const currentIndex = viewerState.index;
+            const currentItem = activeList[currentIndex];
+            const isDoc = viewerState.listType === 'docs';
+            const rawKey = currentItem
+              ? typeof currentItem === 'object'
+                ? currentItem.object_key || currentItem.key || currentItem.uri || currentItem.url || ''
+                : String(currentItem)
+              : '';
 
+            return (
+              <View style={styles.imageModalOverlay}>
                 <TouchableOpacity
-                  style={styles.imageModalCloseBtn}
-                  onPress={() => setSelectedPhotoIndex(null)}
-                  activeOpacity={0.8}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                >
-                  <Feather name="x" size={20} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
+                  style={StyleSheet.absoluteFill}
+                  activeOpacity={1}
+                  onPress={() => setViewerState(null)}
+                />
+                <View style={styles.imageModalContent} pointerEvents="box-none">
+                  {/* Header Bar */}
+                  <View style={styles.modalHeaderBar}>
+                    <View style={styles.modalBadge}>
+                      <Feather
+                        name={isDoc ? 'file-text' : 'camera'}
+                        size={12}
+                        color="#60A5FA"
+                      />
+                      <Text style={styles.modalBadgeText}>
+                        {isDoc ? 'Attached Document' : 'Before Service Photo'} • {currentIndex + 1} of {activeList.length}
+                      </Text>
+                    </View>
 
-              {/* Main Image View with Side Navigation Controls */}
-              <View style={styles.modalBodyRow}>
-                {photosList.length > 1 && (
-                  <TouchableOpacity
-                    style={[styles.navArrowBtn, styles.navArrowLeft, selectedPhotoIndex === 0 && { opacity: 0.3 }]}
-                    disabled={selectedPhotoIndex === 0}
-                    onPress={() => setSelectedPhotoIndex(prev => (prev !== null && prev > 0 ? prev - 1 : prev))}
-                    activeOpacity={0.7}
-                  >
-                    <Feather name="chevron-left" size={26} color="#FFFFFF" />
-                  </TouchableOpacity>
-                )}
-
-                {activePhotoUri ? (
-                  <Image
-                    source={{ uri: activePhotoUri }}
-                    style={styles.fullImage}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <View style={styles.modalFallbackBox}>
-                    <Feather name="alert-triangle" size={32} color="#F59E0B" />
-                    <Text style={styles.modalFallbackText}>Unable to load full resolution photo.</Text>
+                    <TouchableOpacity
+                      style={styles.imageModalCloseBtn}
+                      onPress={() => setViewerState(null)}
+                      activeOpacity={0.8}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    >
+                      <Feather name="x" size={20} color="#FFFFFF" />
+                    </TouchableOpacity>
                   </View>
-                )}
 
-                {photosList.length > 1 && (
-                  <TouchableOpacity
-                    style={[styles.navArrowBtn, styles.navArrowRight, selectedPhotoIndex === photosList.length - 1 && { opacity: 0.3 }]}
-                    disabled={selectedPhotoIndex === photosList.length - 1}
-                    onPress={() => setSelectedPhotoIndex(prev => (prev !== null && prev < photosList.length - 1 ? prev + 1 : prev))}
-                    activeOpacity={0.7}
-                  >
-                    <Feather name="chevron-right" size={26} color="#FFFFFF" />
-                  </TouchableOpacity>
-                )}
-              </View>
+                  {/* Main Image View with Side Navigation Controls */}
+                  <View style={styles.modalBodyRow}>
+                    {activeList.length > 1 && (
+                      <TouchableOpacity
+                        style={[styles.navArrowBtn, styles.navArrowLeft, currentIndex === 0 && { opacity: 0.3 }]}
+                        disabled={currentIndex === 0}
+                        onPress={() => setViewerState(prev => (prev && prev.index > 0 ? { ...prev, index: prev.index - 1 } : prev))}
+                        activeOpacity={0.7}
+                      >
+                        <Feather name="chevron-left" size={26} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    )}
 
-              {/* Footer Info Overlay */}
-              <View style={styles.modalFooterInfo}>
-                <Text style={styles.modalFooterText} numberOfLines={1} ellipsizeMode="middle">
-                  {activePhotoRawKey ? `S3 Key: ${activePhotoRawKey}` : `Photo #${selectedPhotoIndex + 1}`}
-                </Text>
+                    {currentItem ? (
+                      <SmartModalImage rawItem={currentItem} />
+                    ) : (
+                      <View style={styles.modalFallbackBox}>
+                        <Feather name="alert-circle" size={32} color="#F59E0B" />
+                        <Text style={styles.modalFallbackText}>Unable to load full resolution photo.</Text>
+                      </View>
+                    )}
+
+                    {activeList.length > 1 && (
+                      <TouchableOpacity
+                        style={[styles.navArrowBtn, styles.navArrowRight, currentIndex === activeList.length - 1 && { opacity: 0.3 }]}
+                        disabled={currentIndex === activeList.length - 1}
+                        onPress={() => setViewerState(prev => (prev && prev.index < activeList.length - 1 ? { ...prev, index: prev.index + 1 } : prev))}
+                        activeOpacity={0.7}
+                      >
+                        <Feather name="chevron-right" size={26} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Footer Info Overlay */}
+                  <View style={styles.modalFooterInfo}>
+                    <Text style={styles.modalFooterText} numberOfLines={1} ellipsizeMode="middle">
+                      {rawKey ? `S3 Key: ${rawKey}` : `${isDoc ? 'Document' : 'Photo'} #${currentIndex + 1}`}
+                    </Text>
+                  </View>
+                </View>
               </View>
-            </View>
-          </View>
+            );
+          })()}
         </Modal>
       )}
     </View>

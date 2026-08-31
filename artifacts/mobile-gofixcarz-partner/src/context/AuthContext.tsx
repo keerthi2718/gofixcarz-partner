@@ -6,6 +6,7 @@ import AuthService from '@/src/services/auth.service';
 import StorageService from '@/src/services/storage.service';
 import { useAuthStore } from '@/src/store/auth.store';
 import { useLogoStore } from '@/src/store/logo.store';
+import { queryClient } from '@/src/lib/queryClient';
 import type { SignUpPayload } from '@/src/types';
 
 /** Extract a user-friendly message from any thrown error. */
@@ -115,6 +116,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setTokens(tokenData);
       setPendingMobile(null);
+      // Invalidate and clear any old query cache so new user gets fresh dashboard/kpi/job data immediately
+      queryClient.clear();
+      queryClient.invalidateQueries();
       router.replace('/(tabs)');
     } catch (err: unknown) {
       setError(extractErrorMessage(err, 'Invalid OTP. Please try again.'));
@@ -152,9 +156,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const refreshToken = await StorageService.get(STORAGE_KEYS.REFRESH_TOKEN);
       await AuthService.logout({ refresh_token: refreshToken }).catch(() => { });
     } finally {
-      // Clear the logo so the next user who logs in starts fresh
+      // Clear the logo & query cache so the next user who logs in starts fresh
       useLogoStore.getState().setLogoUri(null);
       StorageService.remove(STORAGE_KEYS.GARAGE_LOGO).catch(() => { });
+      queryClient.clear();
       storeLogout();
       router.replace('/(auth)/welcome');
     }
