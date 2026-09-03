@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
-  FlatList, Keyboard, Modal, Platform,
+  FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform,
   StyleSheet, Text, TextInput, TouchableOpacity,
   TouchableWithoutFeedback, View,
 } from 'react-native';
@@ -68,9 +68,27 @@ export default function SelectDropdown({
   const insets = useSafeAreaInsets();
   const [open, setOpen]       = useState(false);
   const [query, setQuery]     = useState('');
+  const [kbHeight, setKbHeight] = useState(0);
   const searchRef             = useRef<TextInput>(null);
 
   const showSearch = searchable ?? options.length > 8;
+
+  React.useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvt, (e) => {
+      setKbHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvt, () => {
+      setKbHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -79,20 +97,22 @@ export default function SelectDropdown({
 
   function openSheet() {
     if (disabled) return;
+    Keyboard.dismiss();
     setQuery('');
     setOpen(true);
   }
 
   function pick(option: string) {
+    Keyboard.dismiss();
     onChange(option);
     setOpen(false);
     setQuery('');
   }
 
   function close() {
+    Keyboard.dismiss();
     setOpen(false);
     setQuery('');
-    Keyboard.dismiss();
   }
 
   const hasValue   = value.length > 0;
@@ -158,82 +178,96 @@ export default function SelectDropdown({
           transparent
           onRequestClose={close}
         >
-          <TouchableWithoutFeedback onPress={close}>
-            <View style={st.backdrop} />
-          </TouchableWithoutFeedback>
+          <KeyboardAvoidingView
+            style={st.keyboardAvoid}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <TouchableWithoutFeedback onPress={close}>
+              <View style={st.backdrop} />
+            </TouchableWithoutFeedback>
 
-          <View style={[st.sheet, { paddingBottom: insets.bottom + 8 }]}>
-            {/* Handle */}
-            <View style={st.handle} />
+            <View
+              style={[
+                st.sheet,
+                {
+                  paddingBottom: Math.max(insets.bottom, 12),
+                  marginBottom: Platform.OS === 'android' ? kbHeight : 0,
+                  maxHeight: kbHeight > 0 ? '55%' : '80%',
+                },
+              ]}
+            >
+              {/* Handle */}
+              <View style={st.handle} />
 
-            {/* Sheet header */}
-            <View style={st.sheetHeader}>
-              <Text style={st.sheetTitle}>{label?.replace(' *', '') ?? 'Select'}</Text>
-              <TouchableOpacity onPress={close} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <View style={st.closeBtn}>
-                  <Feather name="x" size={16} color={TEXT_COLOR} />
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {/* Search bar */}
-            {showSearch && (
-              <View style={st.searchWrap}>
-                <Feather name="search" size={15} color={PLACEHOLDER} />
-                <TextInput
-                  ref={searchRef}
-                  style={st.searchInput}
-                  value={query}
-                  onChangeText={setQuery}
-                  placeholder={`Search ${label?.replace(' *', '') ?? 'options'}…`}
-                  placeholderTextColor={PLACEHOLDER}
-                  autoFocus={false}
-                  returnKeyType="search"
-                  clearButtonMode="while-editing"
-                />
-                {query.length > 0 && Platform.OS !== 'ios' && (
-                  <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Feather name="x-circle" size={15} color={PLACEHOLDER} />
-                  </TouchableOpacity>
-                )}
+              {/* Sheet header */}
+              <View style={st.sheetHeader}>
+                <Text style={st.sheetTitle}>{label?.replace(' *', '') ?? 'Select'}</Text>
+                <TouchableOpacity onPress={close} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <View style={st.closeBtn}>
+                    <Feather name="x" size={16} color={TEXT_COLOR} />
+                  </View>
+                </TouchableOpacity>
               </View>
-            )}
 
-            {/* Options list */}
-            <FlatList
-              data={filtered}
-              keyExtractor={item => item}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={filtered.length === 0 ? st.emptyContainer : undefined}
-              style={st.list}
-              renderItem={({ item }) => {
-                const selected = item === value;
-                return (
-                  <TouchableOpacity
-                    style={[st.option, selected && st.optionSelected]}
-                    onPress={() => pick(item)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[st.optionText, selected && st.optionTextSelected]}>
-                      {item}
-                    </Text>
-                    {selected && (
-                      <View style={st.checkBadge}>
-                        <Feather name="check" size={13} color="#fff" />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              }}
-              ListEmptyComponent={
-                <View style={st.empty}>
-                  <Feather name="search" size={28} color="#CBD5E1" />
-                  <Text style={st.emptyText}>No results for "{query}"</Text>
+              {/* Search bar */}
+              {showSearch && (
+                <View style={st.searchWrap}>
+                  <Feather name="search" size={15} color={PLACEHOLDER} />
+                  <TextInput
+                    ref={searchRef}
+                    style={st.searchInput}
+                    value={query}
+                    onChangeText={setQuery}
+                    placeholder={`Search ${label?.replace(' *', '') ?? 'options'}…`}
+                    placeholderTextColor={PLACEHOLDER}
+                    autoFocus={false}
+                    returnKeyType="search"
+                    clearButtonMode="while-editing"
+                  />
+                  {query.length > 0 && Platform.OS !== 'ios' && (
+                    <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Feather name="x-circle" size={15} color={PLACEHOLDER} />
+                    </TouchableOpacity>
+                  )}
                 </View>
-              }
-            />
-          </View>
+              )}
+
+              {/* Options list */}
+              <FlatList
+                data={filtered}
+                keyExtractor={item => item}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={true}
+                contentContainerStyle={filtered.length === 0 ? st.emptyContainer : undefined}
+                style={st.list}
+                renderItem={({ item }) => {
+                  const selected = item === value;
+                  return (
+                    <TouchableOpacity
+                      style={[st.option, selected && st.optionSelected]}
+                      onPress={() => pick(item)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[st.optionText, selected && st.optionTextSelected]}>
+                        {item}
+                      </Text>
+                      {selected && (
+                        <View style={st.checkBadge}>
+                          <Feather name="check" size={13} color="#fff" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={
+                  <View style={st.empty}>
+                    <Feather name="search" size={28} color="#CBD5E1" />
+                    <Text style={st.emptyText}>No results for "{query}"</Text>
+                  </View>
+                }
+              />
+            </View>
+          </KeyboardAvoidingView>
         </Modal>
       )}
     </View>
@@ -279,9 +313,15 @@ const st = StyleSheet.create({
   errorRow:  { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   errorText: { fontSize: 12, color: ERROR_COLOR, flex: 1 },
 
+  /* Keyboard Avoiding Container */
+  keyboardAvoid: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+
   /* Backdrop */
   backdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
 
@@ -290,8 +330,9 @@ const st = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '75%',
+    maxHeight: '80%',
     minHeight: 260,
+    flexShrink: 1,
     ...Platform.select({
       ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 16 },
       android: { elevation: 20 },

@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform,
+  ActivityIndicator, Alert, BackHandler, Image, Keyboard, KeyboardAvoidingView, Modal, Platform,
   ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, Linking,
 } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -70,6 +70,7 @@ function InlineInput({
   keyboardType, autoCapitalize, prefix, maxLength,
   multiline, numberOfLines, editable = true,
   textContentType, autoComplete, importantForAutofill,
+  inputRef, returnKeyType, onSubmitEditing, blurOnSubmit,
 }: {
   label?: string; value: string; onChangeText: (v: string) => void;
   placeholder?: string; Icon?: any; error?: string;
@@ -77,6 +78,10 @@ function InlineInput({
   maxLength?: number; multiline?: boolean; numberOfLines?: number;
   editable?: boolean;
   textContentType?: any; autoComplete?: any; importantForAutofill?: any;
+  inputRef?: any;
+  returnKeyType?: any;
+  onSubmitEditing?: () => void;
+  blurOnSubmit?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
   const bc = error ? DANGER : focused ? PRIMARY : BORDER;
@@ -108,6 +113,7 @@ function InlineInput({
           </View>
         )}
         <TextInput
+          ref={inputRef}
           style={[inp.field, multiline && inp.fieldMulti]}
           value={value}
           onChangeText={onChangeText}
@@ -123,6 +129,9 @@ function InlineInput({
           textContentType={textContentType}
           autoComplete={autoComplete}
           importantForAutofill={importantForAutofill}
+          returnKeyType={returnKeyType}
+          onSubmitEditing={onSubmitEditing}
+          blurOnSubmit={blurOnSubmit}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
         />
@@ -191,10 +200,15 @@ export default function CreateJobScreen() {
   const insets = useSafeAreaInsets();
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
   const scrollRef = useRef<ScrollView>(null);
+  const stepPillsScrollRef = useRef<ScrollView>(null);
 
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [createError, setCreateError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    stepPillsScrollRef.current?.scrollTo({ x: Math.max(0, (step - 1) * 80), animated: true });
+  }, [step]);
   const [pdfLoading, setPdfLoading] = useState<'download' | 'share' | null>(null);
 
   const qc = useQueryClient();
@@ -218,12 +232,6 @@ export default function CreateJobScreen() {
   });
   const servicePackages = pkgsData?.items ?? [];
 
-  useFocusEffect(
-    useCallback(() => {
-      refetchPkgs();
-    }, [refetchPkgs])
-  );
-
   /* Step 0 */
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -232,6 +240,10 @@ export default function CreateJobScreen() {
   const [model, setModel] = useState('');
   const [fuelType, setFuelType] = useState('Petrol');
   const [odometer, setOdometer] = useState('');
+
+  const phoneInputRef = useRef<TextInput>(null);
+  const regInputRef = useRef<TextInput>(null);
+  const odometerInputRef = useRef<TextInput>(null);
 
   /* Step 1 */
   const [fuelLevel, setFuelLevel] = useState('1/2');
@@ -248,6 +260,44 @@ export default function CreateJobScreen() {
   const [newSvcPrice, setNewSvcPrice] = useState('');
   const [newSvcDesc, setNewSvcDesc] = useState('');
   const [newSvcError, setNewSvcError] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      refetchPkgs();
+
+      const onBackPress = () => {
+        const isDirty = (step < 4) && (
+          customerName.trim().length > 0 ||
+          customerPhone.trim().length > 0 ||
+          regNumber.trim().length > 0 ||
+          brand.trim().length > 0 ||
+          model.trim().length > 0 ||
+          complaint.trim().length > 0 ||
+          services.length > 0
+        );
+
+        if (isDirty) {
+          Alert.alert(
+            'Discard Job Card?',
+            'You have unsaved details in this Job Card. Do you want to discard them and go back?',
+            [
+              { text: 'Keep Editing', style: 'cancel' },
+              {
+                text: 'Discard',
+                style: 'destructive',
+                onPress: () => router.back(),
+              },
+            ]
+          );
+          return true;
+        }
+        return false;
+      };
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => subscription.remove();
+    }, [refetchPkgs, step, customerName, customerPhone, regNumber, brand, model, complaint, services.length])
+  );
 
   const isDuplicateQuickSvcName = React.useMemo(() => {
     if (!newSvcName.trim()) return false;
@@ -754,7 +804,11 @@ export default function CreateJobScreen() {
     const errs = validateStep();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
-      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      if (step === 3 && (errs.deliveryTime || errs.deliveryDate)) {
+        scrollRef.current?.scrollToEnd({ animated: true });
+      } else {
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      }
       return;
     }
     setErrors({});
@@ -765,7 +819,29 @@ export default function CreateJobScreen() {
 
   function handleBack() {
     setErrors({});
-    if (step === 0) { router.back(); return; }
+    if (step === 0) {
+      const isDirty = customerName.trim().length > 0 ||
+        customerPhone.trim().length > 0 ||
+        regNumber.trim().length > 0 ||
+        brand.trim().length > 0 ||
+        model.trim().length > 0 ||
+        complaint.trim().length > 0 ||
+        services.length > 0;
+
+      if (isDirty) {
+        Alert.alert(
+          'Discard Job Card?',
+          'You have unsaved details in this Job Card. Do you want to discard them and exit?',
+          [
+            { text: 'Keep Editing', style: 'cancel' },
+            { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+          ]
+        );
+        return;
+      }
+      router.back();
+      return;
+    }
     setStep(s => s - 1);
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }
@@ -780,6 +856,8 @@ export default function CreateJobScreen() {
           text: 'Reset',
           style: 'destructive',
           onPress: () => {
+            jobCreatedRef.current = false;
+            uncommittedKeysRef.current.clear();
             setStep(0);
             setErrors({});
             setCreateError(null);
@@ -1019,6 +1097,7 @@ export default function CreateJobScreen() {
 
       {/* ── Step pills scroll ── */}
       <ScrollView
+        ref={stepPillsScrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={s.stepPillsRow}
@@ -1070,7 +1149,7 @@ export default function CreateJobScreen() {
       >
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 100 }]}
+          contentContainerStyle={[s.body, { paddingBottom: insets.bottom + (step === 3 ? 180 : 120) }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
@@ -1079,6 +1158,15 @@ export default function CreateJobScreen() {
           {/* ═══════ STEP 0 — Customer & Vehicle ═══════ */}
           {step === 0 && (
             <>
+              {Object.keys(errors).length > 0 && (
+                <View style={s.errBanner}>
+                  <AlertCircle size={14} color={DANGER} strokeWidth={2} />
+                  <Text style={s.errBannerText}>
+                    Please fill in all required customer &amp; vehicle details below.
+                  </Text>
+                </View>
+              )}
+
               <SectionCard title="Customer Information" iconBg="#EFF6FF" Icon={User} iconColor={PRIMARY}>
                 <InlineInput
                   label="Customer Name *"
@@ -1087,9 +1175,12 @@ export default function CreateJobScreen() {
                   placeholder="Full name"
                   autoCapitalize="words"
                   Icon={User}
+                  returnKeyType="next"
+                  onSubmitEditing={() => phoneInputRef.current?.focus()}
                   error={errors.customerName}
                 />
                 <InlineInput
+                  inputRef={phoneInputRef}
                   label="Phone Number *"
                   value={customerPhone}
                   onChangeText={v => { setCustomerPhone(cleanMobileNumber(v)); clearFieldError('customerPhone'); }}
@@ -1100,12 +1191,15 @@ export default function CreateJobScreen() {
                   maxLength={15}
                   textContentType="telephoneNumber"
                   autoComplete="tel"
+                  returnKeyType="next"
+                  onSubmitEditing={() => regInputRef.current?.focus()}
                   error={errors.customerPhone}
                 />
               </SectionCard>
 
               <SectionCard title="Vehicle Details" iconBg="#FFF7ED" Icon={Truck} iconColor="#F97316">
                 <InlineInput
+                  inputRef={regInputRef}
                   label="Registration Number *"
                   value={regNumber}
                   onChangeText={v => { setRegNumber(v); clearFieldError('regNumber'); }}
@@ -1115,6 +1209,8 @@ export default function CreateJobScreen() {
                   textContentType="none"
                   autoComplete="off"
                   importantForAutofill="no"
+                  returnKeyType="next"
+                  onSubmitEditing={() => odometerInputRef.current?.focus()}
                   error={errors.regNumber}
                 />
                 <SelectDropdown
@@ -1153,6 +1249,7 @@ export default function CreateJobScreen() {
                 </ScrollView>
 
                 <InlineInput
+                  inputRef={odometerInputRef}
                   label="Odometer (km) *"
                   value={odometer}
                   onChangeText={v => { setOdometer(v.replace(/\D/g, '').slice(0, 7)); clearFieldError('odometer'); }}
@@ -1163,6 +1260,8 @@ export default function CreateJobScreen() {
                   textContentType="none"
                   autoComplete="off"
                   importantForAutofill="no"
+                  returnKeyType="done"
+                  onSubmitEditing={() => Keyboard.dismiss()}
                   error={errors.odometer}
                 />
               </SectionCard>
@@ -2669,7 +2768,7 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   pkgGridCard: {
-    width: '48.5%',
+    width: '48%',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
