@@ -26,6 +26,20 @@
     },
     "android": {
       "package": "com.gofixcarz.partner",
+      "allowBackup": false,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "INTERNET",
+        "VIBRATE",
+        "CAMERA"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo_square.png",
         "backgroundColor": "#0D0D0D"
@@ -73,6 +87,12 @@
       "EXPO_PUBLIC_GOOGLE_PLACES_API_KEY": "AIzaSyBUCnvnJyRUoph57Ft2X3Qhkkbfz8Ldkls",
       "eas": {
         "projectId": "33af7382-e378-4e0b-ae76-44c030a71588"
+      },
+      "vcs": {
+        "commit": "efeb1d8148f0a1d9f98514b66dedc662ce9a926f",
+        "branch": "main",
+        "buildVersion": "1.0.0",
+        "buildTime": "2026-09-07T18:10:00Z"
       }
     },
     "owner": "keerthi27"
