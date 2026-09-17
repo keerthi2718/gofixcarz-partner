@@ -23,6 +23,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react-native';
+import { SUPPORT_CONFIG } from '@/src/constants';
 
 const BG       = '#F8FAFC';
 const CARD     = '#FFFFFF';
@@ -108,7 +109,7 @@ const POLICY_SECTIONS: PolicySection[] = [
     details: [
       'You retain full ownership of your business data. You can edit your workshop details, service catalog, and logo directly from the Partner Profile tab.',
       'You have the right to request a copy of your historical job cards, billing records, or account data.',
-      'Account Deletion: If you wish to deactivate or permanently delete your partner account, submit a request to privacy@gofixcarz.com or contact Partner Support.',
+      'Account Deletion: If you wish to deactivate or permanently delete your partner account, submit a request to support@gofixcarz.com or contact Partner Support.',
     ],
   },
 ];
@@ -216,20 +217,20 @@ export default function AuthPrivacyScreen() {
           <View style={styles.contactButtonsRow}>
             <TouchableOpacity
               style={styles.contactBtn}
-              onPress={() => Linking.openURL('mailto:privacy@gofixcarz.com?subject=Partner%20Privacy%20Query')}
+              onPress={() => Linking.openURL(`mailto:${SUPPORT_CONFIG.email}?subject=Partner%20Privacy%20Query`)}
               activeOpacity={0.8}
             >
               <Mail size={15} color={PRIMARY} strokeWidth={2.2} />
-              <Text style={styles.contactBtnTxt}>privacy@gofixcarz.com</Text>
+              <Text style={styles.contactBtnTxt}>{SUPPORT_CONFIG.email}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.contactBtn}
-              onPress={() => Linking.openURL('tel:18004634922')}
+              onPress={() => Linking.openURL(SUPPORT_CONFIG.phoneTel)}
               activeOpacity={0.8}
             >
               <Phone size={15} color={PRIMARY} strokeWidth={2.2} />
-              <Text style={styles.contactBtnTxt}>1800-GOFIX-CARZ</Text>
+              <Text style={styles.contactBtnTxt}>{SUPPORT_CONFIG.phoneDisplay}</Text>
             </TouchableOpacity>
           </View>
         </View>

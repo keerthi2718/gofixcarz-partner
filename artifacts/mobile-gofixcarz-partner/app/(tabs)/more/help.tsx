@@ -23,6 +23,7 @@ import {
   Clock,
   ShieldCheck,
 } from 'lucide-react-native';
+import { SUPPORT_CONFIG } from '@/src/constants';
 
 const BG      = '#F8FAFC';
 const CARD    = '#FFFFFF';
@@ -99,26 +100,26 @@ export default function HelpSupportScreen() {
         <View style={styles.channelsGrid}>
           <TouchableOpacity
             style={styles.channelCard}
-            onPress={() => Linking.openURL('tel:18004634922')}
+            onPress={() => Linking.openURL(SUPPORT_CONFIG.phoneTel)}
             activeOpacity={0.8}
           >
             <View style={[styles.channelIcon, { backgroundColor: '#EFF6FF' }]}>
               <PhoneCall size={20} color={PRIMARY} strokeWidth={2.2} />
             </View>
             <Text style={styles.channelTitle}>Call Support</Text>
-            <Text style={styles.channelSub}>Toll-free 1800-GOFIX-CARZ</Text>
+            <Text style={styles.channelSub}>{SUPPORT_CONFIG.phoneDisplay}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.channelCard}
-            onPress={() => Linking.openURL('mailto:support@gofixcarz.com?subject=Partner%20Support%20Request')}
+            onPress={() => Linking.openURL(`mailto:${SUPPORT_CONFIG.email}?subject=Partner%20Support%20Request`)}
             activeOpacity={0.8}
           >
             <View style={[styles.channelIcon, { backgroundColor: '#F0FDF4' }]}>
               <Mail size={20} color="#059669" strokeWidth={2.2} />
             </View>
             <Text style={styles.channelTitle}>Email Desk</Text>
-            <Text style={styles.channelSub}>support@gofixcarz.com</Text>
+            <Text style={styles.channelSub}>{SUPPORT_CONFIG.email}</Text>
           </TouchableOpacity>
         </View>
 
@@ -127,7 +128,7 @@ export default function HelpSupportScreen() {
           <Clock size={18} color={PRIMARY} strokeWidth={2.2} />
           <View style={{ flex: 1 }}>
             <Text style={styles.hoursTitle}>Support Hours</Text>
-            <Text style={styles.hoursSub}>Monday – Saturday: 9:00 AM to 8:00 PM IST</Text>
+            <Text style={styles.hoursSub}>{SUPPORT_CONFIG.supportHours}</Text>
           </View>
         </View>
 
